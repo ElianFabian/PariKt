@@ -4,14 +4,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 // JVM implementation for desktop hosts. The matching native libraries must be
-// available through java.library.path or the parikt.native.dir system property.
+// available through java.library.path.
 internal actual object PariNative {
 
     private var temporaryDirectoryConfigured = false
 
     actual fun loadLibraries() {
-        val configuredDirectory = System.getProperty("parikt.native.dir")
-        val libraryDirectory = configuredDirectory?.let { Path.of(it) }
+        val nativeLibraryPath = System.getProperty("java.library.path")
         val host = "${System.getProperty("os.name")} ${System.getProperty("os.arch")}"
 
         // The Windows PARI DLL is linked against static GMP; Unix hosts ship it separately.
@@ -23,19 +22,11 @@ internal actual object PariNative {
 
         for (name in libraries) {
             try {
-                val file = libraryDirectory?.resolve(System.mapLibraryName(name))
-                if (file != null) {
-                    require(Files.isRegularFile(file)) {
-                        "Native library not found: $file (host: $host)."
-                    }
-                    System.load(file.toAbsolutePath().toString())
-                } else {
-                    System.loadLibrary(name)
-                }
+                System.loadLibrary(name)
             } catch (error: UnsatisfiedLinkError) {
                 throw UnsatisfiedLinkError(
-                    "Unable to load '$name' for $host. Set -Dparikt.native.dir=<directory> " +
-                        "or include the matching native library directory in java.library.path. " +
+                    "Unable to load '$name' for $host. Add the matching native library directory " +
+                        "to java.library.path (currently '$nativeLibraryPath'). " +
                         "${error.message}"
                 ).also { it.initCause(error) }
             }

@@ -28,7 +28,7 @@ val jvmNativeDirectory = providers.gradleProperty("jvmNativeDir")
     .orElse(rootProject.file("parikt/.native/jvm-$pariVersion/$jvmHost").absolutePath)
 
 tasks.withType<JavaExec>().configureEach {
-    jvmNativeDirectory.orNull?.let { systemProperty("parikt.native.dir", it) }
+    jvmNativeDirectory.orNull?.let { systemProperty("java.library.path", it) }
 }
 
 tasks.named<JavaExec>("run") {
