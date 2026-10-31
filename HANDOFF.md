@@ -317,6 +317,33 @@ Checklist:
 - [x] Re-run the Windows terminal smoke with `System.loadLibrary` and the configured
   `java.library.path`; version, `2 + 2`, `factor(123456)`, and clean close succeeded using the
   existing native artifacts.
+- [x] Attach native preparation to every terminal `JavaExec` task, including IDE-created `MainKt`
+  launch tasks, so changing `pariVersion` triggers the matching host build before launch. This uses
+  Gradle task dependencies; Android's separate configuration-time build exists because Android
+  Studio needs the NDK model during sync.
+- [ ] Verify an IDE-created JavaExec task builds and launches against a newly selected `pariVersion`.
+- [ ] Resolve the Kotlin plugin multiple-load warning. Version-only centralization in settings did
+  not suppress it, while the conventional root `apply false` arrangement caused AGP 9's built-in
+  Kotlin integration to fail during Android application plugin application (`KotlinAndroidTarget`
+  could not load `BaseVariant`). Investigate a solution compatible with AGP 9 before changing plugin
+  loading again.
+- [x] Make the Windows JVM native build bootstrap MinGW-w64 like Android bootstraps its NDK:
+  use an available system compiler or download a pinned portable xPack compiler with a SHA-256
+  check into the WSL native cache.
+- [ ] Verify Windows JVM native build and launch with PARI 2.19.0. The portable
+  MinGW bootstrap works, and a downstream workaround handles PARI's generated MinGW export-file
+  failure. PARI DLL names vary by release/configuration: the bridge's import table determines the
+  filename copied beside it, and the JVM discovers the `libpari*.dll`/`pari.dll` basename present.
+  A 2.19.0 build exposed `libpari-gmp.dll`; the user confirmed the Windows 2.18.0 terminal now
+  launches successfully with its versioned `libpari-2.18.dll`. WSL invocation in the current tool
+  environment returns `Wsl/E_ACCESSDENIED`, so verify 2.19.0 on the user's machine.
+- [x] Compile JVM source after making the PARI DLL basename version-aware; `:parikt:compileKotlinJvm`
+  succeeds. The runtime discovers versioned names such as `libpari-2.18.dll`, as well as
+  `libpari-gmp.dll`, `libpari.dll`, and `pari.dll`.
+- [x] Smoke-test the terminal against the generated `libpari-2.18.dll` on Windows; the user reports
+  the 2.18.0 run now works.
+- [x] Fix the import-table parser to consume all `objdump` output before returning the PARI DLL
+  name. An early `awk exit` under `set -o pipefail` could close the pipe and fail with exit 141.
 - [x] Opt in to Kotlin's expect/actual classes feature with `-Xexpect-actual-classes`; Android/JVM
   compile tasks pass and the Beta warning is gone.
 - [ ] Test missing-library diagnostics and build/runtime selection with a second `pariVersion`.

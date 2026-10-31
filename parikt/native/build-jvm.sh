@@ -5,6 +5,8 @@ set -euo pipefail
 
 PARI_VERSION=2.17.1
 GMP_VERSION=6.3.0
+MINGW_VERSION=15.2.0-2
+MINGW_SHA256=daf373cbea59bb04cc610cdc26ef98828eb5c5eee3407d448d3b26272fa816d5
 TARGET=""
 OUT_DIR=""
 WORK_DIR="${PARIKT_JVM_WORK_DIR:-$HOME/.cache/parikt-jvm-native}"
@@ -13,6 +15,40 @@ FORCE=0
 
 die() { echo "error: $*" >&2; exit 1; }
 log() { echo "[jvm-native] $*"; }
+
+ensure_mingw_toolchain() {
+  # Prefer a user/system MinGW compiler when available, then fall back to a pinned portable
+  # xPack toolchain in the native work cache. The checksum is published in xPack's package.json.
+  if [ -n "${MINGW_CC:-}" ]; then
+    CC=$MINGW_CC
+    command -v "$CC" >/dev/null || die "MINGW_CC='$CC' was not found on PATH"
+    return
+  fi
+
+  for candidate in x86_64-w64-mingw32-gcc-posix x86_64-w64-mingw32-gcc; do
+    if command -v "$candidate" >/dev/null; then
+      CC=$candidate
+      return
+    fi
+  done
+
+  local toolchain_dir="$WORK_DIR/toolchains/xpack-mingw-w64-gcc-$MINGW_VERSION"
+  local compiler="$toolchain_dir/bin/x86_64-w64-mingw32-gcc"
+  if [ ! -x "$compiler" ]; then
+    local archive="$WORK_DIR/toolchains/xpack-mingw-w64-gcc-$MINGW_VERSION-linux-x64.tar.gz"
+    local url="https://github.com/xpack-dev-tools/mingw-w64-gcc-xpack/releases/download/v$MINGW_VERSION/xpack-mingw-w64-gcc-$MINGW_VERSION-linux-x64.tar.gz"
+    mkdir -p "$WORK_DIR/toolchains"
+    log "downloading portable MinGW-w64 GCC $MINGW_VERSION"
+    curl -fL --retry 3 -o "$archive" "$url"
+    echo "$MINGW_SHA256  $archive" | sha256sum -c - >/dev/null || die "MinGW-w64 toolchain checksum verification failed"
+    tar -xzf "$archive" -C "$WORK_DIR/toolchains"
+    rm -f "$archive"
+  fi
+  [ -x "$compiler" ] || die "downloaded MinGW-w64 toolchain did not contain $compiler"
+  PATH="$toolchain_dir/bin:$PATH"
+  export PATH
+  CC=$compiler
+}
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -31,6 +67,10 @@ done
 [ -n "$OUT_DIR" ] || die "--out is required"
 [ -n "$JNI_HOME" ] || die "pass --jni-home pointing to a JDK with JNI headers"
 
+for tool in git curl tar xz make m4 sed sha256sum; do
+  command -v "$tool" >/dev/null || die "missing required build tool '$tool'"
+done
+
 case "$TARGET" in
   linux-x86_64)
     [ "$(uname -s)" = Linux ] || die "linux-x86_64 must be built in Linux/WSL"
@@ -41,17 +81,13 @@ case "$TARGET" in
     ;;
   windows-x86_64)
     [ "$(uname -s)" = Linux ] || die "windows-x86_64 is cross-compiled from Linux/WSL"
-    CC=${MINGW_CC:-x86_64-w64-mingw32-gcc-posix}
-    command -v "$CC" >/dev/null || die "missing MinGW-w64 compiler '$CC'. On Ubuntu/WSL install gcc-mingw-w64-x86-64 and binutils-mingw-w64-x86-64."
+    ensure_mingw_toolchain
     HOST=x86_64-mingw
     BUILD_DIR=Omingw-x86_64
     ;;
   *) die "unsupported JVM target '$TARGET'";;
 esac
 
-for tool in git curl tar xz make m4 sed; do
-  command -v "$tool" >/dev/null || die "missing '$tool'"
-done
 command -v "$CC" >/dev/null || die "missing C compiler '$CC'"
 
 JNI_INCLUDE="$JNI_HOME/include"
@@ -74,10 +110,16 @@ CHECK_BRIDGE="$OUT_DIR/libparidroid.so"
 CHECK_PARI="$OUT_DIR/libpari.so"
 if [ "$TARGET" = windows-x86_64 ]; then
   CHECK_BRIDGE="$OUT_DIR/paridroid.dll"
-  CHECK_PARI="$OUT_DIR/libpari.dll"
 fi
+cached_pari_library_exists() {
+  if [ "$TARGET" = windows-x86_64 ]; then
+    [ -f "$OUT_DIR/libpari-gmp.dll" ] || [ -f "$OUT_DIR/libpari.dll" ] || [ -f "$OUT_DIR/pari.dll" ]
+  else
+    [ -f "$CHECK_PARI" ]
+  fi
+}
 if [ "$FORCE" = 0 ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$EXPECTED_STAMP" ] && \
-   [ -f "$CHECK_BRIDGE" ] && [ -f "$CHECK_PARI" ]; then
+   [ -f "$CHECK_BRIDGE" ] && cached_pari_library_exists; then
   log "$TARGET PARI $PARI_VERSION artifacts are up to date at $OUT_DIR"
   exit 0
 fi
@@ -107,6 +149,13 @@ if [ ! -d "$PARI_SRC/.git" ]; then
       git -C "$PARI_SRC" fetch --depth 1 origin "$PARI_REF"
     git -C "$PARI_SRC" checkout -q "$PARI_REF"
   fi
+fi
+
+if [ "$TARGET" = windows-x86_64 ]; then
+  # PARI's MinGW export-file recipe feeds a generated .def file back to ld. With current
+  # MinGW toolchains this can fail while parsing the large export list; MinGW ld auto-exports
+  # symbols when no export file is supplied. Match the workaround used by PARI downstream builds.
+  sed -i.bak "/export_file='\\\$(LIBPARI).def';/d" "$PARI_SRC/config/Makefile.SH"
 fi
 
 JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
@@ -188,15 +237,24 @@ PARI_LIB="$STAGE/pari/lib"
 mkdir -p "$OUT_DIR"
 
 if [ "$TARGET" = windows-x86_64 ]; then
-  PARI_LIB="$STAGE/pari/bin"
-  PARI_DLL="$PARI_LIB/libpari.dll"
-  [ -e "$PARI_DLL" ] || die "PARI did not install libpari.dll in $PARI_LIB"
-  cp -L "$PARI_DLL" "$OUT_DIR/libpari.dll"
+  PARI_LIB=""
+  PARI_DLL=""
+  for directory in "$STAGE/pari/bin" "$STAGE/pari/lib"; do
+    for name in libpari-gmp.dll libpari.dll pari.dll; do
+      candidate="$directory/$name"
+      if [ -e "$candidate" ]; then PARI_LIB="$directory"; PARI_DLL="$candidate"; break 2; fi
+    done
+  done
+  [ -n "$PARI_DLL" ] || die "PARI did not install a Windows PARI DLL under $STAGE/pari"
+  rm -f "$OUT_DIR/libpari-gmp.dll" "$OUT_DIR/libpari.dll" "$OUT_DIR/pari.dll"
   "$CC" -shared -O2 -static-libgcc -D__USE_MINGW_ANSI_STDIO=1 \
     -I"$JNI_INCLUDE" -I"$JNI_INCLUDE/win32" \
     -I"$PARI_INCLUDE" -I"$WRAPPER_DIR" \
     "$WRAPPER_DIR/paridroid.c" "$BRIDGE" \
     -L"$PARI_LIB" -lpari -Wl,--add-stdcall-alias -o "$OUT_DIR/paridroid.dll"
+  PARI_IMPORT_NAME=$(objdump -p "$OUT_DIR/paridroid.dll" | awk '$1 == "DLL" && $2 == "Name:" && $3 ~ /^(libpari.*|pari)[.]dll$/ && name == "" { name = $3 } END { if (name != "") print name }')
+  [ -n "$PARI_IMPORT_NAME" ] || die "could not determine the PARI DLL imported by paridroid.dll"
+  cp -L "$PARI_DLL" "$OUT_DIR/$PARI_IMPORT_NAME"
 else
   cp -a "$STAGE/gmp/lib"/libgmp.so* "$OUT_DIR/"
   PARI_SO="$PARI_LIB/libpari.so"

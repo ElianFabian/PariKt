@@ -44,20 +44,24 @@ Linux/macOS when an emulator is running.
 
 The repository includes a basic terminal consumer at `:terminalApp`. It initializes PariKt, prints
 the PARI version and a `2 + 2` startup check, then accepts one GP command per line. Type `quit` or
-`exit`, or send EOF, to close the engine. The `run` task builds host-specific native libraries first
-and stores them under `parikt/.native/jvm-<pariVersion>/<host>/`.
+`exit`, or send EOF, to close the engine. Terminal Java run tasks, including IDE-created `MainKt`
+tasks, build host-specific native libraries before launch and store them under
+`parikt/.native/jvm-<pariVersion>/<host>/`.
 
 The first supported build hosts are Windows x86_64 and Linux x86_64 under WSL. They require separate
 libraries: Windows builds produce DLLs (cross-compiled from WSL with MinGW-w64); Linux builds
 produce `.so` files. Android `.so` files cannot be used by desktop JVMs. On WSL/Ubuntu, install the
-native prerequisites with
-`sudo apt install build-essential git curl xz-utils m4 openjdk-21-jdk-headless gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64`.
+host build prerequisites with
+`sudo apt install build-essential git curl xz-utils m4 openjdk-21-jdk-headless`. For Windows builds,
+the script uses an installed MinGW-w64 compiler if available; otherwise it downloads a pinned,
+checksum-verified portable MinGW-w64 toolchain into the native build cache, with no system package
+installation required.
 The Linux build uses the Linux JDK's JNI headers; Windows cross-compilation uses the Windows JDK
 headers supplied by the Windows Gradle run. JVM code loads these libraries with
 `System.loadLibrary`; consumers must put their native directory on `java.library.path`. The terminal
 run task does this automatically.
 
-Run on Windows from PowerShell with WSL and the MinGW-w64 packages installed:
+Run on Windows from PowerShell with WSL installed:
 
 ```powershell
 gradlew.bat :terminalApp:run
@@ -71,8 +75,8 @@ Run the Linux build from a WSL checkout with a Linux JDK installed:
 
 You can override the output/library directory with `-PjvmNativeDir=<directory>` or force a native
 rebuild with `-PjvmNativeForce`. Windows and WSL/Linux builds and terminal smoke runs have been
-verified for PARI 2.17.1. A clean-machine setup, another PARI version, missing-library diagnostics,
-and packaged distribution still need validation; this is not yet a published cross-platform
-distribution.
+verified for PARI 2.17.1; the Windows terminal has also been smoke-tested with PARI 2.18.0. A
+clean-machine setup, another PARI version, missing-library diagnostics, and packaged distribution
+still need validation; this is not yet a published cross-platform distribution.
 
 WasmJS currently has an interop stub and is not ready for use.

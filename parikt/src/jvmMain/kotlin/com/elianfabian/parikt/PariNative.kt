@@ -2,6 +2,7 @@ package com.elianfabian.parikt
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.io.File
 
 // JVM implementation for desktop hosts. The matching native libraries must be
 // available through java.library.path.
@@ -13,9 +14,23 @@ internal actual object PariNative {
 		val nativeLibraryPath = System.getProperty("java.library.path")
 		val host = "${System.getProperty("os.name")} ${System.getProperty("os.arch")}"
 
-		// The Windows PARI DLL is linked against static GMP; Unix hosts ship it separately.
+		// Windows PARI DLL names vary by PARI release/configuration. Load the exact library
+		// basename shipped beside the JNI bridge; Unix hosts ship GMP separately.
 		val libraries = if (System.getProperty("os.name").startsWith("Windows")) {
-			listOf("libpari", "paridroid")
+			val pariLibrary = nativeLibraryPath
+				.orEmpty()
+				.split(File.pathSeparator)
+				.asSequence()
+				.map(::File)
+				.flatMap { directory -> directory.listFiles().orEmpty().asSequence() }
+				.firstOrNull { file ->
+					file.isFile && file.extension.equals("dll", ignoreCase = true) &&
+						(file.name.startsWith("libpari", ignoreCase = true) || file.name.equals("pari.dll", ignoreCase = true))
+				}
+				?.name
+				?.removeSuffix(".dll")
+				?: "libpari-gmp"
+			listOf(pariLibrary, "paridroid")
 		}
 		else {
 			listOf("gmp", "pari", "paridroid")
