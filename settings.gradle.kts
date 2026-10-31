@@ -17,5 +17,6 @@ dependencyResolutionManagement {
 rootProject.name = "PariKt"
 
 include(":parikt")
+include(":pariktAndroidNative")
 include(":androidApp")
 include(":terminalApp")

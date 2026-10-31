@@ -4,7 +4,7 @@ PariKt is a Kotlin Multiplatform library that exposes the PARI/GP engine through
 
 ## Android (current focus)
 
-The Android target uses JNI and the Android NDK to build/package the wrapper and its GMP/PARI/GP dependencies into the Android library artifact. On Windows, the native dependency build runs in WSL; Linux and macOS can run the native script directly.
+The Android target uses the Android-KMP library plugin. JNI and the Android NDK build live in the companion `:pariktAndroidNative` Android library, which PariKt consumes from its `androidMain` source set. On Windows, the native dependency build runs in WSL; Linux and macOS can run the native script directly.
 
 Set the native versions in the root `gradle.properties`:
 
@@ -12,7 +12,7 @@ Set the native versions in the root `gradle.properties`:
 pariVersion=2.17.1
 ```
 
-Then sync Gradle and build the Android library. If native dependencies are missing, the first sync builds GMP and PARI/GP for `arm64-v8a` and `x86_64` before Android Studio configures the NDK model; later syncs reuse those outputs. GMP is pinned to 6.3.0 by the native build script. The native build needs network access, Git, curl, xz, make, m4, patchelf, and (on Windows) a working WSL installation. Set `nativeRunner=local` on Linux/macOS, or `nativeRunner=wsl` on Windows to override the default runner.
+Then sync Gradle and build the Android library. If native dependencies are missing, the first sync builds GMP and PARI/GP for `arm64-v8a` and `x86_64` before Android Studio configures the NDK model; later syncs reuse those outputs. GMP is pinned to 6.3.0 by the native build script. The native build needs network access, Git, curl, xz, make, m4, patchelf, and (on Windows) a working WSL installation. Set `nativeRunner=local` on Linux/macOS, or `nativeRunner=wsl` on Windows to override the default runner. The Android build currently uses AGP 9.4.1 with Gradle 9.6.0 and Kotlin 2.4.21. The Android app uses AGP's built-in Kotlin support.
 
 The common API lives in `parikt/src/commonMain/kotlin/com/elianfabian/parikt/PariKt.kt`. On Android, the bundled AndroidX Startup initializer obtains the host app's cache directory and initializes PARI/GP before `Application.onCreate()`. No Android initialization call or context passing is required. After startup, evaluate with `PariKt.eval("2 + 2")` and release native state with `PariKt.close()`. Startup uses the default PARI stack size of 4,000,000 bytes.
 
