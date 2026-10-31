@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.elianfabian.parikt.PariKt
+import com.elianfabian.parikt.getVersionName
 
 private data class ConsoleEntry(
 	val command: String,
@@ -82,9 +83,9 @@ private fun PariKtConsoleScreen() {
 
 	LaunchedEffect(Unit) {
 		runCatching {
-			val versionCode = PariKt.getVersionCode()
+			val versionName = PariKt.getVersionName()
 			val checkResult = PariKt.eval("2 + 2")
-			pariVersion = formatPariVersion(versionCode)
+			pariVersion = versionName
 			history.add(ConsoleEntry("2 + 2", checkResult))
 			isReady = true
 			startupMessage = "Engine ready. Startup check: 2 + 2 returned 4."
@@ -231,6 +232,3 @@ private fun PariKtConsoleScreen() {
 		}
 	}
 }
-
-private fun formatPariVersion(versionCode: Int): String =
-	"${versionCode ushr 16}.${(versionCode ushr 8) and 0xff}.${versionCode and 0xff}"

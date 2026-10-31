@@ -1,12 +1,13 @@
 package com.elianfabian.parikt.terminal
 
 import com.elianfabian.parikt.PariKt
+import com.elianfabian.parikt.getVersionName
 
 fun main() {
 	PariKt.init()
 	try {
 		println("PariKt terminal console")
-		println("PARI version code: ${PariKt.getVersionCode()}")
+		println("PARI version: ${PariKt.getVersionName()}")
 		println("Startup check: 2 + 2 = ${PariKt.eval("2 + 2")}")
 		println("Enter GP commands, or type quit / exit (Ctrl+D/Ctrl+Z to end input).")
 

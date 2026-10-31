@@ -350,6 +350,11 @@ Checklist:
   `libpari-gmp.dll`, `libpari.dll`, and `pari.dll`.
 - [x] Smoke-test the terminal against the generated `libpari-2.18.dll` on Windows; the user reports
   the 2.18.0 run now works.
+- [x] Use the common `PariKt.getVersionName()` API for the Android demo's visible PARI version and
+  the terminal startup version line. `:androidApp:assembleDebug` passed with the cached 2.16.0
+  artifacts, and `:terminalApp:compileKotlin` passed.
+- [ ] Observe the terminal's `getVersionName()` line in a live Windows terminal run; a piped `quit`
+  did not close the Gradle JavaExec process in the current environment.
 - [x] Fix the import-table parser to consume all `objdump` output before returning the PARI DLL
   name. An early `awk exit` under `set -o pipefail` could close the pipe and fail with exit 141.
 - [x] Opt in to Kotlin's expect/actual classes feature with `-Xexpect-actual-classes`; Android/JVM
