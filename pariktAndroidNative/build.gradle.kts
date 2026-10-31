@@ -7,7 +7,11 @@ val nativeAbis = providers.gradleProperty("nativeAbis")
 	.map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
 	.getOrElse(listOf("arm64-v8a", "x86_64"))
 val minAndroidApi = 21
-val nativeDepsDir = rootProject.layout.projectDirectory.dir("parikt/.native/pari-$pariVersion").asFile
+val nativeDepsDir = rootProject.layout.projectDirectory.dir("parikt/.native/android-$pariVersion").asFile
+val legacyNativeDepsDirs = listOf(
+	rootProject.layout.projectDirectory.dir("parikt/.native/android-pari-$pariVersion").asFile,
+	rootProject.layout.projectDirectory.dir("parikt/.native/pari-$pariVersion").asFile,
+)
 val nativeScript = rootProject.layout.projectDirectory.file("parikt/native/build-native.sh").asFile
 val forceNativeBuild = providers.gradleProperty("nativeForce").isPresent
 val isWindows = System.getProperty("os.name").startsWith("Windows")
@@ -19,9 +23,20 @@ fun File.toWslPath(): String {
 	return "/mnt/$drive" + absolute.substring(2).replace('\\', '/')
 }
 
-fun hasValidNativeDependencies(): Boolean = nativeAbis.isNotEmpty() && nativeAbis.all { abi ->
-	File(nativeDepsDir, "$abi/gmp/lib/libgmp.so").isFile &&
-		File(nativeDepsDir, "$abi/pari/lib/libpari.so").isFile
+fun hasValidNativeDependencies(directory: File = nativeDepsDir): Boolean = nativeAbis.isNotEmpty() && nativeAbis.all { abi ->
+	File(directory, "$abi/gmp/lib/libgmp.so").isFile &&
+		File(directory, "$abi/pari/lib/libpari.so").isFile
+}
+
+fun migrateLegacyNativeDependencies() {
+	if (nativeDepsDir.exists()) return
+	val reusableLegacyDirectory = legacyNativeDepsDirs.firstOrNull(::hasValidNativeDependencies) ?: return
+
+	logger.lifecycle(
+		"[PariKt] Reusing cached Android native libraries from ${reusableLegacyDirectory.name}; " +
+			"copying them to ${nativeDepsDir.name}."
+	)
+	reusableLegacyDirectory.copyRecursively(nativeDepsDir, overwrite = false)
 }
 
 fun nativeBuildArguments(force: Boolean = false): List<String> =
@@ -68,6 +83,7 @@ fun buildNativeDependenciesDuringConfiguration() {
 }
 
 // Android Studio requests the externalNativeBuild model during sync, before Gradle tasks run.
+migrateLegacyNativeDependencies()
 buildNativeDependenciesDuringConfiguration()
 
 val buildNativeDependencies = tasks.register<Exec>("buildNativeDependencies") {

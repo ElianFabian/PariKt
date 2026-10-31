@@ -25,8 +25,10 @@ Its `build.gradle.kts` behavior is:
 
 1. Read `pariVersion` and `nativeAbis` from Gradle properties. Default ABIs are `arm64-v8a` and
    `x86_64`; NDK version is `28.2.13676358`; minimum Android API is 21.
-2. Prefer `.native/pari-$pariVersion` when it contains GMP and PARI libraries for all selected ABIs.
-   For PARI 2.17.1 only, it can fall back to valid bundled libraries under `src/main/jni`.
+2. Prefer `.native/android-$pariVersion` when it contains GMP and PARI libraries for all selected
+   ABIs. Copy valid legacy `.native/android-pari-$pariVersion` or `.native/pari-$pariVersion`
+   outputs there once, preserving the old caches. For PARI 2.17.1 only, it can fall back to valid
+   bundled libraries under `src/main/jni`.
 3. If dependencies are missing at configuration time, run `native/build-native.sh` immediately using
    WSL on Windows and bash locally elsewhere. This bootstrap path ignores `nativeRunner`, streams
    output, and fails Gradle if the process fails. As a result, Docker does not replace WSL for a
@@ -169,7 +171,13 @@ from Paridroid should not be mistaken for an app cache path or proof that those 
   changes, and `nativeForce`.
 - [ ] Decide whether PariKt needs `paridroidgp`'s bundled-prebuilt fallback. If added, use prebuilts
   only when their PARI version and every selected ABI match; otherwise build into
-  `.native/pari-$pariVersion`.
+  `.native/android-$pariVersion`.
+- [x] Name generated Android ABI artifacts `.native/android-$pariVersion`, parallel to JVM's
+  `.native/jvm-$pariVersion`. Migrate complete legacy caches by copying them to the new name and
+  retain the old directories. Verified the existing 2.16.0 cache migrated for `arm64-v8a` and
+  `x86_64`, and `:androidApp:assembleDebug` completed with Android native dependencies up to date.
+- [ ] Verify migration behavior when the legacy cache is incomplete for selected ABIs; such a cache
+  should not be copied as valid and Gradle should rebuild into the new directory.
 - [x] Remove Docker from PariKt's `gradle.properties` runner comment; PariKt currently supports only
   `local` and `wsl`.
 - [x] Compare JNI bridge and `Android.mk` source/include paths with `paridroidgp`; add PariKt's
