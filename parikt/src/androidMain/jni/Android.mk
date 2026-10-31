@@ -23,7 +23,7 @@ LOCAL_CFLAGS := -g -std=gnu99 -Wno-undefined-internal
 LOCAL_LDFLAGS := -Wl,--no-warn-mismatch -Wl,--allow-shlib-undefined
 LOCAL_SRC_FILES := \
     ../../../native/paridroid/paridroid.c \
-    com_elianfabian_parikt_PariNative.c
+    ../../../native/paridroid/jni_bridge.c
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../../native/paridroid \
     $(NATIVE_DEPS_DIR)/$(TARGET_ARCH_ABI)/pari/include

@@ -18,3 +18,4 @@ rootProject.name = "PariKt"
 
 include(":parikt")
 include(":androidApp")
+include(":terminalApp")
