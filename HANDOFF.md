@@ -106,8 +106,22 @@ legacy-variant warnings no longer appeared in the build output. The official KMP
 currently lists Kotlin 2.4.20–2.4.21 through AGP 9.3.1, so AGP 9.4.1 is newer than that listed range
 even though this project's sync, assemble, and emulator smoke run pass. Recheck the matrix when
 Kotlin publishes an update. A separate warning that Kotlin plugins load in multiple subprojects
-remains. Attempting to centralize the KMP plugin with a root `apply false` declaration caused an AGP
-built-in Kotlin class-linkage failure, so that declaration was removed. The migrated app was
+remains. Root `apply false` centralization was tested with all three Kotlin plugin aliases declared
+at the root and plain, versionless IDs in their modules, matching Gradle's prescribed pattern. With
+AGP 9.4.1, even `gradle help` fails while applying `com.android.application`: the reported exception
+references creation of `KotlinAndroidTarget`, then fails because
+`com/android/build/gradle/api/BaseVariant` is absent. The root declaration was removed to restore
+working Android configuration. A Compose-only root declaration reproduced the same failure. These
+observations do not establish the root cause or prove that the warning cannot be fixed. The earlier
+explanation blaming AGP's built-in Kotlin/classloader interaction was a hypothesis, not a verified
+diagnosis. Investigation stopped before a working fix was found. Verify both `help` and Android
+assemble when evaluating another configuration. A
+temporary AGP 9 opt-out (`android.builtInKotlin=false`, `android.newDsl=false`) plus the legacy
+Kotlin Android plugin also failed during configuration with missing `com/android/build/gradle/BaseExtension`
+and emitted deprecation warnings for both opt-out properties. That experiment was reverted as well.
+The failure was unchanged when the root-shared Kotlin plugin version was reduced from 2.4.21 to
+AGP's documented embedded KGP version, 2.2.10; that experiment was reverted too.
+The migrated app was
 installed and launched on the API 36.1 x86_64 emulator; AndroidX Startup loaded GMP/PARI/JNI, and
 the UI displayed PARI 2.17.1 plus the successful `2 + 2 returned 4` check. The emulator was shut
 down afterward.
@@ -333,8 +347,11 @@ Checklist:
 - [ ] Resolve the Kotlin plugin multiple-load warning. Version-only centralization in settings did
   not suppress it, while the conventional root `apply false` arrangement caused AGP 9's built-in
   Kotlin integration to fail during Android application plugin application (`KotlinAndroidTarget`
-  could not load `BaseVariant`). Investigate a solution compatible with AGP 9 before changing plugin
-  loading again.
+  could not load `BaseVariant`). This remains unresolved, not proven unfixable. Next, collect the
+  full failure stack trace and trace actual plugin dependencies and classloader visibility to
+  establish the cause before selecting another fix. Preserve the user's preference for current
+  AGP and verify configuration, Android assemble, and JVM compilation with the resulting setup.
+  All attempted build changes were reverted; only investigation notes remain as changes.
 - [x] Make the Windows JVM native build bootstrap MinGW-w64 like Android bootstraps its NDK:
   use an available system compiler or download a pinned portable xPack compiler with a SHA-256
   check into the WSL native cache.
