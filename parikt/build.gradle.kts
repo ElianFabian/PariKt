@@ -65,6 +65,10 @@ val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencie
 
 kotlin {
     explicitApi()
+    compilerOptions {
+        // PariNative intentionally uses an expect/actual object in platform source sets.
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
 
     android {
         namespace = "com.elianfabian.parikt"

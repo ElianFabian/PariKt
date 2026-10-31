@@ -126,6 +126,7 @@ Checklist:
 - [x] Build native artifacts and run terminal smoke commands (`2 + 2`, `factor(123456)`, `quit`) on Windows and WSL/Linux for PARI 2.17.1.
 - [x] Use `System.loadLibrary` for all JVM native loading; terminal consumer supplies the library directory through `java.library.path`.
 - [x] Re-run the Windows terminal smoke with `System.loadLibrary` and the configured `java.library.path`; version, `2 + 2`, `factor(123456)`, and clean close succeeded using the existing native artifacts.
+- [x] Opt in to Kotlin's expect/actual classes feature with `-Xexpect-actual-classes`; Android/JVM compile tasks pass and the Beta warning is gone.
 - [ ] Test missing-library diagnostics and build/runtime selection with a second `pariVersion`.
 - [ ] Add and verify macOS and any additional OS/architecture hosts before documenting them as supported.
 - [ ] Return to WasmJS and iOS after JVM is usable.
