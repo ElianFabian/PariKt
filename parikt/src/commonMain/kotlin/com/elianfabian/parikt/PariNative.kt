@@ -6,17 +6,17 @@ package com.elianfabian.parikt
  */
 internal expect object PariNative {
 
-    fun loadLibraries()
+	fun loadLibraries()
 
-    fun setTemporaryDirectory(path: String): Boolean
+	fun setTemporaryDirectory(path: String): Boolean
 
-    fun init(pariSize: Long)
+	fun init(pariSize: Long)
 
-    fun eval(cmd: String): String?
+	fun eval(cmd: String): String?
 
-    fun getCommands(): Array<String>?
+	fun getCommands(): Array<String>?
 
-    fun paridroidClose()
+	fun paridroidClose()
 
-    fun pariVersionCode(): Int
+	fun pariVersionCode(): Int
 }

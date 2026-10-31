@@ -6,11 +6,11 @@ package com.elianfabian.parikt
  */
 
 public fun PariKt.getVersionName(): String {
-    val code = getVersionCode()
+	val code = getVersionCode()
 
-    val major = (code ushr 16) and 0xFF
-    val minor = (code ushr 8) and 0xFF
-    val patch = code and 0xFF
+	val major = (code ushr 16) and 0xFF
+	val minor = (code ushr 8) and 0xFF
+	val patch = code and 0xFF
 
-    return "${major}.${minor}.${patch}"
+	return "${major}.${minor}.${patch}"
 }

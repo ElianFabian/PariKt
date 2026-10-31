@@ -7,66 +7,69 @@ import java.nio.file.Path
 // available through java.library.path.
 internal actual object PariNative {
 
-    private var temporaryDirectoryConfigured = false
+	private var temporaryDirectoryConfigured = false
 
-    actual fun loadLibraries() {
-        val nativeLibraryPath = System.getProperty("java.library.path")
-        val host = "${System.getProperty("os.name")} ${System.getProperty("os.arch")}"
+	actual fun loadLibraries() {
+		val nativeLibraryPath = System.getProperty("java.library.path")
+		val host = "${System.getProperty("os.name")} ${System.getProperty("os.arch")}"
 
-        // The Windows PARI DLL is linked against static GMP; Unix hosts ship it separately.
-        val libraries = if (System.getProperty("os.name").startsWith("Windows")) {
-            listOf("libpari", "paridroid")
-        } else {
-            listOf("gmp", "pari", "paridroid")
-        }
+		// The Windows PARI DLL is linked against static GMP; Unix hosts ship it separately.
+		val libraries = if (System.getProperty("os.name").startsWith("Windows")) {
+			listOf("libpari", "paridroid")
+		}
+		else {
+			listOf("gmp", "pari", "paridroid")
+		}
 
-        for (name in libraries) {
-            try {
-                System.loadLibrary(name)
-            } catch (error: UnsatisfiedLinkError) {
-                throw UnsatisfiedLinkError(
-                    "Unable to load '$name' for $host. Add the matching native library directory " +
-                        "to java.library.path (currently '$nativeLibraryPath'). " +
-                        "${error.message}"
-                ).also { it.initCause(error) }
-            }
-        }
-    }
+		for (name in libraries) {
+			try {
+				System.loadLibrary(name)
+			}
+			catch (error: UnsatisfiedLinkError) {
+				throw UnsatisfiedLinkError(
+					"Unable to load '$name' for $host. Add the matching native library directory " +
+						"to java.library.path (currently '$nativeLibraryPath'). " +
+						"${error.message}"
+				).also { it.initCause(error) }
+			}
+		}
+	}
 
-    actual fun setTemporaryDirectory(path: String): Boolean {
-        if (path.isBlank()) return false
-        return try {
-            val directory = Path.of(path).toAbsolutePath().normalize()
-            Files.createDirectories(directory)
-            temporaryDirectoryConfigured = nativeSetTemporaryDirectory(directory.toString())
-            temporaryDirectoryConfigured
-        } catch (_: Exception) {
-            false
-        }
-    }
+	actual fun setTemporaryDirectory(path: String): Boolean {
+		if (path.isBlank()) return false
+		return try {
+			val directory = Path.of(path).toAbsolutePath().normalize()
+			Files.createDirectories(directory)
+			temporaryDirectoryConfigured = nativeSetTemporaryDirectory(directory.toString())
+			temporaryDirectoryConfigured
+		}
+		catch (_: Exception) {
+			false
+		}
+	}
 
-    actual fun init(pariSize: Long) {
-        if (!temporaryDirectoryConfigured) {
-            val defaultDirectory = Path.of(System.getProperty("java.io.tmpdir"), "parikt")
-            check(setTemporaryDirectory(defaultDirectory.toString())) {
-                "Unable to prepare PARI's temporary directory at '$defaultDirectory'."
-            }
-        }
-        check(temporaryDirectoryConfigured) {
-            "JVM PARI temporary directory was not configured. Call PariKt.init() after native libraries are available."
-        }
-        nativeInit(pariSize)
-    }
+	actual fun init(pariSize: Long) {
+		if (!temporaryDirectoryConfigured) {
+			val defaultDirectory = Path.of(System.getProperty("java.io.tmpdir"), "parikt")
+			check(setTemporaryDirectory(defaultDirectory.toString())) {
+				"Unable to prepare PARI's temporary directory at '$defaultDirectory'."
+			}
+		}
+		check(temporaryDirectoryConfigured) {
+			"JVM PARI temporary directory was not configured. Call PariKt.init() after native libraries are available."
+		}
+		nativeInit(pariSize)
+	}
 
-    actual external fun eval(cmd: String): String?
+	actual external fun eval(cmd: String): String?
 
-    actual external fun getCommands(): Array<String>?
+	actual external fun getCommands(): Array<String>?
 
-    actual external fun paridroidClose()
+	actual external fun paridroidClose()
 
-    actual external fun pariVersionCode(): Int
+	actual external fun pariVersionCode(): Int
 
-    private external fun nativeSetTemporaryDirectory(path: String): Boolean
+	private external fun nativeSetTemporaryDirectory(path: String): Boolean
 
-    private external fun nativeInit(pariSize: Long)
+	private external fun nativeInit(pariSize: Long)
 }

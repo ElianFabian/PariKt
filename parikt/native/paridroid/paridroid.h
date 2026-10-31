@@ -28,7 +28,9 @@
 
 // Platform-specific logging
 #if defined(__ANDROID__)
+
 #include <android/log.h>
+
 #define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, "libparidroid", __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "libparidroid", __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "libparidroid",  __VA_ARGS__)
@@ -51,8 +53,8 @@ void paridroid_eval(const char *in, char **out);
 
 void paridroid_close(void);
 
-void paridroid_getcommands (const char *** commands, int size, int *len);
+void paridroid_getcommands(const char ***commands, int size, int *len);
 
-void paridroid_read (const int file, char **out);
+void paridroid_read(const int file, char **out);
 
 #endif /*_PARIDROID_H */
