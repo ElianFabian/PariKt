@@ -383,6 +383,14 @@ Checklist:
 
 ## Android build defaults and environment notes
 
+Fresh-clone NDK lookup: configuration-time native bootstrap previously ran before the helper
+module's `android { ndkVersion = "28.2.13676358" }` configuration. It now runs after that block,
+so the local runner resolves the selected NDK version before invoking the native build script.
+The user reported an NDK-not-installed error on macOS despite installing an NDK; this ordering
+bug is a possible cause, but the exact macOS error and installed NDK version have not been
+provided. Fresh-clone macOS sync remains unverified; do not claim this change resolves that report
+until confirmed. The installed SDK must contain NDK 28.2.13676358.
+
 Defaults in PariKt are PARI 2.17.1, GMP 6.3.0 (pinned in `native/build-native.sh`), Android API 21,
 NDK 28.2.13676358, and ABIs `arm64-v8a,x86_64`. `pariVersion` is read from root `gradle.properties`;
 `nativeAbis`, `nativeRunner`, and `nativeForce` are optional properties.

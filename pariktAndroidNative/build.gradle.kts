@@ -82,10 +82,6 @@ fun buildNativeDependenciesDuringConfiguration() {
 	logger.lifecycle("[PariKt] Native dependencies are ready at ${nativeDepsDir.absolutePath}.")
 }
 
-// Android Studio requests the externalNativeBuild model during sync, before Gradle tasks run.
-migrateLegacyNativeDependencies()
-buildNativeDependenciesDuringConfiguration()
-
 val buildNativeDependencies = tasks.register<Exec>("buildNativeDependencies") {
 	group = "native"
 	description = "Builds GMP and PARI/GP $pariVersion for Android."
@@ -123,6 +119,11 @@ android {
 		ndkBuild { path = file("../parikt/src/androidMain/jni/Android.mk") }
 	}
 }
+
+// Configure ndkVersion before resolving sdkComponents.ndkDirectory on fresh checkouts.
+// Android Studio requests the native model during sync, before Gradle tasks run.
+migrateLegacyNativeDependencies()
+buildNativeDependenciesDuringConfiguration()
 
 tasks.configureEach {
 	if (name.startsWith("configureNdkBuild") ||
