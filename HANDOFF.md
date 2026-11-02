@@ -52,7 +52,8 @@ changing lifecycle semantics.
 
 PariKt is a KMP library in `:parikt`. Android and JVM are implemented in the documented host
 matrix. Kotlin/JS and Kotlin/WasmJS now have working Node and Chromium-browser consumer bindings
-around an Emscripten PARI engine. iOS and other Kotlin/Native targets are not configured.
+around an Emscripten PARI engine. Kotlin/Native linuxX64 uses a statically linked C interop
+backend and has a separate native terminal demo. Other Kotlin/Native targets are not configured.
 
 Common API and expect declaration: `src/commonMain/kotlin/com/elianfabian/parikt/`. Android JNI
 Kotlin: `src/androidMain/kotlin/`. The NDK makefiles remain under `src/androidMain/jni/`; shared
@@ -535,6 +536,63 @@ and 2.19.0; the automated UI calculation test has so far run on Windows with 2.1
 Final combined verification passed: `:androidApp:assembleDebug`, `:consoleUi:jvmTest`,
 `:desktopApp:test`, `:webApp:jsBrowserDistribution`, and `:webApp:wasmJsBrowserDistribution`.
 No function-removal feature was implemented. The core library remains independent of Compose.
+
+## Phase 8 — Kotlin/Native linuxX64
+
+The user approved starting with linuxX64 and a native terminal executable, then considering
+mingwX64. Keep the public common API and pariVersion selection; no JVM/JNI in the new backend.
+Apple targets remain deferred. Current Kotlin documentation marks macosX64 deprecated since
+2.3.20; reassess Intel Mac target availability before planning Apple work.
+
+- [x] Build static GMP/PARI and the existing C wrapper for linuxX64 in a separate versioned cache.
+- [x] Add a fixed-width C bridge, explicit borrowed-string copying, and OS-thread ownership checks.
+- [x] Generate cinterop bindings and implement the linuxX64 PariNative actual backend.
+- [x] Add a native terminal demo with version/self-check and interactive evaluation.
+- [x] Test real evaluation, variables, errors/recovery, empty input, commands, lifecycle and threading.
+- [x] Verify another pariVersion, source/cache invalidation, existing-target regressions and docs.
+
+Builds run from Windows Gradle, compiling C dependencies through WSL and linking linuxX64 with
+Kotlin/Native. Native archives use `.native/native-<version>/linux-x86_64`;
+the C build stamp includes the bridge/wrapper/header/script content and compiler identity.
+The native CLI is a separate `:nativeTerminalApp` module; `:parikt:verifyLinuxX64` runs the native
+test executable through WSL when invoked on Windows. Both runners are verified.
+Windows KGP accepts linuxX64 compilation but disables its standard host-only run/test tasks;
+the explicit WSL runners cover those tasks. GMP builds only its core library subdirectories
+and stages its archive/header, avoiding an incidental makeinfo dependency while preserving
+Automake's generated-header prerequisites. Its host is generic x86_64 rather than the build CPU.
+Static dependencies, cinterop generation and the linuxX64 backend compile. Kotlin/Native rejects
+a suspending executable entry point, so the CLI uses a normal main with runBlocking on its
+calling thread; the public library initializer remains suspending on all targets.
+The bridge/PARI/GMP objects are bundled into one `libparikt.a` for cinterop: separate archives
+were linked in an order that left bridge references unresolved. C archives are embedded in
+the interop klib, not loaded through JNI; final native linking is verified.
+Host GCC/glibc generated an unavailable `__isoc23_strtol` dependency when linking with
+Kotlin/Native's older Linux sysroot. KGP's distribution task prepares its managed target
+dependencies first; GMP/PARI/the bridge use its matching Linux GCC/sysroot in
+WSL. C library stage keys include script/compiler identity to invalidate incompatible archives.
+When the managed compiler lives on a Windows drive, the script automatically caches it inside
+WSL before use: configure probes against the Windows filesystem were prohibitively slow.
+PARI 2.15.0 native linking and tests now pass. The Gradle CLI runner also passes factorization,
+persistent variables, division-by-zero recovery, subsequent arithmetic, version and quit.
+`file` identifies an x86_64 ELF executable; `ldd` shows system libraries only, with no external
+libpari/libgmp or JVM dependency. These checks ran via Windows Gradle + WSL execution.
+The expected disabled host-only Linux runner warnings are suppressed; the explicit WSL test
+runner is wired into `:parikt:check` on Windows. Tests deliberately use only the public API,
+without requiring consumers to opt in to ExperimentalForeignApi.
+PARI 2.19.0 also passes the native test suite and terminal factor/version smoke. An isolated,
+initially empty Konan cache successfully downloaded the distribution and target dependencies.
+This proved KGP already manages those downloads; an earlier custom cinterop probe was removed.
+Read KGP's generated konan.txt only at
+task execution, after the distribution task, so fresh project metadata can be regenerated.
+Consumer/build documentation is in README. A bridge-source comment edit triggered an automatic
+bridge/archive rebuild while reusing GMP/PARI stages, confirming source-cache invalidation.
+The final combined build passed native tests/CLI linking, Android assembleDebug (minSdk 21),
+desktop/shared-state test checks and JS/Wasm launcher compilation. A second native run with
+parikt/build/konan.txt temporarily removed successfully regenerated metadata and passed tests;
+subsequent archive/interop/link tasks were up to date. The default remains pariVersion=2.15.0.
+Unverified: running Gradle itself on a Linux host, additional Linux distributions, a completely
+fresh machine including source/host prerequisites, native publication, and other native targets.
+Only the Windows Gradle + WSL build/run path has been exercised in this phase.
 
 ## Android build defaults and environment notes
 

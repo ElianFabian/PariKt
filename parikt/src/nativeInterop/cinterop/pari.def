@@ -1,0 +1,5 @@
+headers = bridge.h
+headerFilter = bridge.h
+package = com.elianfabian.parikt.cinterop
+staticLibraries = libparikt.a
+linkerOpts.linux = -lm -ldl -lpthread

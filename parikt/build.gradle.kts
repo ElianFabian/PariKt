@@ -1,5 +1,7 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class, org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
+import java.util.Properties
+
 plugins {
 	id("org.jetbrains.kotlin.multiplatform")
 	id("com.android.kotlin.multiplatform.library")
@@ -121,6 +123,62 @@ val prepareWebEnginePackage = tasks.register<Sync>("prepareWebEnginePackage") {
 	into(webEnginePackageDirectory)
 }
 
+val kotlinNativeDirectory = layout.projectDirectory.dir(".native/native-$pariVersion/linux-x86_64")
+val konanDataDirectory = providers.gradleProperty("konan.data.dir")
+	.orElse(providers.environmentVariable("KONAN_DATA_DIR"))
+	.map { rootProject.file(it) }.orElse(File(System.getProperty("user.home"), ".konan"))
+val konanHome = providers.provider {
+	// Use KGP's selected distribution, including its precedence rules for overrides.
+	File(layout.buildDirectory.file("konan.txt").get().asFile.readText().trim())
+}
+val linuxCtoolchain = konanHome.map { home ->
+	val configuration = Properties().apply {
+		File(home, "konan/konan.properties").inputStream().use { load(it) }
+	}
+	val dependency = checkNotNull(configuration.getProperty("toolchainDependency.linux_x64")) {
+		"Kotlin/Native distribution at $home does not define a Linux C toolchain."
+	}
+	File(konanDataDirectory.get(), "dependencies/$dependency")
+}
+val buildLinuxX64NativeDependencies = tasks.register<Exec>("buildLinuxX64NativeDependencies") {
+	group = "native"
+	description = "Builds static GMP/PARI and the C bridge for Kotlin/Native linuxX64."
+	dependsOn("prepareLinuxX64CToolchain")
+	inputs.file(layout.projectDirectory.file("native/build-kotlin-native.sh"))
+	inputs.dir(layout.projectDirectory.dir("native/kotlin-native"))
+	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
+	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
+	inputs.property("pariVersion", pariVersion)
+	inputs.property("kotlinVersion", libs.versions.kotlin)
+	// Resolve konan.txt only during execution, after the distribution download task.
+	inputs.property("konanDataDirectory", konanDataDirectory.map { it.absolutePath })
+	inputs.property("nativeHomeOverride", providers.gradleProperty("kotlin.native.home").orElse("managed"))
+	outputs.dir(kotlinNativeDirectory)
+	outputs.upToDateWhen { !providers.gradleProperty("kotlinNativeForce").isPresent && pariVersion !in setOf("master", "latest") }
+	doFirst {
+		fun nativePath(file: File) = if (isWindows) file.toWslPath() else file.absolutePath
+		commandLine((if (isWindows) listOf("wsl", "bash") else listOf("bash")) + listOf(
+			nativePath(layout.projectDirectory.file("native/build-kotlin-native.sh").asFile),
+			"--pari-version", pariVersion, "--out", nativePath(kotlinNativeDirectory.asFile),
+			"--toolchain-root", nativePath(linuxCtoolchain.get()),
+		) + if (providers.gradleProperty("kotlinNativeForce").isPresent) listOf("--force") else emptyList())
+	}
+}
+
+// KGP's distribution task prepares its managed target dependencies as well as the compiler.
+tasks.register("prepareLinuxX64CToolchain") {
+	group = "native"
+	description = "Prepares Kotlin/Native's managed Linux C compiler and sysroot."
+	dependsOn("downloadKotlinNativeDistribution")
+	doLast {
+		val toolchain = linuxCtoolchain.get()
+		check(File(toolchain, "bin/x86_64-unknown-linux-gnu-gcc").isFile &&
+			File(toolchain, "x86_64-unknown-linux-gnu/sysroot/usr/include/stdio.h").isFile) {
+			"Kotlin/Native's Linux C compiler/sysroot is incomplete at $toolchain."
+		}
+	}
+}
+
 kotlin {
 	explicitApi()
 	compilerOptions {
@@ -143,6 +201,14 @@ kotlin {
 	jvm("jvm") {
 		compilerOptions {
 			jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+		}
+	}
+
+	linuxX64 {
+		compilations.getByName("main").cinterops.create("pari") {
+			definitionFile.set(layout.projectDirectory.file("src/nativeInterop/cinterop/pari.def"))
+			includeDirs(layout.projectDirectory.dir("native/kotlin-native"))
+			extraOpts("-libraryPath", kotlinNativeDirectory.dir("lib").asFile.absolutePath)
 		}
 	}
 
@@ -190,6 +256,9 @@ kotlin {
 				implementation(libs.junit.jupiter)
 			}
 		}
+		named("linuxX64Test") {
+			dependencies { implementation(libs.kotlinx.coroutines.core) }
+		}
 		named("webMain") {
 			dependencies {
 				implementation(libs.kotlinx.coroutines.core)
@@ -206,6 +275,24 @@ kotlin {
 		}
 	}
 }
+
+tasks.named("cinteropPariLinuxX64") {
+	dependsOn(buildLinuxX64NativeDependencies)
+	inputs.dir(kotlinNativeDirectory)
+}
+
+// Gradle's standard native test runner requires a Linux host; WSL can run the executable too.
+tasks.register<Exec>("verifyLinuxX64") {
+	group = "verification"
+	description = "Runs Kotlin/Native linuxX64 tests locally or through WSL on Windows."
+	dependsOn("linkDebugTestLinuxX64")
+	doFirst {
+		val executable = layout.buildDirectory.file("bin/linuxX64/debugTest/test.kexe").get().asFile
+		commandLine(if (isWindows) listOf("wsl", executable.toWslPath()) else listOf(executable.absolutePath))
+	}
+}
+
+if (isWindows) tasks.named("check") { dependsOn("verifyLinuxX64") }
 
 // The local npm package must exist before KGP resolves or installs web dependencies.
 tasks.matching { it.name.endsWith("PackageJson") }.configureEach {

@@ -2,7 +2,7 @@ package com.elianfabian.parikt
 
 /**
  * Platform-specific native bindings for PariKt.
- * Targets provide JNI bindings or a JavaScript adapter to the Emscripten engine.
+ * Targets provide JNI, direct C interop, or a JavaScript adapter to the Emscripten engine.
  */
 internal expect object PariNative {
 

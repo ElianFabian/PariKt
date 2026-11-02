@@ -79,6 +79,57 @@ verified for PARI 2.17.1; the Windows terminal has also been smoke-tested with P
 clean-machine setup, another PARI version, missing-library diagnostics, and packaged distribution
 still need validation; this is not yet a published cross-platform distribution.
 
+## Kotlin/Native Linux
+
+The `linuxX64` target calls the C engine directly through cinterop. PARI/GMP and the bridge
+are statically included in the executable; users do not need a JVM or separate PARI/GMP
+shared libraries to run it. Standard Linux system libraries are still required.
+
+From PowerShell on Windows with WSL x86_64:
+
+```powershell
+.\gradlew.bat :nativeTerminalApp:runLinuxX64
+.\gradlew.bat :parikt:verifyLinuxX64
+```
+
+The first command opens a native terminal console with version information and a startup
+self-check. Enter GP expressions, or `quit` / `exit` to close it. The second command builds
+and runs the Kotlin/Native engine tests through WSL. On a Linux x86_64 build host, use
+`bash ./gradlew` instead of `.\gradlew.bat`; the runners execute directly there.
+
+To build without running:
+
+```powershell
+.\gradlew.bat :nativeTerminalApp:linkDebugExecutableLinuxX64
+```
+
+The executable is `nativeTerminalApp/build/bin/linuxX64/debugExecutable/nativeTerminalApp.kexe`.
+It uses the same `pariVersion` property as the other targets. Windows Gradle + WSL builds,
+tests and terminal runs have passed with PARI 2.15.0 and 2.19.0.
+
+Gradle prepares Kotlin/Native's matching Linux C compiler/sysroot, builds static GMP 6.3.0
+and the selected PARI source, and packages the C archive into the interop library. This avoids
+mixing a newer host libc with Kotlin/Native's baseline. When building from Windows, the Linux
+compiler is cached inside WSL for speed. WSL/Linux needs a C build environment, make, m4, git,
+curl, tar and xz. Gradle itself needs a JDK; the resulting native executable does not.
+
+Native output lives under `parikt/.native/native-<pariVersion>/linux-x86_64/`, with intermediate
+sources/toolchains under `~/.cache/parikt-kotlin-native` in Linux/WSL. Use `-PkotlinNativeForce`
+to force a native rebuild. Bridge/wrapper/header/script changes invalidate the output cache.
+
+Call the common suspending `PariKt.init()` and keep initialization, evaluation, command listing
+and close sequential on the **same OS thread**. The native backend rejects engine calls from
+another thread after initialization. A coroutine dispatcher with multiple threads does not
+provide this guarantee. Concurrent initialization is unsupported. Native consumers can use
+`runBlocking`, as the terminal demo does; they do not need to opt in to C interop themselves.
+Use the default stack size unless deliberately tuning memory; native initialization failures
+from tiny or excessive allocations are not recoverable guarantees. Optional PARI data packages
+are not bundled. `TMPDIR` is used for temporary files, falling back to `/tmp`.
+
+This adds Linux x86_64 support only. Windows Kotlin/Native (`mingwX64`), Apple targets, Linux
+ARM64, publication, and validation on additional Linux distributions remain future work.
+The existing Compose desktop app continues to use JVM.
+
 ## Shared Compose demo
 
 `:consoleUi` shares the dark GP console between Android, desktop JVM, Kotlin/JS, and Kotlin/WasmJS.
