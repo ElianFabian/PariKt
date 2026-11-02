@@ -50,8 +50,9 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
-PariKt is a KMP library in `:parikt`. Android is the current focus and JVM is next. WasmJS is only
-an interop stub; iOS and other Kotlin/Native targets are not configured.
+PariKt is a KMP library in `:parikt`. Android and JVM are implemented in the documented host
+matrix. Kotlin/JS and Kotlin/WasmJS now have working Node and Chromium-browser consumer bindings
+around an Emscripten PARI engine. iOS and other Kotlin/Native targets are not configured.
 
 Common API and expect declaration: `src/commonMain/kotlin/com/elianfabian/parikt/`. Android JNI
 Kotlin: `src/androidMain/kotlin/`. The NDK makefiles remain under `src/androidMain/jni/`; shared
@@ -82,9 +83,9 @@ include path, and Java/Kotlin JVM targets 11 vs 21. The app uses compileSdk 36 a
 compilers. AndroidX raised the default minSdk for new releases from 21 to 23; to retain the user's
 minSdk 21 preference, the demo pins Compose BOM 2025.06.01 and Activity Compose 1.10.1. With these
 versions the app and library both declare minSdk 21, and `:androidApp:assembleDebug` succeeds.
-`Android.mk` adds the wrapper header directory. A root `apply false` Kotlin plugin centralization
-attempt caused `org.jetbrains.kotlin.android` to fail against the current AGP setup, so it was
-removed; the non-fatal multiple-plugin warning remains. The first emulator launch revealed the
+`Android.mk` adds the wrapper header directory. Earlier Kotlin-only root plugin centralization
+failed; the current root shares both AGP and Kotlin plugins and resolves the multiple-load warning
+(see below). The first emulator launch revealed the
 initializer metadata was absent from the merged manifest because PariKt's manifest used the legacy
 `src/main` path. It has been moved to `src/androidMain/AndroidManifest.xml`. On an x86_64 API 36
 emulator using the API-21-compatible dependency versions, Startup initialization succeeded, `2 + 2`
@@ -105,22 +106,14 @@ contains all three PariKt native libraries for both configured ABIs. The pasted 
 legacy-variant warnings no longer appeared in the build output. The official KMP compatibility table
 currently lists Kotlin 2.4.20–2.4.21 through AGP 9.3.1, so AGP 9.4.1 is newer than that listed range
 even though this project's sync, assemble, and emulator smoke run pass. Recheck the matrix when
-Kotlin publishes an update. A separate warning that Kotlin plugins load in multiple subprojects
-remains. Root `apply false` centralization was tested with all three Kotlin plugin aliases declared
-at the root and plain, versionless IDs in their modules, matching Gradle's prescribed pattern. With
-AGP 9.4.1, even `gradle help` fails while applying `com.android.application`: the reported exception
-references creation of `KotlinAndroidTarget`, then fails because
-`com/android/build/gradle/api/BaseVariant` is absent. The root declaration was removed to restore
-working Android configuration. A Compose-only root declaration reproduced the same failure. These
-observations do not establish the root cause or prove that the warning cannot be fixed. The earlier
-explanation blaming AGP's built-in Kotlin/classloader interaction was a hypothesis, not a verified
-diagnosis. Investigation stopped before a working fix was found. Verify both `help` and Android
-assemble when evaluating another configuration. A
-temporary AGP 9 opt-out (`android.builtInKotlin=false`, `android.newDsl=false`) plus the legacy
-Kotlin Android plugin also failed during configuration with missing `com/android/build/gradle/BaseExtension`
-and emitted deprecation warnings for both opt-out properties. That experiment was reverted as well.
-The failure was unchanged when the root-shared Kotlin plugin version was reduced from 2.4.21 to
-AGP's documented embedded KGP version, 2.2.10; that experiment was reverted too.
+Kotlin publishes an update. The multiple-Kotlin-plugin-load warning is now resolved: root
+`build.gradle.kts` declares all three AGP plugins and all three Kotlin plugins with `apply false`;
+the four modules apply versionless plugin IDs. Both plugin families must be available from the
+shared parent classloader. Earlier attempts shared only Kotlin, leaving AGP's types in child
+classloaders; the resulting `BaseVariant`/`BaseExtension` lookup errors were incorrectly treated
+as evidence of an AGP API incompatibility. Sharing both plugin families passes `help --warning-mode all`,
+`:androidApp:assembleDebug`, and `:terminalApp:compileKotlin` with no multiple-load warning.
+AGP 9.4.1, Kotlin 2.4.21, built-in Android Kotlin, and the Android-KMP target are preserved.
 The migrated app was
 installed and launched on the API 36.1 x86_64 emulator; AndroidX Startup loaded GMP/PARI/JNI, and
 the UI displayed PARI 2.17.1 plus the successful `2 + 2 returned 4` check. The emulator was shut
@@ -150,9 +143,10 @@ Android initialization path; it uses a 4,000,000-byte stack. The merged provider
 were verified in the demo host app.
 
 `setTemporaryDirectory` is currently an expect/actual method: Android delegates to the C setter, JVM
-creates a writable host temp directory and sets the native `GPTMPDIR`, while Wasm still has a no-op
-actual. There is no Kotlin/Native actual because those targets are not configured. Do not treat the
-Wasm stub as temp-directory support. The C setter uses `setenv` on POSIX and `_putenv_s` on Windows.
+creates a writable host temp directory and sets the native `GPTMPDIR`. JS/WasmJS use Emscripten's
+in-memory `/tmp`, configured by the web C bridge before `pari_init`; the web setter accepts only
+that virtual path. There is no Kotlin/Native actual because those targets are not configured.
+The C setter uses `setenv` on POSIX/Emscripten and `_putenv_s` on Windows.
 
 The native build's `--datadir` is separate from `GPTMPDIR`: PARI uses `datadir` for optional
 architecture-independent data packages including `elldata`, `galdata`, `galpol`, and `seadata`
@@ -241,9 +235,8 @@ from Paridroid should not be mistaken for an app cache path or proof that those 
   based on reproducible results or a clear API requirement.
 - [ ] Test another `pariVersion` through Gradle. Keep GMP pinned at 6.3.0 unless build evidence
   requires an update.
-- [ ] Replace the Wasm `setTemporaryDirectory` no-op with a deliberate Wasm temp-path strategy
-  before claiming Wasm execution support; JVM now creates a host temp directory before
-  initialization.
+- [x] Replace the Wasm temp-directory stub with the web C bridge's explicit in-memory `/tmp`
+  configuration before PARI initialization; verified by successful Node engine initialization.
 
 ### Phase 4 — Clone readiness and docs
 
@@ -344,14 +337,9 @@ Checklist:
   Gradle task dependencies; Android's separate configuration-time build exists because Android
   Studio needs the NDK model during sync.
 - [ ] Verify an IDE-created JavaExec task builds and launches against a newly selected `pariVersion`.
-- [ ] Resolve the Kotlin plugin multiple-load warning. Version-only centralization in settings did
-  not suppress it, while the conventional root `apply false` arrangement caused AGP 9's built-in
-  Kotlin integration to fail during Android application plugin application (`KotlinAndroidTarget`
-  could not load `BaseVariant`). This remains unresolved, not proven unfixable. Next, collect the
-  full failure stack trace and trace actual plugin dependencies and classloader visibility to
-  establish the cause before selecting another fix. Preserve the user's preference for current
-  AGP and verify configuration, Android assemble, and JVM compilation with the resulting setup.
-  All attempted build changes were reverted; only investigation notes remain as changes.
+- [x] Resolve the Kotlin plugin multiple-load warning by sharing AGP and KGP together in the root
+  `apply false` declarations and applying versionless IDs in modules. `help --warning-mode all`,
+  Android assemble, and JVM terminal compilation pass without the warning.
 - [x] Make the Windows JVM native build bootstrap MinGW-w64 like Android bootstraps its NDK:
   use an available system compiler or download a pinned portable xPack compiler with a SHA-256
   check into the WSL native cache.
@@ -379,7 +367,174 @@ Checklist:
 - [ ] Test missing-library diagnostics and build/runtime selection with a second `pariVersion`.
 - [ ] Add and verify macOS and any additional OS/architecture hosts before documenting them as
   supported.
-- [ ] Return to WasmJS and iOS after JVM is usable.
+- [x] Resume JS/WasmJS after JVM is usable; implementation and checks are recorded in Phase 6.
+- [ ] Plan iOS/Kotlin Native support separately after the current web work.
+
+## Phase 6 — JavaScript and WasmJS execution
+
+Current priority: the user deferred macOS verification and selected JS/WasmJS as the next task.
+Keep macOS Android sync/tool discovery and macOS JVM support open; they are not prerequisites
+for developing the web engine on Windows/WSL.
+
+Starting point before this implementation: only a Wasm target and nonfunctional interop stub
+existed. There was no generated engine, real module import, or Kotlin/JS target. The stub loaded
+twice, blocked for readiness, used unsupported external array types, and accepted temp paths
+without configuring anything. It has now been replaced. `paridroid.c` remains shared C logic;
+`jni_bridge.c` is Android/JVM-only.
+
+Implementation and verification:
+
+Implementation: `native/build-web.sh` now prepares a pinned Emscripten 4.0.21/
+Node 22.16.0 toolchain with SHA-256 archive checks on Linux/WSL x86_64, builds static GMP 6.3.0
+and the selected PARI source, and links a dedicated web ABI around `paridroid.c`. An explicit
+activated SDK can be passed with `--emsdk`; automatic toolchain preparation on other hosts is
+not yet implemented. Host prerequisites include Python 3.11+, make, m4, cc, git, curl, tar, and xz.
+`--pari-source` is a development source override; normal builds select the source tag using
+`pariVersion`. `native/web/parikt.mjs` adapts strings and command arrays and provides an async
+factory plus synchronous operations after loading. `native/web/smoke.mjs` exercises the engine
+directly. Gradle tasks `:parikt:buildWebNativeDependencies` and `:parikt:verifyWebNative` use
+`.native/web-<pariVersion>` outputs and default to WSL on Windows. `prepareWebEnginePackage`
+stages the selected payload into `parikt/build/generated/web-engine/`, a stable local npm URL.
+The old Wasm stub was replaced by `webMain` actual bindings and a Kotlin/JS target was added.
+Node and headless Chromium consumer tests pass for both Kotlin targets. A Gradle override to
+PARI 2.19.0 passed the direct smoke, all four consumer tasks, both production distributions, and
+UI checks showing 2.19.0. Switching back to the unchanged gradle.properties selection, 2.15.0,
+also passed. No npm lock update was needed for these switches. PowerShell requires quoting the
+dotted property argument: `'-PpariVersion=2.19.0'`.
+
+`:webApp` provides a shared GP console for both compilers with version/ready status, a startup
+`2 + 2` check, command input, examples, and clearable output. Its production bundles were served
+over HTTP and exercised in isolated headless Edge: startup, factor(123456), clear, Pi example,
+and Pi evaluation passed for JS and WasmJS. Browser tests produced one passing test per target,
+not empty test tasks. Generated web engine/npm/Kotlin output directories were moved aside and
+successfully recreated using persistent source/toolchain caches; a truly clean machine and
+macOS host setup remain unverified. Gradle-managed Node/Binaryen archives have settings-level
+Ivy repositories to respect PREFER_SETTINGS. npm is used instead of Yarn; lockfiles contain
+relative stable engine paths. npm overrides address duplicate webpack-instance resolution.
+
+Remaining build messages include configuration-time npm-resolution performance warnings and
+webpack's asset-size warning for the roughly 6.6–7.1 MiB PARI engine. These are distinct from the
+resolved multiple-KGP-instance warning. Their causes/optimization are not claimed fixed.
+
+Following user API feedback, the only public initializer is now `suspend fun PariKt.init()`;
+the synchronous `initialize()` helper stays private, and the experimental `initAsync()` name was
+removed. This deliberately changes JVM callers to a coroutine/suspending context; terminalApp's
+entry point is now `suspend fun main()`. Android Startup retains its internal synchronous
+`initWithTemporaryDirectory()` entry point. The web factory import is private with an ordinary internal
+delegate. Cancelled loading callers preserve the shared pending load; consumer tests cancel one
+initializer and then initialize successfully. Promise awaiting lives in small JS/Wasm-specific actual functions, because coroutines
+1.9.0's `await` is not exposed consistently to shared-source IDE analysis. The web stack argument
+is restricted to positive signed 32-bit values to match the C bridge, rather than blindly narrowing
+a Kotlin Long. The arbitrary initial 4096-byte lower bound was removed. This is a representation
+check, not a promise that every positive size initializes successfully. Small-stack probes trapped:
+PARI's minimum backing allocation does not enlarge its requested active stack, and normalizing
+to MIN_STACK (500032) still failed PARI 2.19 initialization. Both experiments were removed. The
+default 4,000,000-byte request passes both tested versions; tiny custom requests may terminate the
+engine during initialization and very large requests may exhaust Wasm memory. Safer native
+initialization failure recovery remains future work; do not claim all representable sizes work.
+
+The user also asked about a minimum supported Kotlin version. Proposed initial consumer baseline
+is the current 2.4.21 build toolchain, not a verified technical minimum. Before advertising older
+consumer versions, test actual consumers per target; do not infer JS/Wasm compatibility from JVM
+metadata compatibility alone.
+
+- [x] Prove a minimal PARI web build first, before wiring Kotlin targets. Inspect PARI Configure
+  cross-compilation probes and select a portable wasm32 kernel; decide whether the first build
+  uses static GMP or PARI's portable arithmetic kernel based on actual build results.
+- [x] Add a dedicated Emscripten build script keyed by `pariVersion`, toolchain version, build
+  options, and bridge/script inputs. Keep web outputs separate from Android/JVM caches. Bootstrap
+  a pinned, checksum-verified toolchain and document unavoidable host prerequisites.
+- [x] Add a web C bridge around the existing wrapper, exporting init/eval/commands/version/close
+  with explicit UTF-8 string and memory ownership rules. Handle the wrapper's setjmp/longjmp,
+  filesystem/temp directory, and unsupported OS facilities deliberately. Do not compile JNI.
+- [x] Generate an Emscripten ES module plus its Wasm asset, with asynchronous module creation.
+  Run it directly in Node.js: version, `2 + 2`, `factor(123456)`, persistent variables, invalid
+  input recovery, command listing, and close. Confirm this works before adding Kotlin bindings.
+- [x] Make `PariKt.init()` the single public suspending initializer, with a private synchronous
+  helper and Android Startup's internal synchronous path. Update terminal main and consumers.
+- [ ] Test loading-failure retry using an unavailable Wasm asset; the pending-load reset path
+  exists but this failure case has not been exercised. Test broader reinitialization/concurrency
+  and GP `quit` lifecycle behavior before promising those semantics.
+- [x] Add the Kotlin/JS target and replace the Wasm stub with real imports. Reuse the JavaScript
+  adapter; use interop types supported by each Kotlin target and convert arrays/strings at the
+  boundary. Validate stack-size conversion rather than passing Kotlin Long blindly across JS.
+- [x] Wire Gradle task dependencies and generated JS/Wasm assets for Node and browser consumers.
+  PariKt is a library; put executable demos in consumer modules. Verify asset paths and loading
+  in production output as well as development builds.
+- [x] Add a minimal web GP console and exercise both Kotlin/JS and Kotlin/WasmJS consumers.
+  Start with a single engine and sequential calls. Record that synchronous calculations block
+  their executing thread; evaluate a Worker API separately for a responsive browser UI.
+- [x] Verify switching `pariVersion` between 2.15.0 and 2.19.0 selects the correct engine in both
+  production browser consoles and consumer tests; stable npm paths avoid lock changes.
+- [x] Document actual commands, packaging, synchronous evaluation, and data/filesystem limits.
+- [ ] Verify a truly clean checkout/machine without source/toolchain caches. Generated-output
+  regeneration has passed; host prerequisite installation, other browsers, and macOS remain open.
+- [ ] Define a publishable Maven/npm asset strategy; current file dependencies support local
+  project consumers, not arbitrary external projects consuming published artifacts.
+
+References: [Kotlin/Wasm JS interop](https://kotlinlang.org/docs/wasm-js-interop.html) documents
+the restricted external types; [Emscripten modularized output](https://emscripten.org/docs/compiling/Modularized-Output.html)
+documents async module factories and ES module output. The implemented build uses a portable
+wasm32/GMP kernel. PARI 2.15's disabled-pipe branch needed a narrowly scoped return-type fix in
+the build copy for current Clang; static linking also required using PARI's actual private hash
+table symbols rather than defining the JNI wrapper's replacement symbols. Other PARI versions
+may need further compatibility work; only the versions recorded above have been executed.
+
+## Phase 7 — Shared Compose console
+
+The user requested a similar Compose UI on all currently tested targets, including desktop,
+using the existing WasmJS console as the visual reference. Share the dark palette, status/version
+line, examples, command field, output, and behavior. Retain Android minSdk 21 and defer macOS
+verification. Binary function filtering was discussed only; the user explicitly declined
+implementation of that separate idea.
+
+- [x] Add a `:consoleUi` KMP module for shared Compose screen/state, consumed by Android,
+  desktop JVM, Kotlin/JS, and Kotlin/WasmJS launchers.
+- [x] Select Compose dependencies compatible with API 21 and Kotlin 2.4.21; test actual builds.
+  Selected Compose Multiplatform 1.8.2, matching AndroidX UI 1.8.2 and Material3 1.3.2.
+  Published AAR manifests confirm UI 1.8.2 minSdk 21 versus UI 1.12.1 minSdk 23; do not rely on
+  generic platform compatibility tables alone.
+  The 1.8.2 Gradle plugin fails against AGP 9.4.1 with missing `onVariant(Function1)`.
+  The shared UI uses the Kotlin Compose compiler plugin with explicit UI dependencies;
+  it has no Compose resource-generation/packaging requirement. The Compose Multiplatform
+  plugin remains limited to the browser launcher, avoiding its old Android integration.
+- [x] Reuse console initialization, version/self-check, command editing/examples/history/clear
+  behavior and the Wasm console's visual design. Preserve native engine thread affinity; moving
+  evaluation to arbitrary background dispatchers is outside this UI change.
+- [x] Replace Android's private screen and the HTML web implementation with thin launchers.
+- [x] Add `:desktopApp` with the shared screen and native build/library-path preparation.
+  Retain `:terminalApp` as a separate CLI.
+- [x] Build Android at minSdk 21, desktop JVM, and both browser compiler targets. Exercise
+  real startup and calculations, and verify shared state behavior.
+- [x] Document launcher commands and remaining desktop packaging/host limitations.
+
+Initial verification: shared JVM/JS/Wasm compilation, desktop launcher compilation, Android
+APK assembly (minSdk 21), and both production browser distributions pass. Two shared-state JVM
+tests pass (startup gate/version/self-check, command trimming/history/reuse/clear, retry).
+Production JS/Wasm screenshots show PARI 2.15.0 Ready and real `2+2 = 4` using the shared screen.
+The Kotlin/JS canvas renderer remains experimental and is explicitly enabled in gradle.properties.
+The 1.8.2 browser plugin provides Skiko assets; only JS loads global skiko.js, while Kotlin/Wasm
+imports its renderer. Browser bundles retain size/configuration-time npm warnings. Runtime
+verification results are recorded below; macOS and a Linux desktop GUI remain unverified.
+Android Studio could not resolve `ComposeViewport` in shared webMain although target compilation
+passed. The thin viewport calls now live in jsMain/wasmJsMain, where those declarations are
+published, behind `launchConsoleUi()`; only the screen and state are shared in consoleUi.
+A desktop Compose integration test exercises the real native engine and UI semantics without
+opening a window; it uses the same native preparation as the desktop launcher. It passes startup,
+factorization, clear, and typed Pi. Compose 1.8.2's headless mouse injector called evaluation on
+the test-worker thread after initializing on AWT, producing PARI's `expression nested too deeply`.
+Native env/stack diagnostics confirmed distinct threads; temporary diagnostics were removed.
+The test now invokes semantic button actions on AWT, matching actual desktop input. Native
+thread affinity remains required; this does not add cross-thread library support.
+Android API 36 x86_64 emulator runtime checks pass with PARI 2.15.0: startup/version, factor,
+clear, and Pi. Production Edge JS/Wasm screenshots also verify factor, clear, Pi and a 390px
+layout. An initial emulator lacked storage; a second configured emulator accepted the APK.
+API 21 manifest compatibility is verified by assembly, not an API 21 device run (available AVD
+is x86, outside supported ABIs). Desktop launcher smoke runs finish successfully for 2.15.0
+and 2.19.0; the automated UI calculation test has so far run on Windows with 2.15.0.
+Final combined verification passed: `:androidApp:assembleDebug`, `:consoleUi:jvmTest`,
+`:desktopApp:test`, `:webApp:jsBrowserDistribution`, and `:webApp:wasmJsBrowserDistribution`.
+No function-removal feature was implemented. The core library remains independent of Compose.
 
 ## Android build defaults and environment notes
 
@@ -391,7 +546,8 @@ bug is a possible cause, but the exact macOS error and installed NDK version hav
 provided. Fresh-clone macOS sync remains unverified; do not claim this change resolves that report
 until confirmed. The installed SDK must contain NDK 28.2.13676358.
 
-Defaults in PariKt are PARI 2.17.1, GMP 6.3.0 (pinned in `native/build-native.sh`), Android API 21,
+The currently selected PARI version is 2.15.0 in gradle.properties; the native scripts' fallback
+default is 2.17.1. Other defaults are GMP 6.3.0 (pinned in `native/build-native.sh`), Android API 21,
 NDK 28.2.13676358, and ABIs `arm64-v8a,x86_64`. `pariVersion` is read from root `gradle.properties`;
 `nativeAbis`, `nativeRunner`, and `nativeForce` are optional properties.
 
@@ -404,4 +560,4 @@ native helper uses `minSdk 21` and NDK 28.2.13676358. `:androidApp:assembleDebug
 packages PARI/GMP/JNI libraries for arm64-v8a and x86_64. The migrated app also launched on API 36.1
 x86_64, initialized through Startup, and displayed the passing `2 + 2` result. The API-21 AVD
 available on the machine is x86, outside the native ABI list. The unrelated
-multiple-Kotlin-plugin-load warning remains.
+multiple-Kotlin-plugin-load warning was subsequently resolved by sharing AGP and KGP at the root.

@@ -5,6 +5,8 @@ import android.util.Log
 // Android-specific implementation of PariNative using JNI
 internal actual object PariNative {
 
+	actual suspend fun prepareLibraries() {}
+
 	const val MSG_TAG: String = "PariKt::PariNative"
 
 	init {

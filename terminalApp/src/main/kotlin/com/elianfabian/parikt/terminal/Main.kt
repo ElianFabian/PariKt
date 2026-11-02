@@ -3,7 +3,7 @@ package com.elianfabian.parikt.terminal
 import com.elianfabian.parikt.PariKt
 import com.elianfabian.parikt.getVersionName
 
-fun main() {
+suspend fun main() {
 	PariKt.init()
 	try {
 		println("PariKt terminal console")

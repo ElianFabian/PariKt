@@ -79,4 +79,111 @@ verified for PARI 2.17.1; the Windows terminal has also been smoke-tested with P
 clean-machine setup, another PARI version, missing-library diagnostics, and packaged distribution
 still need validation; this is not yet a published cross-platform distribution.
 
-WasmJS currently has an interop stub and is not ready for use.
+## Shared Compose demo
+
+`:consoleUi` shares the dark GP console between Android, desktop JVM, Kotlin/JS, and Kotlin/WasmJS.
+It shows the actual PARI version and runs `2 + 2` on startup. Choose an example or enter a GP
+expression, then press **Run command** or Enter (Shift+Enter inserts a new line). Previous
+commands can be clicked to reuse them. **Clear output** clears the visible history and retains
+the engine's variables.
+
+Run `androidApp` from Android Studio on an arm64-v8a or x86_64 device/emulator, or build its APK
+with `.\gradlew.bat :androidApp:assembleDebug`. Android minSdk remains 21. The shared UI uses
+Compose Multiplatform 1.8.2 libraries to retain API 21 compatibility.
+
+For the desktop window on Windows:
+
+```powershell
+.\gradlew.bat :desktopApp:run
+```
+
+On Linux x86_64 use `bash ./gradlew :desktopApp:run` in a graphical desktop session. Both commands
+prepare the selected PARI native libraries and configure `java.library.path`, like `terminalApp`.
+The terminal CLI remains available as `:terminalApp:run`. This is a host-specific development
+launcher; native installers and a packaged distribution containing libraries for every OS are
+not implemented. macOS native build/runtime verification remains deferred.
+
+The browser commands below use the same Compose screen. The Kotlin/JS canvas renderer in this
+Compose release is experimental. GP evaluation is synchronous on each platform's UI thread;
+long calculations can pause the interface.
+
+## Web engine development
+
+Kotlin/JS and Kotlin/WasmJS share an Emscripten PARI engine and support browser and Node.js
+consumers. The engine uses the same `pariVersion` property as Android/JVM, static GMP 6.3.0,
+and Emscripten 4.0.21. The current Kotlin build/consumer test baseline is 2.4.21; compatibility
+with older Kotlin consumers has not been established. The Kotlin/JS target also needs WebAssembly
+at runtime because PARI itself is compiled to Wasm.
+
+Inside a coroutine or suspending function:
+
+```kotlin
+PariKt.init()
+try {
+    println(PariKt.getVersionName())
+    println(PariKt.eval("factor(123456)"))
+} finally {
+    PariKt.close()
+}
+```
+
+The public `init()` is now suspending on every target, so it can load the web engine before
+initializing PARI. JVM callers must use a coroutine or a suspending `main()` (as in `terminalApp`).
+Android's Startup initializer retains its internal synchronous path; Android consumers do not
+need to call initialization explicitly. There is no separate public `initAsync()` or synchronous
+initialization method.
+
+The `:webApp` GP console runs with either compiler target. From PowerShell, run one at a time
+and open the local address printed by Gradle:
+
+```powershell
+.\gradlew.bat :webApp:jsBrowserDevelopmentRun
+.\gradlew.bat :webApp:wasmJsBrowserDevelopmentRun
+```
+
+Build static browser distributions with `:webApp:jsBrowserDistribution` and
+`:webApp:wasmJsBrowserDistribution`. Serve the resulting `webApp/build/dist/js/productionExecutable/`
+or `webApp/build/dist/wasmJs/productionExecutable/` directory over HTTP; opening `index.html`
+directly as a file is not a supported Wasm loading workflow.
+
+On Windows with WSL x86_64, run from PowerShell:
+
+```powershell
+.\gradlew.bat :parikt:verifyWebNative
+.\gradlew.bat :parikt:jsNodeTest :parikt:wasmJsNodeTest
+```
+
+On Linux x86_64:
+
+```bash
+bash ./gradlew :parikt:verifyWebNative
+```
+
+The task prepares a checksum-verified Emscripten/Node toolchain under
+`~/.cache/parikt-web` in Linux/WSL, builds the selected PARI source, and exercises it in Node.
+Host tools currently required: Python 3.11+, a C compiler, make, m4, git, curl, tar, and xz.
+The first build downloads a substantial compiler archive and compiles GMP/PARI; later builds
+reuse the toolchain, GMP, and generated engine. Automatic toolchain setup currently supports
+Linux/WSL x86_64 only. Other hosts can provide an activated Emscripten 4.0.21 SDK with
+`-PwebEmsdkDir=<path>` and `-PwebNativeRunner=local`; those hosts remain unverified.
+
+Generated engines are cached under `parikt/.native/web-<pariVersion>/` and staged by
+`:parikt:prepareWebEnginePackage` into `parikt/build/generated/web-engine/` for a stable local
+npm dependency. This keeps lockfiles portable and avoids changing dependency URLs when selecting
+a different PARI version. Native source/bridge changes also invalidate web test and bundle inputs.
+`parikt.mjs` exports an async
+factory; after it resolves, call `init()` and then `eval()`, `getSupportedCommands()`,
+`getVersionCode()`, and `close()`. Keep the adapter, engine `.mjs`, and `.wasm` assets together.
+The factory accepts Emscripten module options (for example `locateFile` or `wasmBinary`).
+Temporary files use Emscripten's in-memory `/tmp`; optional PARI data packages are not bundled.
+Evaluation is synchronous and runs on the caller's thread; heavy calculations can pause the
+browser UI. A Worker-based API is future work. The web bridge accepts a positive signed 32-bit
+byte count; that is a representation check, not a promise that every size can initialize PARI.
+Use the default 4,000,000 bytes unless deliberately tuning memory: tiny requests can fail native
+initialization, and large allocations depend on available Wasm memory. These are local project integrations,
+not a published Maven/npm web distribution. Native builds can be forced with `-PwebNativeForce`.
+
+Browser consumer tests are `:parikt:jsBrowserTest` and `:parikt:wasmJsBrowserTest`. They use headless
+Chrome; set `CHROME_BIN` to another Chromium executable (such as Edge) if needed. The native
+engine smoke has passed for PARI 2.15.0 and 2.19.0; Kotlin consumer tests use the selected version.
+macOS build-host verification remains deferred.

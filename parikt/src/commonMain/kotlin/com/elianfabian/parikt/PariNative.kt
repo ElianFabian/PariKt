@@ -2,9 +2,11 @@ package com.elianfabian.parikt
 
 /**
  * Platform-specific native bindings for PariKt.
- * Each target provides an actual implementation with JNI or cinterop bindings.
+ * Targets provide JNI bindings or a JavaScript adapter to the Emscripten engine.
  */
 internal expect object PariNative {
+
+	suspend fun prepareLibraries()
 
 	fun loadLibraries()
 

@@ -35,11 +35,21 @@
 #else
 #define PARIDROID_ADD_HIST(z, t, r) pari_add_hist(z, t, r)
 #endif
+#ifdef PARIKT_STATIC_PARI
+/* Static web linking uses PARI's own symbols, whose names changed across releases. */
+#ifdef PARIDROID_USE_HASH_MASK
+#define PARIDROID_FUNCTION_BUCKETS (functions_hash_MASK + 1)
+#else
+#define PARIDROID_FUNCTION_BUCKETS functions_tblsz
+#endif
+#else
 #ifdef PARIDROID_USE_HASH_MASK
 const long functions_hash_MASK = 4095;
 #define functions_tblsz functions_hash_MASK
 #else
 const long functions_tblsz = 4095;
+#endif
+#define PARIDROID_FUNCTION_BUCKETS (functions_tblsz + 1)
 #endif
 
 #include <setjmp.h>
@@ -207,7 +217,7 @@ paridroid_getcommands(const char ***commands, int size, int *len) {
         return;
     }
 
-    for (i = 0; i <= functions_tblsz; i++)
+    for (i = 0; i < PARIDROID_FUNCTION_BUCKETS; i++)
         for (ep = functions_hash[i]; ep; ep = ep->next) {
             switch (EpVALENCE(ep)) {
                 case EpVAR:

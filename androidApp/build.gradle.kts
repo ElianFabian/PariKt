@@ -1,6 +1,6 @@
 plugins {
-	alias(libs.plugins.android.application)
-	alias(libs.plugins.compose.compiler)
+	id("com.android.application")
+	id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -32,8 +32,6 @@ kotlin {
 }
 
 dependencies {
-	implementation(project(":parikt"))
-	implementation(platform(libs.androidx.compose.bom))
+	implementation(project(":consoleUi"))
 	implementation(libs.androidx.activity.compose)
-	implementation(libs.androidx.compose.material3)
 }

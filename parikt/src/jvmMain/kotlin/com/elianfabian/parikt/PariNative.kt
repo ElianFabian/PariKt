@@ -8,6 +8,8 @@ import java.io.File
 // available through java.library.path.
 internal actual object PariNative {
 
+	actual suspend fun prepareLibraries() {}
+
 	private var temporaryDirectoryConfigured = false
 
 	actual fun loadLibraries() {

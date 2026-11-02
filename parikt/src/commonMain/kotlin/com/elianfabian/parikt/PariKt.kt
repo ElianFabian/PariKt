@@ -9,10 +9,16 @@ public object PariKt {
 	private var _initialized = false
 
 	/**
-	 * Initialize the PARI/GP engine with the given stack size.
+	 * Load the platform engine and initialize PARI with the given stack size.
+	 * Web targets suspend while loading their engine. Android normally initializes via Startup.
+	 * Calls after initialization have no effect.
 	 * @param pariSize Stack size in bytes (default: 4,000,000)
+	 * Web targets require a positive value that fits a signed 32-bit integer. Successful
+	 * initialization still requires enough stack space and available memory.
 	 */
-	public fun init(pariSize: Long = 4_000_000L) {
+	public suspend fun init(pariSize: Long = 4_000_000L) {
+		if (_initialized) return
+		PariNative.prepareLibraries()
 		initialize(pariSize, null)
 	}
 

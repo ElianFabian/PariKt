@@ -1,0 +1,9 @@
+{
+  "name": "@parikt/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./parikt.mjs",
+  "files": ["parikt.mjs", "parikt-engine.mjs", "parikt-engine.wasm"],
+  "license": "GPL-3.0-or-later"
+}

@@ -1,5 +1,5 @@
 plugins {
-	alias(libs.plugins.android.library)
+	id("com.android.library")
 }
 
 val pariVersion = providers.gradleProperty("pariVersion").getOrElse("2.17.1")

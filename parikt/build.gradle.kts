@@ -1,8 +1,8 @@
-@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class, org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 
 plugins {
-	alias(libs.plugins.kotlin.multiplatform)
-	alias(libs.plugins.android.kotlin.multiplatform.library)
+	id("org.jetbrains.kotlin.multiplatform")
+	id("com.android.kotlin.multiplatform.library")
 }
 
 val pariVersion = providers.gradleProperty("pariVersion").getOrElse("2.17.1")
@@ -64,6 +64,63 @@ val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencie
 	}
 }
 
+val webNativeDirectory = layout.projectDirectory.dir(".native/web-$pariVersion")
+val webEnginePackageDirectory = layout.buildDirectory.dir("generated/web-engine")
+val webNativeRunner = providers.gradleProperty("webNativeRunner")
+	.getOrElse(if (isWindows) "wsl" else "local")
+val webEmsdkDirectory = providers.gradleProperty("webEmsdkDir").orNull
+val webNativeScript = layout.projectDirectory.file("native/build-web.sh")
+
+fun webBuildCommand(smoke: Boolean): List<String> {
+	fun runnerPath(file: File): String = if (webNativeRunner == "wsl") file.toWslPath() else file.absolutePath
+	val prefix = when (webNativeRunner) {
+		"local" -> listOf("bash")
+		"wsl" -> listOf("wsl", "bash")
+		else -> throw GradleException("Unknown webNativeRunner '$webNativeRunner'; use 'local' or 'wsl'.")
+	}
+	return prefix + listOf(
+		runnerPath(webNativeScript.asFile), "--pari-version", pariVersion,
+		"--out", runnerPath(webNativeDirectory.asFile),
+	) + (webEmsdkDirectory?.let {
+		// A WSL SDK path may already be a Linux path; translate only Windows drive paths.
+		listOf("--emsdk", if (webNativeRunner == "wsl" && Regex("^[A-Za-z]:").containsMatchIn(it)) File(it).toWslPath() else it)
+	} ?: emptyList()) +
+		(if (!smoke && providers.gradleProperty("webNativeForce").isPresent) listOf("--force") else emptyList()) +
+		(if (smoke) listOf("--smoke") else emptyList())
+}
+
+val buildWebNativeDependencies = tasks.register<Exec>("buildWebNativeDependencies") {
+	group = "native"
+	description = "Builds GMP/PARI $pariVersion and the web bridge with Emscripten."
+	inputs.file(webNativeScript)
+	inputs.dir(layout.projectDirectory.dir("native/web"))
+	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
+	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
+	inputs.property("pariVersion", pariVersion)
+	inputs.property("runner", webNativeRunner)
+	inputs.property("emsdk", webEmsdkDirectory ?: "bootstrap")
+	outputs.dir(webNativeDirectory)
+	outputs.upToDateWhen {
+		!providers.gradleProperty("webNativeForce").isPresent && pariVersion !in setOf("master", "latest")
+	}
+	doFirst { commandLine(webBuildCommand(smoke = false)) }
+}
+
+tasks.register<Exec>("verifyWebNative") {
+	group = "verification"
+	description = "Exercises the generated PARI web engine directly in Node.js."
+	dependsOn(buildWebNativeDependencies)
+	doFirst { commandLine(webBuildCommand(smoke = true)) }
+}
+
+val prepareWebEnginePackage = tasks.register<Sync>("prepareWebEnginePackage") {
+	group = "native"
+	description = "Stages the selected PARI engine at a stable local npm package path."
+	dependsOn(buildWebNativeDependencies)
+	from(webNativeDirectory) { include("*.mjs", "*.wasm", "package.json") }
+	into(webEnginePackageDirectory)
+}
+
 kotlin {
 	explicitApi()
 	compilerOptions {
@@ -89,10 +146,24 @@ kotlin {
 		}
 	}
 
+	js {
+		useEsModules()
+		browser { testTask { useKarma { useChromeHeadless() } } }
+		nodejs { testTask { useMocha { timeout = "120s" } } }
+	}
+
 	wasmJs {
-		browser()
+		browser { testTask { useKarma { useChromeHeadless() } } }
 		nodejs()
-		binaries.executable()
+	}
+
+	applyDefaultHierarchyTemplate {
+		common {
+			group("web") {
+				withJs()
+				withWasmJs()
+			}
+		}
 	}
 
 	sourceSets {
@@ -119,10 +190,29 @@ kotlin {
 				implementation(libs.junit.jupiter)
 			}
 		}
-		named("wasmJsMain") {
+		named("webMain") {
 			dependencies {
 				implementation(libs.kotlinx.coroutines.core)
+				// Relative to KGP's build/{js,wasm}/packages/<module> workspace directories.
+				// Keep checkout-specific absolute paths out of the checked-in npm lockfiles.
+				implementation(npm("@parikt/engine", "file:../../../../parikt/build/generated/web-engine"))
+			}
+		}
+		named("webTest") {
+			dependencies {
+				implementation(kotlin("test"))
+				implementation(libs.kotlinx.coroutines.test)
 			}
 		}
 	}
+}
+
+// The local npm package must exist before KGP resolves or installs web dependencies.
+tasks.matching { it.name.endsWith("PackageJson") }.configureEach {
+	dependsOn(prepareWebEnginePackage)
+}
+
+tasks.matching { it.name in setOf("jsNodeTest", "wasmJsNodeTest", "jsBrowserTest", "wasmJsBrowserTest") }.configureEach {
+	dependsOn(prepareWebEnginePackage)
+	inputs.dir(webEnginePackageDirectory)
 }
