@@ -2,11 +2,11 @@
 
 This standalone build exercises the compatibility proofs in [the module-version plan](../../PARI_MODULE_VERSION_PLAN.md).
 The default fixture is the experimental JVM integration. Production now supports JVM module
-overrides and module-only JVM configuration too. The disposable production acceptance command
+overrides and module-only JVM/Native configuration too. The disposable production acceptance command
 `pwsh -File tests/build_configuration/verify_production_module_only.ps1` uses the real production
 settings script with this fixture's Kotlin sources; it does not use this fixture's engine scaffold.
-Native routing here is an opt-in linking proof; production Native/web/Android
-overrides remain gated. Existing targets and Android minSdk 21 are preserved.
+Native routing here remains an opt-in linking proof; the production installer now also supports
+Native overrides. Production web/Android overrides remain gated. Existing targets and minSdk 21 persist.
 
 From the repository root, using its JDK/Gradle/native build prerequisites:
 
@@ -55,7 +55,10 @@ All seven disposable acceptance cases pass on Windows x86_64 with WSL Linux: bot
 identity/archive checks, same-version reuse, explicit requirements, higher/lower duplicate
 providers and restored executables. Cache/reuse/restoration cases fetch no source and compile
 no Native engines. Logs are under build/native-tests; temporary fixtures are safely removed.
-This is a compatibility proof, not production Native override support.
+Use `pwsh -File tests/build_configuration/verify_native_module_versions.ps1 -Production` for the
+ten-case production installer suite: default/scoped identities, both runtimes/orders, rootless
+chains, strict requirements, higher/lower provider requests and restored defaults. It uses the
+actual production scripts and consumer-owned output paths, seeding prepared C artifacts/stamps.
 
 ## Opt-in JS/Wasm proof
 
@@ -210,6 +213,6 @@ The test requires a previously prepared JVM compiler/GMP source cache and perfor
 Consumer library paths stay in their own staged output directories. Linux JVM optional-data
 paths are part of engine identity; different configured paths are separate build options.
 
-Configuration-cache support and production Native/web/Android routing remain in the plan.
+Configuration-cache support and production web/Android routing remain in the plan.
 The isolated compatibility proofs above establish their recorded scope; production integration
 must preserve those identities, package boundaries and cache behavior.

@@ -44,7 +44,7 @@ already declares these plugins, keep one declaration using the same versions. Th
 baseline is Gradle 9.6.0, Kotlin 2.4.21 and AGP 9.4.1. Android SDK/NDK and the host prerequisites
 below are still required: the source library currently configures all implemented targets,
 including its Android native model, when a root default configures the full source library.
-Module-only JVM builds configure JVM providers instead and need only the Kotlin plugin classpath:
+Module-only JVM/Native builds configure scoped providers and need the Kotlin plugin classpath:
 
 ```kotlin
 plugins {
@@ -85,7 +85,7 @@ The key includes the source revision, bridge/JNI inputs, compiler identity and b
 The Linux JVM's configured optional-data path is an output-dependent build option, so different
 data paths use different entries. Consumer outputs are staged copies; matching modules share a
 source component and native task. Force rebuilds replace the matching cache entry, and other
-consumers refresh their staged output on their next builder invocation. Native/Web/Android
+consumers refresh their staged output on their next builder invocation. Web/Android
 module routing remains gated by the module-version plan.
 
 Generated AARs, klibs, executables and web bundles contain the consumer-selected engine.
@@ -93,7 +93,7 @@ They cannot change PARI after compilation. Binary-only Maven installation is not
 an ordinary Maven dependency plus a properties file alone cannot run these source-build steps.
 See `PARI_VERSION_PLAN.md` for the implementation checklist and cache identity discussion.
 
-JVM-only application modules can override the root default with a `parikt.properties` in their
+JVM and Native application modules can override the root default with a `parikt.properties` in their
 own project directory. `terminalApp` inherits this repository's 2.15.0 default; `desktopApp`
 selects 2.19.0. Both use `consoleUi`, which compiles against the default and imposes no explicit
 engine requirement. A library with its own file does impose a requirement: a conflicting app
@@ -102,10 +102,10 @@ Use `pariktSelections` to inspect effective versions and origins.
 
 Each application routes direct and transitive JVM dependencies to one source provider per
 distinct version, and its JavaExec/test tasks use that provider's native output. Matching
-selections reuse the provider and compatible engine cache. Production JVM builds also support
+selections reuse the provider and compatible engine cache. Production JVM/Native builds support
 **module-only configuration**: omit the root file and put `parikt.properties` in every module
 that directly or transitively uses PariKt, including shared libraries. Unrelated modules need
-no selection. JVM-only KMP libraries are supported, including common metadata routing.
+no selection. Supported KMP libraries include common metadata routing.
 
 Every local library file is a strict requirement, so a shared library's selection must agree
 with all consuming apps. Independent applications with separate dependency chains can select
@@ -115,8 +115,8 @@ file remains an error even if all modules have local files.
 Without a root default, `:parikt` and `:pariktAndroidNative` are empty selectors. Invoke the
 application's task; default-engine tasks such as `:parikt:jvmJar` fail with instructions to
 provide a root default, even if all local files agree. No Android model/bootstrap is configured
-in this mode. Modules with non-JVM targets still require the root default until production
-component/output routing is integrated; their isolated compatibility proofs are complete.
+in this mode. Modules with Android/web targets still require the root default until their
+production routing is integrated; their isolated compatibility proofs are complete.
 
 Verify the existing applications without opening a window:
 
@@ -239,6 +239,31 @@ information and a startup self-check. Enter GP expressions, or `quit` / `exit` t
 console. The third command runs both native test suites; Linux runs through WSL. On a Linux
 x86_64 build host, use `bash ./gradlew` instead of `.\gradlew.bat`; Linux runs directly there.
 Windows executables and tests must run on Windows.
+
+Native modules support the same root defaults and local overrides as JVM modules. For example,
+`nativeTerminalApp/parikt.properties` can select 2.19.0 while the root remains on 2.15.0.
+Shared libraries with inherited defaults remain neutral; local library files impose strict
+requirements. Module-only Native builds also work when every participating module selects locally.
+Keep `kotlin.mpp.enableCInteropCommonization=true` in gradle.properties for shared Native metadata,
+as in both examples. Matching applications share a provider and its version/target cache.
+
+Default and scoped providers share stable Kotlin/interop identities. Source providers use a
+stable `:parikt` leaf name; final links check every input klib for exactly one `libparikt.a`
+matching the selected cache binary. Competing explicit providers fail before Gradle can merge
+their versions. These source-integration identities rebuild Kotlin outputs without invalidating
+compatible C caches. Inspect or verify them with:
+
+```powershell
+.\gradlew.bat :nativeTerminalApp:verifyPariNativeGraph verifyPariNativeIdentity
+pwsh -File tests/build_configuration/verify_native_module_versions.ps1 -Production
+```
+
+The ten production acceptance cases pass on Windows x86_64/WSL, covering both target runtimes,
+both orders, same-version reuse, rootless shared/independent chains, strict requirements,
+higher/lower provider requests and restored defaults. The harness seeds prepared 2.15.0/2.19.0
+C artifacts/stamps into disposable consumer-owned caches; builders validate them normally.
+Root-default source installation retains its existing Android SDK prerequisites. Production
+Android/web overrides remain the next integration steps.
 
 In Android Studio, sync Gradle after changing the build script, then run the native main
 configuration (`runDebugExecutableMingwX64`). Generated debug/release run tasks forward console

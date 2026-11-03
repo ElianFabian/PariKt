@@ -40,6 +40,7 @@ gradle.projectsEvaluated {
             }
         }
     } while (changed)
+    gradle.extensions.extraProperties["parikt.participants"] = participants.toSet()
     participants.sorted().forEach { path ->
         if (path !in selections) {
             throw GradleException("Missing PariKt selection for $path (${File(directories.getValue(path), "parikt.properties")}). " +

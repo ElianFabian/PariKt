@@ -50,12 +50,50 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+Production Native routing is implemented and verified. The next rollout stages in
+PARI_MODULE_VERSION_PLAN.md are web package/task integration, Android helpers/models/module-only
+routing, then final integrated regressions/docs. Android/web overrides remain gated.
+
+Default/scoped providers now share group com.elianfabian.parikt.engine, stable :parikt leaf names
+and Native module name parikt. Scoped providers combine typed JVM/Native templates referencing
+the pinned source files and consumer-owned version/target caches. Source/interop manifest IDs,
+metadata and IR hashes match across default and scoped providers on Linux/Windows. Shared Native
+metadata and interop commonization also pass (build/platform-native-common-metadata.log).
+
+Production routing covers Native/common graphs. Explicit competing provider requests fail before
+Gradle can merge versions. Participating Native consumers have verifyPariNativeGraph plus final
+link checks scanning every klib for exactly one selected libparikt.a hash. The applied script uses
+Gradle Groovy interop to read the public libraries property, avoiding unavailable KGP compile
+types; generated templates retain typed KGP access. verifyPariNativeIdentity checks both targets.
+
+All ten verify_native_module_versions.ps1 -Production cases pass: build/np/9940f9b6c63e/logs.
+They use the actual installer, consumer-owned output paths and seeded prepared C artifacts/stamps,
+covering both runtimes/orders, same-version reuse, rootless shared/independent chains, missing and
+strict shared requirements, higher/lower provider requests and restored root defaults. No new
+source fetch or C engine build occurs. Windows x86_64/WSL is verified; standalone Linux-host Gradle
+execution remains unverified. The original isolated proof mode is preserved.
+
+All 13 module-only JVM cases pass (build/production-module-only/c982d688cd1a/logs), as do all 11
+real application cases (build/application-version-tests/dcd57bf50af5471486865d95b9d251b5). Expectations
+now use nested provider paths and early conflict diagnostics; the no-default task assertion uses
+an exact root prefix. The real Native CLI passes temporary 2.19.0 override runs with factorization
+and close on Windows/WSL, then both properties and binaries are restored to 2.15.0. Logs:
+build/platform-native-real-cli-*.log and build/platform-native-cli-default-restored.log.
+
+Android assembly/minSdk 21, shared web compilation and actual Native/JS/Wasm tests pass together:
+146 tasks, 41 executed/105 up to date (build/platform-native-target-regressions.log). Both READMEs
+and version plans describe the newly supported production Native scope. The standalone consumer
+passes JVM and actual Windows/Linux Native execution on 2.19.0 (build/platform-native-consumer-regression.log;
+Linux also launched directly through WSL). All five property diagnostics and 24 scoped discovery
+cases pass: build/platform-native-{property-diagnostics,selection-regressions}.log. No temporary
+module override remains. Native is ready to commit; next implement production web package routing.
+
 Production module-only JVM configuration is implemented and verified. Without a root default,
 the production installer includes empty :parikt/:pariktAndroidNative selectors and generates JVM
-providers for explicit module selections. No local selection becomes a sibling/root default;
+providers for explicit module selections (now extended with Native targets). No local selection becomes a sibling/root default;
 default-engine tasks fail clearly instead of guessing. JVM/common configurations route to their
 selected provider, including JVM-only KMP metadata. Every participating module needs a selection;
-an explicit library selection remains strict. Non-JVM production configurations remain gated.
+an explicit library selection remains strict. Android/web production configurations remain gated.
 
 All 13 disposable verify_production_module_only.ps1 cases pass using the actual production
 settings script: build/production-module-only/9a887c3c6a0f/logs. They cover shared same-version
@@ -71,7 +109,7 @@ the missing case now declares a participating root, since unrelated builds need 
 The standalone examples/consumer JVM run passes on 2.19.0. Existing Android assembly (minSdk 21),
 consoleUi JS/Wasm compilation and Linux/Windows Native checks pass in a 97-task regression build.
 Logs: build/module-only-{property-diagnostics,consumer-regression,target-regressions}.log.
-README and the module plan describe module-only JVM setup and the remaining non-JVM gate.
+README and the module plan describe module-only JVM setup and the remaining Android/web gate.
 The module-only suite is verified on Windows x86_64/WSL with prepared 2.15.0/2.19.0 engines;
 this cache prerequisite is explicit in the script/README. Windows PowerShell 5.1 also passes all
 five updated property diagnostics. All 24 scoped-discovery regression cases also pass:
@@ -114,7 +152,7 @@ overrides remain gated pending shared component/output integration.
 
 JVM integration is committed as 5610057; the isolated Native proof is committed as 35ff177.
 Step 6's isolated JS/Wasm proof is complete behind -PwebProof in examples/module-versions.
-Production Native/web/Android module overrides remain gated; root defaults and minSdk 21 persist.
+Production web/Android module overrides remain gated; Native integration is verified above.
 
 webAppA inherits 2.19.0 and webAppB selects 2.15.0; both call webSharedLogic compiled against
 the default. Generated private @JsModule bindings import distinct @parikt/engine-<version>
@@ -154,7 +192,7 @@ module-only non-JVM coverage and step 8 regressions/documentation. Keep examples
 and examples/module-versions; they verify standalone installation and multi-app boundaries.
 
 JVM integration committed as 5610057. Step 5's isolated Native compatibility proof is complete,
-opt-in via -PnativeProof in examples/module-versions. Production Native overrides remain gated.
+opt-in via -PnativeProof in examples/module-versions. The subsequent production Native rollout is recorded above.
 The nativeAppA/nativeAppB applications share nativeSharedLogic, compiled against the 2.19.0
 root default once per target, while nativeAppB explicitly selects 2.15.0. Both engines run on
 Windows x86_64 and WSL Linux with version, arithmetic, factorization and error-recovery checks.
@@ -183,8 +221,8 @@ The final default JVM fixture identity/graphs/apps also pass without deprecation
 JVM graph tasks are registered only for JVM consumer plugins; Native consumers expose their
 own verifyNativeGraph task. Final task-registration checks pass for JVM graphs and Native
 graphs/identity (build/module-native-task-scope-{jvm,native}.log), without deprecation warnings.
-Step 6's web proof is now complete; production Native rollout remains part
-of step 3's unresolved component/output integration. Existing targets, examples and minSdk 21
+Step 6's web proof is now complete; production Native rollout has since passed its separate
+step-3 checkpoint. Web/Android integration remains open. Existing targets, examples and minSdk 21
 are unchanged. The Native proof is a separate checkpoint from the JVM integration.
 
 Production JVM routing/launcher integration is implemented using terminalApp, desktopApp and
@@ -215,7 +253,7 @@ JVM proof. It uses root defaults/module overrides, generated KMP JVM source comp
 project substitution and a common engine capability. Steps 1–2 are complete in the experimental
 JVM selection layer. Steps 4 and 5–6's isolated Native/web proofs are complete; steps 3 and 7–8 remain
 open in part. Production JVM routing now uses that design,
-while Native/web/Android retain the root selection.
+while web/Android retain the root selection; Native production routing is verified above.
 Both applications pass in one invocation in both orders with 2.19.0/2.15.0, exact arithmetic/
 factorization checks and one PariKt class resource per JVM. sharedLogic compiles against the
 default once and its unchanged jar works with both providers. Class/Kotlin module metadata hashes

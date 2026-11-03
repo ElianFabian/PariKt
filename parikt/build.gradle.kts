@@ -46,6 +46,8 @@ rootProject.run {
 }
 
 val pariVersion = gradle.extensions.extraProperties["parikt.version"] as String
+// Match scoped providers independently of the consuming root's name.
+group = "com.elianfabian.parikt.engine"
 val nativeCacheDirectory = gradle.extensions.extraProperties["parikt.nativeDirectory"] as File
 val sourceDirectory = gradle.extensions.extraProperties["parikt.sourceDirectory"] as File
 if (rootProject.projectDir.canonicalFile != sourceDirectory) {
@@ -277,6 +279,7 @@ kotlin {
 	}
 
 	listOf(linuxX64(), mingwX64()).forEach { target ->
+		target.compilerOptions.moduleName.set("parikt")
 		val directory = if (target.name == "linuxX64") kotlinNativeDirectory else mingwNativeDirectory
 		target.compilations.getByName("main").cinterops.create("pari") {
 			definitionFile.set(layout.projectDirectory.file("src/nativeInterop/cinterop/pari.def"))
@@ -349,8 +352,8 @@ kotlin {
 	}
 }
 
-// Reject competing JVM implementations while preserving Gradle's project capability.
-configurations.matching { it.name in setOf("jvmApiElements", "jvmRuntimeElements", "jvmSourcesElements") }.configureEach {
+// Reject competing implementations on every platform while preserving the project capability.
+configurations.matching { it.isCanBeConsumed }.configureEach {
 	outgoing.capability("${project.group.toString().ifBlank { rootProject.name }}:${project.name}:${project.version}")
 	outgoing.capability("com.elianfabian.parikt:engine:$pariVersion")
 }

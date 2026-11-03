@@ -29,9 +29,9 @@ fun jvmConfiguration(configuration: Configuration): Boolean {
     return plainJvm && usage in setOf("java-api", "java-runtime")
 }
 fun routedConfiguration(configuration: Configuration): Boolean = jvmConfiguration(configuration) ||
-    (defaultVersion == null && platform(configuration) == "common")
-if (defaultVersion == null && (androidProject() || consumer.configurations.any { platform(it) !in setOf(null, "common", "jvm") })) {
-    throw GradleException("Module-only PARI configuration currently supports JVM targets: ${consumer.path} selects ${selection.first} " +
+    platform(configuration) in setOf("common", "native")
+if (defaultVersion == null && (androidProject() || consumer.configurations.any { platform(it) !in setOf(null, "common", "jvm", "native") })) {
+    throw GradleException("Module-only PARI configuration currently supports JVM and Native targets: ${consumer.path} selects ${selection.first} " +
         "in ${selection.second}, but also has non-JVM targets. Set pari.version in ${consumer.rootProject.file("parikt.properties")} " +
         "until production non-JVM routing is enabled.")
 }
@@ -41,6 +41,11 @@ consumer.configurations.configureEach {
         val target = project(enginePath)
         all {
             val reference = requested as? org.gradle.api.artifacts.component.ProjectComponentSelector
+            if (reference != null && reference.projectPath != ":parikt" && reference.projectPath in engines.values &&
+                reference.projectPath != enginePath && routedConfiguration(configuration)) {
+                throw GradleException("PARI provider conflict in ${consumer.path}:${configuration.name}: explicit provider ${reference.projectPath} " +
+                    "conflicts with selected $enginePath (${selection.first}, ${selection.second}); dependency declared in ${consumer.buildFile}")
+            }
             if (reference?.projectPath == ":parikt" && enginePath != ":parikt" && routedConfiguration(configuration)) {
                 useTarget(target, "PARI ${selection.first} selected by ${selection.second}")
             }
@@ -72,10 +77,10 @@ consumer.configurations.configureEach {
     }
 }
 gradle.projectsEvaluated {
-    val nonJvm = androidProject() || consumer.configurations.any { platform(it) !in setOf(null, "common", "jvm") }
-    if (selection.first != defaultVersion && nonJvm) {
-        throw GradleException("Only JVM module overrides are enabled: ${consumer.path} selects ${selection.first} in ${selection.second}, " +
-            "but also has non-JVM targets. Keep its root default $defaultVersion until the platform linking/packaging proofs are complete.")
+    val unsupported = androidProject() || consumer.configurations.any { platform(it) !in setOf(null, "common", "jvm", "native") }
+    if (selection.first != defaultVersion && unsupported) {
+        throw GradleException("Production module overrides currently support JVM and Native targets: ${consumer.path} selects ${selection.first} in ${selection.second}, " +
+            "but also has Android/web targets. Keep its root default $defaultVersion until production routing is enabled for those targets.")
     }
     val hasJvm = consumer.configurations.any { platform(it) == "jvm" } ||
         (!androidProject() && consumer.plugins.hasPlugin("java"))

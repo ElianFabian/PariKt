@@ -3,13 +3,15 @@
 Follow-up plan: PARI_MODULE_VERSION_PLAN.md describes project defaults with module overrides.
 The isolated JVM proof and step-2 selection/discovery checks pass. Production shares the strict
 properties parser. Production JVM integration now routes module overrides through scoped source
-providers; non-JVM targets retain the root selection. All 11 real-application JVM acceptance
+providers; Android/web targets retain the root selection. All 11 real-application JVM acceptance
 cases pass, along with Android, shared web compilation and existing Native checks. See the
 follow-up plan for exact coverage and remaining platform gates. Production JVM integration also
 permits module-only configuration with no root default when every participating module has an
-explicit local selection; non-JVM production consumers still require the root default.
+explicit local selection. Native production routing/module-only support now also passes its
+ten-case acceptance suite; Android/web consumers still require the root default.
 Its isolated Native proof now also passes on Windows/WSL with two simultaneous versions and
-one selected archive per executable; production Native overrides remain gated.
+one selected archive per executable; production Native integration preserves these checks and
+normalizes default/scoped module and interop identities.
 The isolated JS/Wasm proof also passes with scoped npm imports and one PARI Wasm payload per
 browser bundle; production web overrides remain gated pending component/output integration.
 The completed checklist below covers the original production baseline.

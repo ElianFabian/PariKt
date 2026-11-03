@@ -72,12 +72,12 @@ try {
     Remove-Item -LiteralPath $sharedFile
     Invoke-ApplicationCheck 'ambiguous-global-output' @('help', '-PjvmNativeDir=build/ambiguous-jvm-output') @('ambiguous with multiple PARI versions') $true
     [IO.File]::WriteAllText($sharedFile, "pari.version=2.19.0`n", $utf8)
-    Invoke-ApplicationCheck 'non-jvm-override-gate' @('pariktSelections') @('Only JVM module overrides are enabled', ':consoleUi', $sharedFile) $true
+    Invoke-ApplicationCheck 'non-jvm-override-gate' @('pariktSelections') @('Production module overrides currently support JVM and Native targets', ':consoleUi', $sharedFile) $true
     [IO.File]::WriteAllText($sharedFile, '', $utf8)
     Invoke-ApplicationCheck 'invalid-local-file' @('help') @('Invalid or missing pari.version', ':consoleUi', $sharedFile) $true
     Remove-Item -LiteralPath $sharedFile
-    [IO.File]::AppendAllText($terminalBuild, "`ndependencies { implementation(project(`":pariktEngine_2_19_0`")) }`n", $utf8)
-    Invoke-ApplicationCheck 'duplicate-provider' @(':terminalApp:verifyPariJvmGraph') @('capability', 'com.elianfabian.parikt:engine') $true
+    [IO.File]::AppendAllText($terminalBuild, "`ndependencies { implementation(project(`":pariktEngine_2_19_0:parikt`")) }`n", $utf8)
+    Invoke-ApplicationCheck 'duplicate-provider' @(':terminalApp:verifyPariJvmGraph') @('PARI provider conflict', 'explicit provider') $true
     [IO.File]::WriteAllBytes($terminalBuild, $terminalBytes)
     Invoke-ApplicationCheck 'restored-valid-build' @(':terminalApp:verifyPariEngine', ':desktopApp:verifyPariEngine', ':terminalApp:verifyPariJvmGraph', ':desktopApp:verifyPariJvmGraph') ($bothVersions + $bothGraphs) $false $noBuild
 } finally {

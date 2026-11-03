@@ -74,7 +74,7 @@ tasks.register("verifyCommonSelection") {
             val paths = configuration.incoming.resolutionResult.allComponents.mapNotNull {
                 (it.id as? org.gradle.api.artifacts.component.ProjectComponentIdentifier)?.projectPath
             }.filter { it == ":parikt" || it.startsWith(":pariktEngine_") }
-            check(paths == listOf(":pariktEngine_2_19_0")) { "Wrong common metadata providers: $paths" }
+            check(paths == listOf(":pariktEngine_2_19_0:parikt")) { "Wrong common metadata providers: $paths" }
         }
         logger.lifecycle("PASS rootless KMP common metadata selection")
     }
@@ -110,7 +110,7 @@ try {
     $both = @(':appA:run', ':appB:run', ':appA:verifyPariJvmGraph', ':appB:verifyPariJvmGraph')
     $pass19 = 'PASS sharedLogic PARI 2.19.0 arithmetic/factorization; one PariKt class resource'
     $pass15 = 'PASS sharedLogic PARI 2.15.0 arithmetic/factorization; one PariKt class resource'
-    Invoke-ProductionCheck 'same-version-rootless' ($both + @('verifyPariJvmIdentity', 'pariktSelections', ':kmpLibrary:compileKotlinJvm', ':kmpLibrary:verifyCommonSelection')) @($pass19, 'PASS production JVM identity: 1 providers', 'provider=:pariktEngine_2_19_0', ':unrelated = unselected; no PariKt dependency', 'PASS rootless KMP common metadata selection') $false @('> Configure project :pariktAndroidNative', ':parikt:compileKotlinJvm')
+    Invoke-ProductionCheck 'same-version-rootless' ($both + @('verifyPariJvmIdentity', 'pariktSelections', ':kmpLibrary:compileKotlinJvm', ':kmpLibrary:verifyCommonSelection')) @($pass19, 'PASS production JVM identity: 1 providers', 'provider=:pariktEngine_2_19_0', ':unrelated = unselected; no PariKt dependency', 'PASS rootless KMP common metadata selection') $false @('> Configure project :pariktAndroidNative', '> Task :parikt:compileKotlinJvm')
     Invoke-ProductionCheck 'reverse-and-cache' @(':appB:run', ':appA:run') @($pass19, 'reusing compiled engine', ':sharedLogic:compileKotlin UP-TO-DATE')
     Invoke-ProductionCheck 'no-default-engine-task' @(':parikt:jvmJar') @('No root PARI default', ':parikt:jvmJar', 'Module overrides are not a default') $true
     Invoke-ProductionCheck 'no-default-helper-task' @(':pariktAndroidNative:buildNativeDependencies') @('No root PARI default', ':pariktAndroidNative:buildNativeDependencies') $true
@@ -123,7 +123,7 @@ try {
     Invoke-ProductionCheck 'explicit-shared-conflict' @(':appB:run') @('PARI requirement conflict', '2.15.0', '2.19.0', 'dependency path: :appB -> :sharedLogic') $true
     Write-Fixture 'appB/parikt.properties' "pari.version=2.19.0`n"
     Write-Fixture 'kmpLibrary/build.gradle.kts' ($kmpBuild + "`nkotlin { js { nodejs() } }`n")
-    Invoke-ProductionCheck 'non-jvm-gate' @('help') @('Module-only PARI configuration currently supports JVM targets', ':kmpLibrary', 'production non-JVM routing') $true
+    Invoke-ProductionCheck 'non-jvm-gate' @('help') @('Module-only PARI configuration currently supports JVM and Native targets', ':kmpLibrary', 'production non-JVM routing') $true
     Write-Fixture 'kmpLibrary/build.gradle.kts' $kmpBuild
     Copy-Module 'sharedLogic' 'alternateLogic'
     Copy-Module 'appB' 'appC'
@@ -135,8 +135,8 @@ try {
     $independent = @(':appA:run', ':appC:run', ':appA:verifyPariJvmGraph', ':appC:verifyPariJvmGraph', 'verifyPariJvmIdentity')
     Invoke-ProductionCheck 'independent-versions-rootless' $independent @($pass19, $pass15, 'PASS production JVM identity: 2 providers', 'provider=:pariktEngine_2_19_0', 'provider=:pariktEngine_2_15_0', 'reusing compiled engine')
     Invoke-ProductionCheck 'ambiguous-output' @('help', '-PjvmNativeDir=build/ambiguous') @('ambiguous with multiple PARI versions') $true
-    Write-Fixture 'appC/build.gradle.kts' ($appC + "`ndependencies { implementation(project(`":pariktEngine_2_19_0`")) }`n")
-    Invoke-ProductionCheck 'duplicate-provider' @(':appC:run') @('capability', 'com.elianfabian.parikt:engine') $true
+    Write-Fixture 'appC/build.gradle.kts' ($appC + "`ndependencies { implementation(project(`":pariktEngine_2_19_0:parikt`")) }`n")
+    Invoke-ProductionCheck 'duplicate-provider' @(':appC:run') @('PARI provider conflict', 'explicit provider') $true
     Write-Fixture 'appC/build.gradle.kts' $appC
     Write-Fixture 'parikt.properties' ''
     Invoke-ProductionCheck 'present-empty-root' @('help') @('Invalid or missing pari.version', 'parikt.properties') $true
