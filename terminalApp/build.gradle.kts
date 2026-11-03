@@ -7,13 +7,6 @@ dependencies {
 	implementation(project(":parikt"))
 }
 
-val pariVersion = providers.gradleProperty("pariVersion").getOrElse("2.17.1")
-val jvmHost = when {
-	System.getProperty("os.name").startsWith("Windows") -> "windows-x86_64"
-	System.getProperty("os.name").startsWith("Linux") -> "linux-x86_64"
-	else -> "unsupported"
-}
-
 application {
 	mainClass.set("com.elianfabian.parikt.terminal.MainKt")
 }
@@ -23,13 +16,13 @@ java {
 	targetCompatibility = JavaVersion.VERSION_17
 }
 
-val jvmNativeDirectory = providers.gradleProperty("jvmNativeDir")
-	.orElse(providers.systemProperty("parikt.native.dir"))
-	.orElse(rootProject.file("parikt/.native/jvm-$pariVersion/$jvmHost").absolutePath)
-
 tasks.withType<JavaExec>().configureEach {
 	dependsOn(":parikt:buildJvmNativeDependencies")
-	jvmNativeDirectory.orNull?.let { systemProperty("java.library.path", it) }
+	doFirst {
+		val directory = providers.systemProperty("parikt.native.dir").orNull?.let(rootProject::file)
+			?: project(":parikt").tasks.named("buildJvmNativeDependencies").get().outputs.files.singleFile
+		systemProperty("java.library.path", directory.absolutePath)
+	}
 }
 
 tasks.named<JavaExec>("run") {

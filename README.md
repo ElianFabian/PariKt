@@ -3,17 +3,82 @@
 PariKt is a Kotlin Multiplatform library that exposes the PARI/GP engine through a small common
 Kotlin API.
 
-## Android (current focus)
+## Choose PARI independently of PariKt
+
+Set the engine version in the **consuming project's** root `parikt.properties`:
+
+```properties
+pari.version=2.19.0
+```
+
+Pin the PariKt source revision separately, for example with a Git submodule at `vendor/PariKt`.
+Changing PARI requires editing only this file and syncing/rebuilding. There is no default version
+for a missing file, no custom Gradle plugin, and no PariKt release for each PARI release.
+The previous `pariVersion` Gradle property is rejected with migration instructions.
+This repository's own file selects PARI only for its demos/tests. External consumers must provide
+their own file; the settings script never falls back to the checkout's demo selection.
+
+Source integration is currently the supported consumer installation. In your settings, after
+configuring plugin/dependency repositories, add:
+
+```kotlin
+extra["pariktSourceDir"] = file("vendor/PariKt")
+apply(from = file("vendor/PariKt/gradle/parikt.settings.gradle.kts"))
+```
+
+The script includes `:parikt` and `:pariktAndroidNative` and imports a private `pariktLibs` version
+catalog. In the root build, share their plugin classpath:
+
+```kotlin
+plugins {
+    alias(pariktLibs.plugins.android.library) apply false
+    alias(pariktLibs.plugins.android.kotlin.multiplatform.library) apply false
+    alias(pariktLibs.plugins.kotlin.multiplatform) apply false
+}
+```
+
+Your Kotlin module can then declare `implementation(project(":parikt"))`. If your root build
+already declares these plugins, keep one declaration using the same versions. The current build
+baseline is Gradle 9.6.0, Kotlin 2.4.21 and AGP 9.4.1. Android SDK/NDK and the host prerequisites
+below are still required: the source library currently configures all implemented targets,
+including its Android native model, even for a JVM-only consumer.
+
+The standalone `examples/consumer` build demonstrates JVM, Native Windows/Linux and JS/Wasm
+Node consumers. Its `parikt.properties` is independent of this repository's demo selection.
+From this repository on Windows:
+
+```powershell
+.\gradlew.bat -p examples/consumer :app:runJvm
+.\gradlew.bat -p examples/consumer :app:runDebugExecutableMingwX64
+.\gradlew.bat -p examples/consumer :app:jsNodeDevelopmentRun
+.\gradlew.bat -p examples/consumer :app:wasmJsNodeDevelopmentRun
+```
+
+See `examples/consumer/README.md` for Linux execution and additional checks. External consumers
+own generated module outputs under `build/parikt/modules`, native engines under
+`build/parikt/native`, and staged web assets under `build/parikt/web-engine`. This repository's
+development build retains its existing `parikt/.native` engine caches. Shared host source/toolchain
+work caches are reused. Native builders lock each work cache so simultaneous consumer builds
+wait rather than modifying the same compiler/source stages.
+Native build tasks invoke the builders to validate their own fingerprints on each requested
+build. A cache hit is reported by the script; it need not carry Gradle's `UP-TO-DATE` label.
+
+Generated AARs, klibs, executables and web bundles contain the consumer-selected engine.
+They cannot change PARI after compilation. Binary-only Maven installation is not implemented;
+an ordinary Maven dependency plus a properties file alone cannot run these source-build steps.
+See `PARI_VERSION_PLAN.md` for the implementation checklist and cache identity discussion.
+
+## Android
 
 The Android target uses the Android-KMP library plugin. JNI and the Android NDK build live in the
 companion `:pariktAndroidNative` Android library, which PariKt consumes from its `androidMain`
 source set. On Windows, the native dependency build runs in WSL; Linux and macOS can run the native
 script directly.
 
-Set the native versions in the root `gradle.properties`:
+Set the engine version in the root `parikt.properties`:
 
 ```properties
-pariVersion=2.17.1
+pari.version=2.19.0
 ```
 
 Then sync Gradle and build the Android library. If native dependencies are missing, the first sync
@@ -46,7 +111,7 @@ The repository includes a basic terminal consumer at `:terminalApp`. It initiali
 the PARI version and a `2 + 2` startup check, then accepts one GP command per line. Type `quit` or
 `exit`, or send EOF, to close the engine. Terminal Java run tasks, including IDE-created `MainKt`
 tasks, build host-specific native libraries before launch and store them under
-`parikt/.native/jvm-<pariVersion>/<host>/`.
+`parikt/.native/jvm-<version>/<host>/`.
 
 The first supported build hosts are Windows x86_64 and Linux x86_64 under WSL. They require separate
 libraries: Windows builds produce DLLs (cross-compiled from WSL with MinGW-w64); Linux builds
@@ -74,10 +139,10 @@ Run the Linux build from a WSL checkout with a Linux JDK installed:
 ```
 
 You can override the output/library directory with `-PjvmNativeDir=<directory>` or force a native
-rebuild with `-PjvmNativeForce`. Windows and WSL/Linux builds and terminal smoke runs have been
-verified for PARI 2.17.1; the Windows terminal has also been smoke-tested with PARI 2.18.0. A
-clean-machine setup, another PARI version, missing-library diagnostics, and packaged distribution
-still need validation; this is not yet a published cross-platform distribution.
+rebuild with `-PjvmNativeForce`. Earlier Windows/WSL terminal checks passed for PARI 2.17.1,
+with an additional Windows check for 2.18.0. The standalone source consumer now verifies 2.15.0
+and 2.19.0 on the Windows JVM. Clean-machine setup, macOS, missing-library diagnostics and packaged
+distribution still need validation; this is not yet a published cross-platform distribution.
 
 ## Kotlin/Native (Linux and Windows)
 
@@ -113,7 +178,7 @@ To build without running:
 
 The executables are `nativeTerminalApp/build/bin/mingwX64/debugExecutable/nativeTerminalApp.exe`
 and `nativeTerminalApp/build/bin/linuxX64/debugExecutable/nativeTerminalApp.kexe`. The Windows
-`.exe` runs directly without Gradle, WSL or Java. Both use the same `pariVersion` property as
+`.exe` runs directly without Gradle, WSL or Java. Both use the same `pari.version` setting as
 the other targets. Builds, native tests and terminal runs have passed with PARI 2.15.0 and 2.19.0
 on Windows/WSL. The Windows import table contains only ADVAPI32.dll, KERNEL32.dll and msvcrt.dll.
 
@@ -126,7 +191,7 @@ Windows C compilation also runs in WSL, using checksum-verified xPack MinGW-w64 
 with MSVCRT selected explicitly and Kotlin/Native's matching Windows headers. The headers are
 cached inside WSL too. This avoids mixing newer MinGW CRT functions with Kotlin/Native's runtime.
 
-Native output lives under `parikt/.native/native-<pariVersion>/<linux-x86_64|windows-x86_64>/`, with intermediate
+Native output lives under `parikt/.native/native-<version>/<linux-x86_64|windows-x86_64>/`, with intermediate
 sources/toolchains under `~/.cache/parikt-kotlin-native` in Linux/WSL. Use `-PkotlinNativeForce`
 to force a native rebuild. Bridge/wrapper/header/script changes invalidate the output cache.
 
@@ -175,7 +240,7 @@ long calculations can pause the interface.
 ## Web engine development
 
 Kotlin/JS and Kotlin/WasmJS share an Emscripten PARI engine and support browser and Node.js
-consumers. The engine uses the same `pariVersion` property as Android/JVM, static GMP 6.3.0,
+consumers. The engine uses the same `pari.version` setting as Android/JVM, static GMP 6.3.0,
 and Emscripten 4.0.21. The current Kotlin build/consumer test baseline is 2.4.21; compatibility
 with older Kotlin consumers has not been established. The Kotlin/JS target also needs WebAssembly
 at runtime because PARI itself is compiled to Wasm.
@@ -232,8 +297,8 @@ reuse the toolchain, GMP, and generated engine. Automatic toolchain setup curren
 Linux/WSL x86_64 only. Other hosts can provide an activated Emscripten 4.0.21 SDK with
 `-PwebEmsdkDir=<path>` and `-PwebNativeRunner=local`; those hosts remain unverified.
 
-Generated engines are cached under `parikt/.native/web-<pariVersion>/` and staged by
-`:parikt:prepareWebEnginePackage` into `parikt/build/generated/web-engine/` for a stable local
+Generated engines are cached under `parikt/.native/web-<version>/` and staged by
+`:parikt:prepareWebEnginePackage` into `build/parikt/web-engine/` for a stable local
 npm dependency. This keeps lockfiles portable and avoids changing dependency URLs when selecting
 a different PARI version. Native source/bridge changes also invalidate web test and bundle inputs.
 `parikt.mjs` exports an async

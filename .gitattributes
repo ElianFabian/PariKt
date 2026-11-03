@@ -1,0 +1,3 @@
+# Native builders execute in bash/WSL even from Windows checkouts.
+*.sh text eol=lf
+gradlew text eol=lf

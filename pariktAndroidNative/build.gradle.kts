@@ -2,17 +2,22 @@ plugins {
 	id("com.android.library")
 }
 
-val pariVersion = providers.gradleProperty("pariVersion").getOrElse("2.17.1")
+val pariVersion = gradle.extensions.extraProperties["parikt.version"] as String
+val nativeCacheDirectory = gradle.extensions.extraProperties["parikt.nativeDirectory"] as File
+val sourceDirectory = gradle.extensions.extraProperties["parikt.sourceDirectory"] as File
+if (rootProject.projectDir.canonicalFile != sourceDirectory) {
+	layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("parikt/modules/pariktAndroidNative"))
+}
 val nativeAbis = providers.gradleProperty("nativeAbis")
 	.map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
 	.getOrElse(listOf("arm64-v8a", "x86_64"))
 val minAndroidApi = 21
-val nativeDepsDir = rootProject.layout.projectDirectory.dir("parikt/.native/android-$pariVersion").asFile
+val nativeDepsDir = File(nativeCacheDirectory, "android-$pariVersion")
 val legacyNativeDepsDirs = listOf(
-	rootProject.layout.projectDirectory.dir("parikt/.native/android-pari-$pariVersion").asFile,
-	rootProject.layout.projectDirectory.dir("parikt/.native/pari-$pariVersion").asFile,
+	File(nativeCacheDirectory, "android-pari-$pariVersion"),
+	File(nativeCacheDirectory, "pari-$pariVersion"),
 )
-val nativeScript = rootProject.layout.projectDirectory.file("parikt/native/build-native.sh").asFile
+val nativeScript = File(sourceDirectory, "parikt/native/build-native.sh")
 val forceNativeBuild = providers.gradleProperty("nativeForce").isPresent
 val isWindows = System.getProperty("os.name").startsWith("Windows")
 val nativeRunner = providers.gradleProperty("nativeRunner").getOrElse(if (isWindows) "wsl" else "local")
@@ -84,14 +89,17 @@ fun buildNativeDependenciesDuringConfiguration() {
 
 val buildNativeDependencies = tasks.register<Exec>("buildNativeDependencies") {
 	group = "native"
+	// Sync may already have populated this cache. Always let the builder inspect its
+	// stamp, preserving reusable outputs when the consumer switches PARI versions.
+	doNotTrackState("The native builder validates a cache also populated during Gradle sync.")
 	description = "Builds GMP and PARI/GP $pariVersion for Android."
 	inputs.file(nativeScript)
+	inputs.file(File(sourceDirectory, "parikt/native/build-lock.sh"))
 	inputs.property("pariVersion", pariVersion)
 	inputs.property("abis", nativeAbis)
 	inputs.property("api", minAndroidApi)
 	inputs.property("nativeRunner", nativeRunner)
 	outputs.dir(nativeDepsDir)
-	if (forceNativeBuild) outputs.upToDateWhen { false }
 
 	doFirst {
 		nativeDepsDir.mkdirs()
@@ -116,7 +124,12 @@ android {
 	}
 
 	externalNativeBuild {
-		ndkBuild { path = file("../parikt/src/androidMain/jni/Android.mk") }
+		ndkBuild {
+			path = File(sourceDirectory, "parikt/src/androidMain/jni/Android.mk")
+			if (rootProject.projectDir.canonicalFile != sourceDirectory) {
+				buildStagingDirectory = rootProject.layout.buildDirectory.dir("parikt/cxx").get().asFile
+			}
+		}
 	}
 }
 

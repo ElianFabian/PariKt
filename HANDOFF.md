@@ -50,6 +50,62 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+Consumer-selected PARI source integration is implemented. PARI_VERSION_PLAN.md contains the
+completed checklist and verification. The consuming root owns parikt.properties (pari.version);
+the checkout's demo selection is never a fallback. gradle/parikt.settings.gradle.kts includes
+:parikt/:pariktAndroidNative and their private pariktLibs catalog. Pin the PariKt Git revision
+separately from PARI. No custom Gradle plugin or binary-only Maven installation is implemented.
+Earlier pariVersion/gradle.properties instructions below describe the previous setup.
+
+External consumers own module outputs under build/parikt/modules, engine caches under
+build/parikt/native, and web staging under build/parikt/web-engine. Repository development keeps
+parikt/.native caches. Web packaging/invalidation now belongs to library integration rather than
+the demo. Root and standalone npm lockfiles use the new portable relative engine path; obsolete
+entries are removed. All shell builders require --pari-version; bash checkouts use LF endings.
+
+The native builders own cache validation with source/toolchain stamps; their Exec tasks use
+Gradle doNotTrackState. Ordinary Kotlin/cinterop/webpack tasks still track actual engine inputs.
+A cache hit is reported by the script, not necessarily a Gradle UP-TO-DATE label. JVM stamps now
+hash bridge/header/JNI sources and compiler identity; declared task inputs also include JNI
+headers and explicit native PATH. JVM master/latest bypass the cache and refresh their sources.
+Shared staging directories require serialization: build-lock.sh protects all four builders using
+portable mkdir locks, without an extra host package. Competing-process/subshell cleanup tests
+and actual concurrent builds pass. A hard kill can leave a stale lock; the timeout identifies it
+for removal after checking no builder is running.
+
+Independent consumer checks pass for 2.15.0 and 2.19.0: JVM Windows, Native Windows/Linux (WSL),
+JS Node and WasmJS Node assert getVersionName(), arithmetic and factorization. Android bridge AARs
+assemble for both versions and both ABIs. Switching 2.19 -> 2.15 -> 2.19 reuses caches while the
+repository selection stays 2.15. A temporary JNI comment forces a rebuild at unchanged PARI
+2.19; restoring the exact source restores its fingerprint and the next run hits the cache.
+The JNI source and fixture properties are restored.
+
+Final combined regression passes (172 tasks, 22 executed/150 up to date): Android assembleDebug
+(minSdk 21), shared Compose state/desktop UI tests, Native Windows/Linux tests and both production
+browser distributions. The ordinary JVM terminal launcher also passes. Checks live in
+tests/build_configuration; logs are in ignored build/. No emulator run was repeated for this
+change. Apple targets, fresh-machine validation and binary-only Maven publication remain outside
+the verified scope.
+
+Follow-up: the configuration-error check is now tests/build_configuration/verify_properties.ps1,
+replacing the Python script at the user's request. It retains all five cases and cleans up
+temporary fixtures after validating their absolute paths. All five cases pass under PowerShell 7
+and Windows PowerShell 5.1; documentation points to the new script.
+Equivalence review found Windows PowerShell's native stderr formatting/log encoding differed
+from Python. The script now captures merged plain UTF-8 process output, runs from the repository
+root, and checks the child process exit code directly. All five real Gradle cases pass again on
+PowerShell 7 and Windows PowerShell 5.1. Eight injected-result checks also pass (four per shell):
+expected failure, unexpected success, wrong diagnostic and premature native setup. These verify
+fixture contents/options, failure exit status, UTF-8 logs without PowerShell error-record wrappers,
+and cleanup on success/failure, from a different working directory and paths with spaces and &.
+The temporary audit harness is in ignored build/audit-properties-equivalence.py. Host verification
+for this script is Windows; PowerShell-on-Linux/macOS execution has not been verified.
+
+Commit review also includes the WebEngine.kt opt-in annotation qualification cleanup. Both
+:parikt:compileKotlinJs and :parikt:compileKotlinWasmJs pass with that cleanup. The examples/consumer
+directory is intentionally a separate Gradle build; open it as a separate Android Studio project
+or run the root wrapper with -p examples/consumer, rather than expecting a root-project module.
+
 PariKt is a KMP library in `:parikt`. Android and JVM are implemented in the documented host
 matrix. Kotlin/JS and Kotlin/WasmJS now have working Node and Chromium-browser consumer bindings
 around an Emscripten PARI engine. Kotlin/Native linuxX64 uses a statically linked C interop
@@ -147,7 +203,8 @@ were verified in the demo host app.
 `setTemporaryDirectory` is currently an expect/actual method: Android delegates to the C setter, JVM
 creates a writable host temp directory and sets the native `GPTMPDIR`. JS/WasmJS use Emscripten's
 in-memory `/tmp`, configured by the web C bridge before `pari_init`; the web setter accepts only
-that virtual path. There is no Kotlin/Native actual because those targets are not configured.
+that virtual path. Kotlin/Native now has a shared nativeMain actual that uses the C bridge's
+OS-default temporary directory (TMPDIR on Linux; TEMP/TMP on Windows).
 The C setter uses `setenv` on POSIX/Emscripten and `_putenv_s` on Windows.
 
 The native build's `--datadir` is separate from `GPTMPDIR`: PARI uses `datadir` for optional
@@ -656,10 +713,11 @@ bug is a possible cause, but the exact macOS error and installed NDK version hav
 provided. Fresh-clone macOS sync remains unverified; do not claim this change resolves that report
 until confirmed. The installed SDK must contain NDK 28.2.13676358.
 
-The currently selected PARI version is 2.15.0 in gradle.properties; the native scripts' fallback
-default is 2.17.1. Other defaults are GMP 6.3.0 (pinned in `native/build-native.sh`), Android API 21,
-NDK 28.2.13676358, and ABIs `arm64-v8a,x86_64`. `pariVersion` is read from root `gradle.properties`;
-`nativeAbis`, `nativeRunner`, and `nativeForce` are optional properties.
+The development/demo PARI selection is 2.15.0 in parikt.properties (pari.version); all native
+scripts require --pari-version and have no engine-version fallback. Other defaults are GMP 6.3.0
+(pinned in `native/build-native.sh`), Android API 21,
+NDK 28.2.13676358, and ABIs `arm64-v8a,x86_64`. `pari.version` is read from the consuming root
+`parikt.properties`; `nativeAbis`, `nativeRunner`, and `nativeForce` are optional properties.
 
 The user's 2026-10-30 Android Studio sync initially failed with `[CXX1429]` because `Android.mk`
 required `.native/pari-2.17.1/arm64-v8a/gmp/lib/libgmp.so`, which was absent. The user confirmed

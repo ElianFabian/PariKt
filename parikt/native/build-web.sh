@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build one Emscripten PARI engine shared by Kotlin/JS and Kotlin/WasmJS.
 set -euo pipefail
-PARI_VERSION=2.17.1
+PARI_VERSION=""
 GMP_VERSION=6.3.0
 EMSCRIPTEN_VERSION=4.0.21
 EMSCRIPTEN_RELEASE=d70a5da89b3e673bf6a482724478fc17e81e575e
@@ -26,6 +26,11 @@ while [ $# -gt 0 ]; do
     *) die "unknown option '$1'";;
   esac
 done
+# Serialize shared compiler/source stages across independent consumer builds.
+source "$(dirname "${BASH_SOURCE[0]}")/build-lock.sh"
+parikt_lock_work_directory "$WORK_DIR"
+
+[ -n "$PARI_VERSION" ] || die "--pari-version is required; the consuming build must select PARI"
 [ -n "$OUT_DIR" ] || die "--out is required"
 [[ "$PARI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9]+)*$ || "$PARI_VERSION" = master || "$PARI_VERSION" = latest ]] || die "invalid PARI version"
 for tool in bash curl tar xz make m4 git python3 cc; do

@@ -3,7 +3,7 @@
 # Windows builds are cross-compiled from Linux using MinGW-w64.
 set -euo pipefail
 
-PARI_VERSION=2.17.1
+PARI_VERSION=""
 GMP_VERSION=6.3.0
 MINGW_VERSION=15.2.0-2
 MINGW_SHA256=daf373cbea59bb04cc610cdc26ef98828eb5c5eee3407d448d3b26272fa816d5
@@ -62,7 +62,12 @@ while [ $# -gt 0 ]; do
     *) die "unknown option $1";;
   esac
 done
+# Serialize shared compiler/source stages across independent consumer builds.
+source "$(dirname "${BASH_SOURCE[0]}")/build-lock.sh"
+parikt_lock_work_directory "$WORK_DIR"
 
+
+[ -n "$PARI_VERSION" ] || die "--pari-version is required; the consuming build must select PARI"
 [ -n "$TARGET" ] || die "--target is required (linux-x86_64 or windows-x86_64)"
 [ -n "$OUT_DIR" ] || die "--out is required"
 [ -n "$JNI_HOME" ] || die "pass --jni-home pointing to a JDK with JNI headers"
@@ -103,9 +108,14 @@ case "$PARI_VERSION" in
   *) PARI_REF="pari-$PARI_VERSION";;
 esac
 
-SCRIPT_ID=$(cksum < "${BASH_SOURCE[0]}" | cut -d' ' -f1)
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Cache the bridge with its source/header and JNI/compiler identity, not PARI version alone.
+SCRIPT_ID=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/paridroid/paridroid.c" \
+  "$SCRIPT_DIR/paridroid/paridroid.h" "$SCRIPT_DIR/paridroid/jni_bridge.c" \
+  "$JNI_INCLUDE/jni.h" "$JNI_INCLUDE/$JNI_PLATFORM/jni_md.h" | sha256sum | cut -d' ' -f1)
+COMPILER_ID=$("$CC" --version | sed -n '1p')
 STAMP="$OUT_DIR/.stamp"
-EXPECTED_STAMP="pari=$PARI_VERSION gmp=$GMP_VERSION target=$TARGET script=$SCRIPT_ID"
+EXPECTED_STAMP="pari=$PARI_VERSION gmp=$GMP_VERSION target=$TARGET inputs=$SCRIPT_ID compiler=$COMPILER_ID"
 CHECK_BRIDGE="$OUT_DIR/libparidroid.so"
 CHECK_PARI="$OUT_DIR/libpari.so"
 if [ "$TARGET" = windows-x86_64 ]; then
@@ -118,7 +128,7 @@ cached_pari_library_exists() {
     [ -f "$CHECK_PARI" ]
   fi
 }
-if [ "$FORCE" = 0 ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$EXPECTED_STAMP" ] && \
+if [ "$PARI_REF" != master ] && [ "$FORCE" = 0 ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$EXPECTED_STAMP" ] && \
    [ -f "$CHECK_BRIDGE" ] && cached_pari_library_exists; then
   log "$TARGET PARI $PARI_VERSION artifacts are up to date at $OUT_DIR"
   exit 0
@@ -149,6 +159,9 @@ if [ ! -d "$PARI_SRC/.git" ]; then
       git -C "$PARI_SRC" fetch --depth 1 origin "$PARI_REF"
     git -C "$PARI_SRC" checkout -q "$PARI_REF"
   fi
+elif [ "$PARI_REF" = master ]; then
+  git -C "$PARI_SRC" fetch --depth 1 origin master
+  git -C "$PARI_SRC" checkout -q --detach FETCH_HEAD
 fi
 
 if [ "$TARGET" = windows-x86_64 ]; then

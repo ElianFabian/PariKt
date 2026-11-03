@@ -3,7 +3,7 @@
 # Output: <out>/<abi>/{gmp,pari}/{lib,include}. Skipped per ABI when up to date.
 set -euo pipefail
 
-PARI_VERSION=2.17.1
+PARI_VERSION=""
 ABIS="arm64-v8a x86_64"
 API=21
 OUT_DIR=""
@@ -40,6 +40,11 @@ while [ $# -gt 0 ]; do
     *) die "unknown option $1";;
   esac
 done
+# Serialize shared compiler/source stages across independent consumer builds.
+source "$(dirname "${BASH_SOURCE[0]}")/build-lock.sh"
+parikt_lock_work_directory "$WORK_DIR"
+
+[ -n "$PARI_VERSION" ] || die "--pari-version is required; the consuming build must select PARI"
 [ -n "$OUT_DIR" ] || die "--out is required"
 
 if [ "$VERBOSE" = 1 ]; then

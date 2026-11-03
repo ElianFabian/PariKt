@@ -8,7 +8,49 @@ plugins {
 	id("com.android.kotlin.multiplatform.library")
 }
 
-val pariVersion = providers.gradleProperty("pariVersion").getOrElse("2.17.1")
+// Apply tool configuration in the consuming build, using KGP already on this module's classpath.
+rootProject.run {
+	// Node archives are declared in settings, respecting PREFER_SETTINGS repository policy.
+	allprojects {
+		plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin> {
+			extensions.configure<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec> {
+				downloadBaseUrl.set(null as String?)
+			}
+		}
+		plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin> {
+			extensions.configure<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec> {
+				downloadBaseUrl.set(null as String?)
+			}
+		}
+		plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin> {
+			extensions.configure<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec> {
+				downloadBaseUrl.set(null as String?)
+			}
+		}
+	}
+
+	// npm otherwise installs a second webpack for webpack-cli's peer dependency. Its plugins
+	// cannot exchange Compilation objects with KGP's webpack instance when the versions differ.
+	plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin> {
+		val webpackVersion = extensions.getByType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>().versions.webpack.version
+		extensions.configure<org.jetbrains.kotlin.gradle.targets.js.npm.NpmExtension> {
+			override("webpack", webpackVersion)
+		}
+	}
+	plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin> {
+		val webpackVersion = extensions.getByType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootExtension>().versions.webpack.version
+		extensions.configure<org.jetbrains.kotlin.gradle.targets.wasm.npm.WasmNpmExtension> {
+			override("webpack", webpackVersion)
+		}
+	}
+}
+
+val pariVersion = gradle.extensions.extraProperties["parikt.version"] as String
+val nativeCacheDirectory = gradle.extensions.extraProperties["parikt.nativeDirectory"] as File
+val sourceDirectory = gradle.extensions.extraProperties["parikt.sourceDirectory"] as File
+if (rootProject.projectDir.canonicalFile != sourceDirectory) {
+	layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("parikt/modules/parikt"))
+}
 val isWindows = System.getProperty("os.name").startsWith("Windows")
 val jvmHost = when {
 	System.getProperty("os.arch").lowercase() in setOf("amd64", "x86_64") && isWindows -> "windows-x86_64"
@@ -18,7 +60,7 @@ val jvmHost = when {
 val jvmNativeScript = layout.projectDirectory.file("native/build-jvm.sh").asFile
 val jvmNativeDirectory = providers.gradleProperty("jvmNativeDir")
 	.map { rootProject.file(it) }
-	.orElse(layout.projectDirectory.dir(".native/jvm-$pariVersion/$jvmHost").asFile)
+	.orElse(File(nativeCacheDirectory, "jvm-$pariVersion/$jvmHost"))
 val jvmNativeRunner = providers.gradleProperty("jvmNativeRunner")
 	.getOrElse(if (isWindows) "wsl" else "local")
 val jvmNativePath = providers.gradleProperty("jvmNativePath").orNull
@@ -31,15 +73,21 @@ fun File.toWslPath(): String {
 
 val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencies") {
 	group = "native"
+	// Versioned caches are managed by the builder's source/toolchain stamps, not one
+	// Gradle execution history that switches between different engine directories.
+	doNotTrackState("The native builder validates its own versioned cache.")
 	description = "Builds GMP/PARI and the JNI bridge for the $jvmHost JVM host."
 	inputs.file(jvmNativeScript)
+	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/jni_bridge.c"))
+	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
 	inputs.property("pariVersion", pariVersion)
 	inputs.property("host", jvmHost)
 	inputs.property("runner", jvmNativeRunner)
+	inputs.property("nativePath", jvmNativePath ?: "default")
+	inputs.dir(File(System.getProperty("java.home"), "include"))
 	outputs.dir(jvmNativeDirectory)
-	if (providers.gradleProperty("jvmNativeForce").isPresent) outputs.upToDateWhen { false }
 
 	doFirst {
 		if (!jvmHost.startsWith("windows-") && !jvmHost.startsWith("linux-")) {
@@ -67,8 +115,10 @@ val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencie
 	}
 }
 
-val webNativeDirectory = layout.projectDirectory.dir(".native/web-$pariVersion")
-val webEnginePackageDirectory = layout.buildDirectory.dir("generated/web-engine")
+val webNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirectory, "web-$pariVersion") }).get()
+// npm resolves local dependencies relative to the consumer's KGP workspace. Keep that
+// relative path stable across engine versions, even when the source checkout is elsewhere.
+val webEnginePackageDirectory = rootProject.layout.buildDirectory.dir("parikt/web-engine")
 val webNativeRunner = providers.gradleProperty("webNativeRunner")
 	.getOrElse(if (isWindows) "wsl" else "local")
 val webEmsdkDirectory = providers.gradleProperty("webEmsdkDir").orNull
@@ -94,8 +144,10 @@ fun webBuildCommand(smoke: Boolean): List<String> {
 
 val buildWebNativeDependencies = tasks.register<Exec>("buildWebNativeDependencies") {
 	group = "native"
+	doNotTrackState("The native builder validates its own versioned cache.")
 	description = "Builds GMP/PARI $pariVersion and the web bridge with Emscripten."
 	inputs.file(webNativeScript)
+	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
 	inputs.dir(layout.projectDirectory.dir("native/web"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
@@ -103,9 +155,6 @@ val buildWebNativeDependencies = tasks.register<Exec>("buildWebNativeDependencie
 	inputs.property("runner", webNativeRunner)
 	inputs.property("emsdk", webEmsdkDirectory ?: "bootstrap")
 	outputs.dir(webNativeDirectory)
-	outputs.upToDateWhen {
-		!providers.gradleProperty("webNativeForce").isPresent && pariVersion !in setOf("master", "latest")
-	}
 	doFirst { commandLine(webBuildCommand(smoke = false)) }
 }
 
@@ -124,8 +173,17 @@ val prepareWebEnginePackage = tasks.register<Sync>("prepareWebEnginePackage") {
 	into(webEnginePackageDirectory)
 }
 
-val kotlinNativeDirectory = layout.projectDirectory.dir(".native/native-$pariVersion/linux-x86_64")
-val mingwNativeDirectory = layout.projectDirectory.dir(".native/native-$pariVersion/windows-x86_64")
+// Engine changes must invalidate final consumer bundles even when Kotlin sources and
+// the stable local npm dependency URL have not changed.
+rootProject.allprojects {
+	tasks.matching { it.name.endsWith("Webpack") }.configureEach {
+		dependsOn(prepareWebEnginePackage)
+		inputs.dir(webEnginePackageDirectory)
+	}
+}
+
+val kotlinNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirectory, "native-$pariVersion/linux-x86_64") }).get()
+val mingwNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirectory, "native-$pariVersion/windows-x86_64") }).get()
 val konanDataDirectory = providers.gradleProperty("konan.data.dir")
 	.orElse(providers.environmentVariable("KONAN_DATA_DIR"))
 	.map { rootProject.file(it) }.orElse(File(System.getProperty("user.home"), ".konan"))
@@ -146,19 +204,20 @@ val linuxCtoolchain = konanDependency("toolchainDependency.linux_x64")
 val mingwPlatform = konanDependency("toolchainDependency.mingw_x64")
 fun registerKotlinNativeBuild(taskName: String, target: String, directory: Directory, preparation: String) = tasks.register<Exec>(taskName) {
 	group = "native"
+	doNotTrackState("The native builder validates its own versioned cache.")
 	description = "Builds static GMP/PARI and the C bridge for Kotlin/Native $target."
 	dependsOn(preparation)
 	inputs.file(layout.projectDirectory.file("native/build-kotlin-native.sh"))
+	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
 	inputs.dir(layout.projectDirectory.dir("native/kotlin-native"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
 	inputs.property("pariVersion", pariVersion)
-	inputs.property("kotlinVersion", libs.versions.kotlin)
+	inputs.property("kotlinVersion", pariktLibs.versions.kotlin)
 	// Resolve konan.txt only during execution, after the distribution download task.
 	inputs.property("konanDataDirectory", konanDataDirectory.map { it.absolutePath })
 	inputs.property("nativeHomeOverride", providers.gradleProperty("kotlin.native.home").orElse("managed"))
 	outputs.dir(directory)
-	outputs.upToDateWhen { !providers.gradleProperty("kotlinNativeForce").isPresent && pariVersion !in setOf("master", "latest") }
 	doFirst {
 		fun nativePath(file: File) = if (isWindows) file.toWslPath() else file.absolutePath
 		commandLine((if (isWindows) listOf("wsl", "bash") else listOf("bash")) + listOf(
@@ -251,36 +310,36 @@ kotlin {
 		}
 		named("androidMain") {
 			dependencies {
-				implementation(libs.androidx.startup.runtime)
+				implementation(pariktLibs.androidx.startup.runtime)
 				implementation(project(":pariktAndroidNative"))
 			}
 		}
 		named("jvmMain") {
 			dependencies {
-				implementation(libs.kotlinx.coroutines.core)
+				implementation(pariktLibs.kotlinx.coroutines.core)
 			}
 		}
 		named("jvmTest") {
 			dependencies {
 				implementation(kotlin("test-junit"))
-				implementation(libs.junit.jupiter)
+				implementation(pariktLibs.junit.jupiter)
 			}
 		}
 		named("nativeTest") {
-			dependencies { implementation(libs.kotlinx.coroutines.core) }
+			dependencies { implementation(pariktLibs.kotlinx.coroutines.core) }
 		}
 		named("webMain") {
 			dependencies {
-				implementation(libs.kotlinx.coroutines.core)
+				implementation(pariktLibs.kotlinx.coroutines.core)
 				// Relative to KGP's build/{js,wasm}/packages/<module> workspace directories.
 				// Keep checkout-specific absolute paths out of the checked-in npm lockfiles.
-				implementation(npm("@parikt/engine", "file:../../../../parikt/build/generated/web-engine"))
+				implementation(npm("@parikt/engine", "file:../../../parikt/web-engine"))
 			}
 		}
 		named("webTest") {
 			dependencies {
 				implementation(kotlin("test"))
-				implementation(libs.kotlinx.coroutines.test)
+				implementation(pariktLibs.kotlinx.coroutines.test)
 			}
 		}
 	}

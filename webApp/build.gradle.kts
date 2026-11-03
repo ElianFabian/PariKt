@@ -6,12 +6,6 @@ plugins {
 	id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Native engine changes must rebuild bundles even when Kotlin sources remain identical.
-tasks.matching { it.name.endsWith("Webpack") }.configureEach {
-	dependsOn(":parikt:prepareWebEnginePackage")
-	inputs.dir(rootProject.layout.projectDirectory.dir("parikt/build/generated/web-engine"))
-}
-
 kotlin {
 	js {
 		useEsModules()

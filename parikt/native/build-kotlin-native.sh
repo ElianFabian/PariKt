@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Static PARI/GMP and C bridge for Kotlin/Native. No JDK or JNI dependency.
 set -euo pipefail
-PARI_VERSION=2.17.1
+PARI_VERSION=""
 GMP_VERSION=6.3.0
 OUT=""
 FORCE=0
@@ -25,6 +25,11 @@ while [ $# -gt 0 ]; do
     *) die "unknown argument: $1";;
   esac
 done
+# Serialize shared compiler/source stages across independent consumer builds.
+source "$(dirname "${BASH_SOURCE[0]}")/build-lock.sh"
+parikt_lock_work_directory "$WORK"
+
+[ -n "$PARI_VERSION" ] || die "--pari-version is required; the consuming build must select PARI"
 [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ] || die "native C dependencies must be built on Linux/WSL x86_64"
 [ -n "$OUT" ] || die "--out is required"
 if [ "$TARGET" = windows-x86_64 ]; then
