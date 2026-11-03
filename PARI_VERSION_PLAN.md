@@ -8,6 +8,8 @@ cases pass, along with Android, shared web compilation and existing Native check
 follow-up plan for exact coverage and remaining platform gates.
 Its isolated Native proof now also passes on Windows/WSL with two simultaneous versions and
 one selected archive per executable; production Native overrides remain gated.
+The isolated JS/Wasm proof also passes with scoped npm imports and one PARI Wasm payload per
+browser bundle; production web overrides remain gated pending component/output integration.
 The completed checklist below covers the original production baseline.
 
 ## Decision

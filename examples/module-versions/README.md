@@ -1,4 +1,4 @@
-# Module-specific PARI versions: JVM and Native proofs
+# Module-specific PARI versions: JVM, Native and web proofs
 
 This standalone build exercises steps 1–2 of [the module-version plan](../../PARI_MODULE_VERSION_PLAN.md).
 The default fixture is the experimental JVM integration. Production now supports JVM module
@@ -53,6 +53,40 @@ identity/archive checks, same-version reuse, explicit requirements, higher/lower
 providers and restored executables. Cache/reuse/restoration cases fetch no source and compile
 no Native engines. Logs are under build/native-tests; temporary fixtures are safely removed.
 This is a compatibility proof, not production Native override support.
+
+## Opt-in JS/Wasm proof
+
+```powershell
+.\gradlew.bat -p examples/module-versions -PwebProof :webAppA:jsNodeProductionRun :webAppB:jsNodeProductionRun :webAppA:wasmJsNodeProductionRun :webAppB:wasmJsNodeProductionRun
+.\gradlew.bat -p examples/module-versions -PwebProof verifyWebIdentity verifyWebNpm verifyWebBundles :webAppA:verifyWebGraph :webAppB:verifyWebGraph
+pwsh -File tests/build_configuration/verify_web_module_versions.ps1
+```
+
+webAppA inherits 2.19.0 and webAppB selects 2.15.0, both using webSharedLogic compiled against
+the default. Generated private bindings import distinct @parikt/engine-<version> npm packages.
+Each app's npm manifest retains only its selected engine; an inherited library's default npm
+dependency does not force that engine into the overriding app. Metadata-only packages permit
+npm installation without building unused native payloads. Selected run/test/bundle tasks
+prepare payloads and track only the selected asset directory.
+
+verifyWebIdentity compares public ABI signatures and metadata formats, recording the distinct
+klib unique names. It uses the pinned Native klib tool installed by the Native verification
+stage, found through standard konan caches; normal Node/browser builds do not require that
+diagnostic tool. verifyWebNpm checks canonical engine paths/hashes and JS webpack instance
+coherence. Wasm uses KGP's separate managed tooling. verifyWebBundles builds all four production
+distributions and requires exactly one selected PARI Wasm hash and no other engine version.
+
+Use production Node runs when combining them with production browser builds. KGP development
+and production sync tasks write the same npm directory and cannot be mixed in one invocation.
+Development Node runs work separately. After selection edits, regenerate the portable fixture
+locks with kotlinUpgradePackageLock and kotlinWasmUpgradePackageLock before verification.
+
+All nine disposable acceptance cases plus the portable-lock check pass on Windows x86_64/WSL
+with PowerShell 7: unused payloads, both orders/cache reuse, same-version reuse, override
+removal/restoration, strict requirements, duplicate rejection and restored bundles. All four
+browser pages also actually load and report their selected versions and arithmetic/factorization/
+error-recovery success. Each distribution includes index.html and can be served over HTTP.
+Production web overrides remain gated; this is an isolated compatibility proof.
 
 The root `parikt.properties` sets 2.19.0. `appA` and `sharedLogic` inherit it; `appB/parikt.properties`
 overrides it with 2.15.0. Both apps call the existing public API through the same compiled

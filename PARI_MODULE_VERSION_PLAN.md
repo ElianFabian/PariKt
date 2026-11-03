@@ -1,8 +1,8 @@
 # Project defaults and module-specific PARI versions
 
 Status: steps 1–2 complete in the experimental JVM selection layer; step 4 is complete for the
-production JVM launchers and step 5's isolated Native compatibility proof is complete.
-Steps 3 and 6–8 remain open in part, including production Native component/output integration.
+production JVM launchers and steps 5–6's isolated Native/web compatibility proofs are complete.
+Steps 3 and 7–8 remain open in part, including production Native/web component/output integration.
 Production now shares scoped JVM routing and the strict parser; Native/web/Android keep the root
 selection. PARI_VERSION_PLAN.md records the earlier verified baseline. JVM success does not
 establish Native/web/Android compatibility.
@@ -227,13 +227,43 @@ does not enable Native/web/Android overrides in the production installer.
 
 ### 6. Isolate JS/Wasm engine imports and assets
 
-- [ ] Give each engine a distinct staging path. Scope package-generation/webpack dependencies
+Verified (2026-11-03): -PwebProof adds webAppA/webAppB/webSharedLogic without changing the
+fixture's default JVM layout. The apps select 2.19.0/2.15.0 while sharing a library compiled
+against the default. All nine PowerShell 7 acceptance cases plus portable-lock verification pass
+(build/web-tests/4970dbf2bca3/logs): unused payload suppression, both orders/cache reuse,
+same-version reuse, override edits/removal/restoration, explicit shared requirements, duplicate
+providers and restored Node/npm/bundles. Negative cases stop before native preparation.
+
+Distinct npm names and generated private imports prevent hoisting from choosing another engine.
+App packageJson handlers retain one selected engine dependency, dropping an inherited library's
+default npm requirement. Canonical resolution paths/hashes verify both JS/Wasm workspaces. Metadata
+can be installed without native payloads; only selected run/test/bundle tasks request payloads.
+JS pins a coherent webpack 5.112.2 workspace; Wasm uses KGP's separate managed tooling.
+
+Klib unique names differ between providers, but public ABI signatures and metadata formats match;
+the shared compiled library links and runs against both providers on both targets. ABI inspection
+uses the installed pinned Native klib tool and supports the standard konan cache without a recorded
+build path (build/module-web-abi-cache-fallback.log). Ordinary web builds do not need that tool.
+Both browser distributions contain exactly one matching PARI Wasm hash and no other selected
+version. All four final pages actually load over loopback in IAB and report version, arithmetic,
+factorization and error-recovery success. Combined Node/browser checks use production Node runs
+to share KGP's production sync output. Development Node runs work in separate invocations.
+
+Portable JS/Wasm locks are recorded in kotlin-js-store. Selection edits regenerate fixture locks
+with kotlinUpgradePackageLock/kotlinWasmUpgradePackageLock. Source installation still gates
+production web overrides on step 3's full component/output integration. Verified host: Windows
+x86_64 + WSL, PowerShell 7; standalone Linux-host Gradle execution has not been verified here.
+Default JVM identity/graphs/apps and Native identity/graphs regressions pass with web disabled.
+The recorded-path-free Native SDK fallback and all four final browser pages also pass; the
+24-case configuration/discovery regression also passes (build/module-web-selections-regression.log).
+
+- [x] Give each engine a distinct staging path. Scope package-generation/webpack dependencies
   to the relevant consumer instead of installing an unconditional all-engines hook.
-- [ ] Prove npm workspace hoisting cannot select another application's engine. Use unique internal
+- [x] Prove npm workspace hoisting cannot select another application's engine. Use unique internal
   npm package identities and generated per-component import bindings if required; keep the public
   PariKt.init()/eval() API unchanged.
-- [ ] Check Kotlin JS/Wasm metadata identity and portable lockfiles as well as npm resolution.
-- [ ] Run both apps using JS and WasmJS Node targets, build both browser distributions and verify
+- [x] Check Kotlin JS/Wasm metadata identity and portable lockfiles as well as npm resolution.
+- [x] Run both apps using JS and WasmJS Node targets, build both browser distributions and verify
   actual browser loading/version output. Test both build orders and unchanged-cache reuse.
 
 The existing Emscripten factory already creates independent Wasm memories per factory call.
@@ -247,6 +277,8 @@ be isolated. Multiple versions inside one application are a separate, unplanned 
 - [ ] Resolve one matching native bridge AAR per app, with independent helper/CXX directories.
   Verify Gradle sync/NDK model generation with both selections.
 - [ ] Assemble both APKs in one invocation and inspect each ABI for exactly one GMP/PARI/JNI set.
+  Restrict packaging to arm64-v8a/x86_64 and demonstrate per-ABI APK splits; transitive 32-bit
+  graphics libraries must not make an APK advertise unsupported PARI architectures.
 - [ ] Run both apps on the supported emulator and assert their respective versions and evaluation.
   Reject conflicts before packaging; do not conceal them using native-library pickFirst rules.
 

@@ -16,6 +16,12 @@ if (providers.gradleProperty("nativeProof").isPresent) {
         project(it).buildFileName = "../native-app.gradle.kts"
     }
 }
+if (providers.gradleProperty("webProof").isPresent) {
+    include(":webAppA", ":webAppB", ":webSharedLogic")
+    listOf(":webAppA", ":webAppB").forEach {
+        project(it).buildFileName = "../web-app.gradle.kts"
+    }
+}
 
 // Default JVM scaffold, with opt-in Native linking proof. Production platform gates remain.
 gradle.settingsEvaluated {
@@ -43,11 +49,15 @@ gradle.settingsEvaluated {
         project(path).projectDir = file("build/parikt/engineProjects/${path.removePrefix(":").replace(':', '/')}").apply {
             mkdirs()
             val base = providers.fileContents(layout.settingsDirectory.file("engine.gradle.kts")).asText.get()
-            val content = if (providers.gradleProperty("nativeProof").isPresent) {
-                val native = providers.fileContents(layout.settingsDirectory.file("native-engine.gradle.kts")).asText.get()
-                val (imports, body) = native.lines().partition { it.startsWith("import ") }
-                imports.joinToString("\n") + "\n" + base + "\nrun {\n" + body.joinToString("\n") + "\n}\n"
-            } else base
+            val extensions = listOf("nativeProof" to "native-engine.gradle.kts", "webProof" to "web-engine.gradle.kts")
+                .filter { providers.gradleProperty(it.first).isPresent }.map { (_, template) ->
+                    providers.fileContents(layout.settingsDirectory.file(template)).asText.get().lines()
+                        .partition { it.startsWith("import ") }
+                }
+            val header = if (providers.gradleProperty("webProof").isPresent)
+                "@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class, org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)\n" else ""
+            val content = header + extensions.flatMap { it.first }.distinct().joinToString("\n") + "\n" + base +
+                extensions.joinToString("\n") { "\nrun {\n" + it.second.joinToString("\n") + "\n}\n" }
             val script = File(this, "build.gradle.kts")
             if (!script.exists() || script.readText() != content) script.writeText(content)
         }

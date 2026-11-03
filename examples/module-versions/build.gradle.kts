@@ -10,6 +10,21 @@ plugins {
     alias(pariktLibs.plugins.kotlin.jvm) apply false
 }
 
+if (providers.gradleProperty("webProof").isPresent) {
+    val webpackVersion = "5.112.2"
+    extra["parikt.proof.webpackVersion"] = webpackVersion
+    extra["parikt.proof.kotlinVersion"] = pariktLibs.versions.kotlin.get()
+    // Use one webpack instance across npm workspaces and webpack-cli's peer dependency.
+    // Mixed instances fail Compilation identity checks in generated configurations.
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin>().configureEach {
+        extensions.configure<org.jetbrains.kotlin.gradle.targets.js.npm.NpmExtension> {
+            override("webpack", webpackVersion)
+        }
+        tasks.named("rootPackageJson") { inputs.property("parikt.web.webpackVersion", webpackVersion) }
+    }
+    apply(from = file("web-verification.gradle.kts"))
+}
+
 if (providers.gradleProperty("nativeProof").isPresent) {
     apply(from = file("native-verification.gradle.kts"))
 }

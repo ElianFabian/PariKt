@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>PariKt module version proof</title>
+<body><pre id="status">Loading PARI...</pre>
+<script>
+const originalLog = console.log;
+console.log = (...args) => {
+  originalLog(...args);
+  const message = args.join(' ');
+  if (message.startsWith('PASS web sharedLogic')) document.getElementById('status').textContent = message;
+};
+window.addEventListener('error', event => document.getElementById('status').textContent = 'FAIL: ' + event.message);
+window.addEventListener('unhandledrejection', event => document.getElementById('status').textContent = 'FAIL: ' + event.reason);
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

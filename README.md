@@ -105,7 +105,7 @@ Verify the existing applications without opening a window:
 ```
 
 The separate [module-version proofs](examples/module-versions/README.md) retain the focused
-JVM fixture and add an opt-in Native compatibility proof. `examples/consumer` also remains
+JVM fixture and add opt-in Native and JS/Wasm compatibility proofs. `examples/consumer` also remains
 the standalone installation example.
 
 ## Android

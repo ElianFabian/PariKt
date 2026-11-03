@@ -50,6 +50,47 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+JVM integration is committed as 5610057; the isolated Native proof is committed as 35ff177.
+Step 6's isolated JS/Wasm proof is complete behind -PwebProof in examples/module-versions.
+Production Native/web/Android module overrides remain gated; root defaults and minSdk 21 persist.
+
+webAppA inherits 2.19.0 and webAppB selects 2.15.0; both call webSharedLogic compiled against
+the default. Generated private @JsModule bindings import distinct @parikt/engine-<version>
+packages. App packageJson handlers remove inherited default-engine npm dependencies when they
+conflict with the app selection. Each app manifest contains one engine dependency; canonical
+npm junction paths/hashes verify the selected package. JS workspace webpack is pinned to one
+5.112.2 instance, with an explicit manifest task input; Wasm uses KGP's separate tooling.
+
+Package metadata can be staged without native payloads. Only selected run/test/bundle consumers
+request payload copies and native builds; npm ordering constraints do not schedule unused engines.
+Browser webpack tracks only the selected payload and uses the existing Emscripten Node fallbacks.
+JS/Wasm klib unique names remain provider-specific; public ABI signatures and metadata formats
+match. The ABI diagnostic locates the installed pinned Native klib tool via standard konan caches
+or a recorded path; a missing-record fallback test passes (build/module-web-abi-cache-fallback.log).
+Node/browser compilation itself does not require that diagnostic tool.
+
+All nine disposable PowerShell 7 cases plus portable-lock verification pass:
+build/web-tests/4970dbf2bca3/logs. They cover unused payload suppression, both orders/cache reuse,
+same-version reuse, override removal/restoration, explicit requirements, duplicate rejection and
+restored Node/npm/bundles. Cache/reuse cases fetch no sources or compile native engines; shared
+Kotlin compilation is reused. Every browser distribution has exactly one matching PARI Wasm hash
+and none from another version. All four final browser pages actually run over loopback in IAB
+and display their selected versions plus arithmetic/factorization/error-recovery success.
+Combined Node/browser commands use production Node runs: mixing development and production syncs
+in one invocation hits KGP's shared npm output-directory validation. Portable lockfiles are kept
+in kotlin-js-store; property edits regenerate them using the standard JS/Wasm upgrade-lock tasks.
+Verification: build/module-web-scoped-production-proof.log and the acceptance logs above.
+
+Default JVM identity/graphs/apps and Native identity/graphs pass after the web extension
+(build/module-web-jvm-regression.log, build/module-web-native-regression.log). The Native SDK
+cache fallback passes with the recorded path temporarily removed and restored. All four final
+browser outputs were rechecked in a fresh IAB tab; temporary tabs/server are cleaned up.
+All 24 configuration/discovery cases also pass (build/module-web-selections-regression.log).
+Next: step 7 Android overrides.
+Android currently supports arm64-v8a/x86_64. Per-ABI APK splits are possible but not enabled in
+the demo. Its APK also contains transitive 32-bit graphics libraries without PARI counterparts;
+Android packaging work should restrict output ABIs to the two implemented native backends.
+
 JVM integration committed as 5610057. Step 5's isolated Native compatibility proof is complete,
 opt-in via -PnativeProof in examples/module-versions. Production Native overrides remain gated.
 The nativeAppA/nativeAppB applications share nativeSharedLogic, compiled against the 2.19.0
@@ -80,7 +121,7 @@ The final default JVM fixture identity/graphs/apps also pass without deprecation
 JVM graph tasks are registered only for JVM consumer plugins; Native consumers expose their
 own verifyNativeGraph task. Final task-registration checks pass for JVM graphs and Native
 graphs/identity (build/module-native-task-scope-{jvm,native}.log), without deprecation warnings.
-Next: step 6 JS/Wasm identities/imports/npm packaging; production Native rollout remains part
+Step 6's web proof is now complete; production Native rollout remains part
 of step 3's unresolved component/output integration. Existing targets, examples and minSdk 21
 are unchanged. The Native proof is a separate checkpoint from the JVM integration.
 
@@ -110,7 +151,7 @@ folders are retained. README documents real-module JVM selection and the platfor
 PARI_MODULE_VERSION_PLAN.md implementation has started with the isolated examples/module-versions
 JVM proof. It uses root defaults/module overrides, generated KMP JVM source components, scoped
 project substitution and a common engine capability. Steps 1–2 are complete in the experimental
-JVM selection layer. Steps 4 and 5's isolated Native proof are complete; steps 3 and 6–8 remain
+JVM selection layer. Steps 4 and 5–6's isolated Native/web proofs are complete; steps 3 and 7–8 remain
 open in part. Production JVM routing now uses that design,
 while Native/web/Android retain the root selection.
 Both applications pass in one invocation in both orders with 2.19.0/2.15.0, exact arithmetic/

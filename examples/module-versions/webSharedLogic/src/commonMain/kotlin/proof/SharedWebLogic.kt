@@ -1,0 +1,18 @@
+package proof
+
+import com.elianfabian.parikt.PariKt
+import com.elianfabian.parikt.getVersionName
+
+suspend fun verifySharedWebEngine(expected: String) {
+    PariKt.init()
+    try {
+        val actual = PariKt.getVersionName()
+        check(actual == expected) { "Expected PARI $expected, loaded $actual" }
+        fun result(command: String) = PariKt.eval(command).substringAfterLast('=').trim()
+        check(result("2+2") == "4")
+        check(result("factor(123456)==[2,6;3,1;643,1]") == "1")
+        check(PariKt.eval("1/0").contains(Regex("division|inverse|zero", RegexOption.IGNORE_CASE)))
+        check(result("6*7") == "42")
+        println("PASS web sharedLogic PARI $actual arithmetic/factorization/error recovery")
+    } finally { PariKt.close() }
+}
