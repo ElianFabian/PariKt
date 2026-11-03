@@ -1,26 +1,6 @@
 # Project defaults and module-specific PARI versions
 
-Status: steps 1–2 complete for JVM in the experimental and production integrations; step 4 is complete for the
-production JVM launchers and steps 5–7's isolated Native/web/Android compatibility proofs are complete.
-Steps 3 and 8 remain open in part, including production web/Android component/output integration.
-Production shares scoped JVM/Native routing and the strict parser; Android/web keep the root
-selection. PARI_VERSION_PLAN.md records the earlier verified baseline. Platform proofs and
-actual production integration coverage are distinguished below.
-Step 3 now has shared source acquisition implemented across backend builders and JVM compiled
-engine reuse verified, including the expanded concurrency and force checks. Broader output/routing
-work remains open.
-Production JVM routing/launcher integration uses terminalApp, desktopApp and consoleUi. All 11
-real-module acceptance cases pass, including UI/state tests, both task orders, shared-library
-conflicts, duplicate providers and restored builds after negative cases. Logs:
-build/application-version-tests/8276cdb43e164afbb374d77601afa93b. Android assembleDebug (minSdk 21),
-consoleUi JS/Wasm compilation and existing Linux/Windows Native checks pass in a 97-task build
-(build/application-target-regression.log). The ordinary terminal command/factorization/close
-flow, all five property diagnostics and all 24 scoped discovery checks also pass. The preserved
-examples/consumer :app:runJvm passes on 2.19.0 (build/application-consumer-regression.log).
-Routing is applied after project plugin setup to preserve Kotlin DSL catalog
-classloader setup. Non-JVM overrides remain gated; README describes the JVM contract and both
-examples folders are retained. The older property/selection verification scripts now use direct log
-redirection to avoid inherited daemon pipes hanging their output readers.
+Production JVM, Native and JS/Wasm support scoped versions and module-only configuration. Native checkpoint: 44ecbb5. Production web acceptance passes all 14 cases plus portable locks and actual execution of all four browser pages (build/wp/b2d3df3c69e8). Android production helpers/routing/models and final all-platform acceptance remain open. Shared source acquisition and complete JVM engine caching are verified. Both examples folders and all existing targets are preserved.
 
 ## Configuration contract
 
@@ -131,6 +111,8 @@ JVM success as proof that the same mechanism works on Native and web.
 
 ### Production platform integration rollout
 
+Native checkpoint: 44ecbb5. Production web integration now passes 14 acceptance cases, portable npm locks and actual browser execution of JS/Wasm applications on both versions (build/wp/b2d3df3c69e8). Versioned generated imports/packages, metadata-only staging, selected payload tasks and npm pruning use public Gradle/KGP APIs. Both real Compose distributions build with a temporary 2.19.0 override and selected-only raw payloads; default 2.15.0 distributions and minSdk-21 Android assembly are restored. The standalone module-only consumer passes JVM, Windows/Linux Native and both Node targets; its original root default/locks are restored and JVM/Node runs pass again. The 13-case module-only JVM suite also compiles an actual Java source through KMP classpaths (build/production-module-only/1e62ad4b850f/logs). Ten Native cases with implementation-hidden dependencies pass (build/np/519825b59afb/logs).
+
 The platform compatibility proofs are complete. Integrate their verified behavior in this order,
 keeping the working root-default and module-only JVM paths covered at each checkpoint.
 Native production integration passes all ten acceptance cases: build/np/9940f9b6c63e/logs.
@@ -152,7 +134,7 @@ logs use the build/platform-native-* prefix; no temporary module override remain
 
 - [x] Share stable provider/interop identities and enable production Native substitution,
   explicit-request conflict checks and exactly-one-archive validation at final links.
-- [ ] Integrate version-scoped web imports/packages, metadata-only staging and selected
+- [x] Integrate version-scoped web imports/packages, metadata-only staging and selected
   payload/bundle task wiring; verify Node/browser outputs and npm dependency pruning.
 - [ ] Integrate scoped Android helpers/source providers/CXX paths, Startup and ABI packaging,
   with explicit module-only support and documented model-bootstrap timing.
@@ -199,7 +181,7 @@ All 24 scoped selection/discovery checks also pass (build/module-only-selection-
 
 This stage was proven in the experimental JVM selection layer. Production now shares its strict
 parser/discovery and supports JVM routing and module-only JVM configuration without a root default.
-Native production routing/module-only support is now verified too. Android/web remain gated.
+Native production routing/module-only support is now verified too. Android remains gated.
 
 - [x] Discover declared consumer project directories after includes are known; exclude generated
   engine/helper projects. Preserve existing settings-script placement where possible.
@@ -216,7 +198,7 @@ Native production routing/module-only support is now verified too. Android/web r
 - [ ] Parameterize shared source paths, helper dependencies, build directories and CXX/model paths.
   Remove fixed singleton output locations from generated source components.
   Production JVM/Native have scoped providers, stable klib identities and explicit request checks;
-  web/Android source/helper/output integration remains open.
+  Android source/helper/output integration remains open.
 - [x] Preserve target/version/source/toolchain fingerprints and work-cache locks. Share compatible
   dependency caches, without sharing incompatible mutable compilation outputs.
 - [x] Unify PARI source acquisition across backend work caches using a canonical immutable source
@@ -231,7 +213,7 @@ Native production routing/module-only support is now verified too. Android/web r
   selected provider/cache. Other target scoping remains open.
 - [ ] Validate explicit transitive requirements and reject duplicate providers before final linking,
   packaging or launch. Diagnostics must identify the dependency chain and configuration files.
-  Production JVM/Native requirements and competing providers are verified; Android/web remain open.
+  Production JVM/Native requirements and competing providers are verified; Android remains open.
 - [ ] Account for Android model bootstrap timing: do not promise conflict detection before all
   downloads until proven. Avoid preparing unused engines where requested models permit it.
 
@@ -267,7 +249,7 @@ It uses short build/native-tests/<id>/f paths for Windows GNU ld.gold, direct lo
 safe fixture cleanup. Cache/reuse/restoration cases perform no source fetch or Native engine
 compilation. Windows PowerShell 5.1 and standalone Linux-host Gradle execution are unverified.
 Production Native integration now preserves these proof requirements and passes its separate
-ten-case installer suite, including module-only configurations. Android/web integration remains open.
+ten-case installer suite, including module-only configurations. Android integration remains open.
 
 - [x] Extend the fixture to mingwX64 and linuxX64. Inspect Kotlin/interop klib identities rather
   than assuming different Gradle project names produce interchangeable native dependencies.
@@ -438,7 +420,7 @@ cache is reused; :parikt convenience tasks still require a root default, as test
 Runtime logs remain under build/module-version-tests; copied fixtures are removed.
 Production output isolation/routing, other JVM launchers, configuration-cache support and the
 Native/web/Android isolated proofs are complete; production Native integration also passes above.
-Production web/Android routing remains open. No custom Gradle plugin was added.
+Production Android routing remains open. No custom Gradle plugin was added.
 
 ## Step 3 cache implementation and verification
 
@@ -499,3 +481,5 @@ machine setup, Linux JVM cross-output reuse and emulator execution were not veri
 
 These APIs inform the proposed experiments; the project-specific KMP identity and packaging
 requirements above still need to be proven against this repository's pinned toolchain.
+
+Web checkpoint final regression: all 11 real-application cases pass (build/application-version-tests/90cdaa0a092c42c08d8cf34d0de6c597). No temporary property overrides remain. Android production integration is next.

@@ -1,6 +1,7 @@
 import java.util.jar.JarFile
 import java.security.MessageDigest
 import java.util.Properties
+import org.gradle.kotlin.dsl.withGroovyBuilder
 
 val checkout = extra["pariktSourceDir"] as File
 gradle.settingsEvaluated {
@@ -22,9 +23,13 @@ gradle.settingsEvaluated {
         project(path).projectDir = File(parent.projectDir, "parikt").apply {
             mkdirs()
             val base = providers.fileContents(layout.settingsDirectory.file(File(checkout, "gradle/parikt.jvm-engine.gradle.kts").absolutePath)).asText.get()
-            val extension = providers.fileContents(layout.settingsDirectory.file(File(checkout, "gradle/parikt.native-engine.gradle.kts").absolutePath)).asText.get()
-                .lines().partition { it.startsWith("import ") }
-            val content = extension.first.joinToString("\n") + "\n" + base + "\nrun {\n" + extension.second.joinToString("\n") + "\n}\n"
+            val extensions = listOf("native", "web").map { platform ->
+                providers.fileContents(layout.settingsDirectory.file(File(checkout, "gradle/parikt.$platform-engine.gradle.kts").absolutePath)).asText.get()
+                    .lines().partition { it.startsWith("import ") }
+            }
+            val content = "@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class, org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)\n" +
+                extensions.flatMap { it.first }.distinct().joinToString("\n") + "\n" + base +
+                extensions.joinToString("\n") { "\nrun {\n" + it.second.joinToString("\n") + "\n}\n" }
             val script = File(this, "build.gradle.kts")
             if (!script.exists() || script.readText() != content) script.writeText(content)
         }
@@ -41,6 +46,36 @@ gradle.settingsEvaluated {
         }
         if (selected != null) {
             extensions.extraProperties["parikt.jvm.selection"] = selected
+            extensions.extraProperties["parikt.selection"] = selected
+            if (path !in engines.values) {
+                val consumer = this
+                plugins.withId("org.jetbrains.kotlin.multiplatform") {
+                    @Suppress("UNCHECKED_CAST")
+                    val targets = consumer.extensions.getByName("kotlin").withGroovyBuilder { getProperty("targets") } as NamedDomainObjectCollection<Any>
+                    targets.configureEach {
+                        val target = this
+                        if (target.withGroovyBuilder { getProperty("platformType") }.toString() in setOf("js", "wasm")) {
+                            @Suppress("UNCHECKED_CAST")
+                            val compilations = target.withGroovyBuilder { getProperty("compilations") } as NamedDomainObjectCollection<Any>
+                            compilations.configureEach {
+                                withGroovyBuilder {
+                                    "packageJson"(Action<Any> {
+                                        @Suppress("UNCHECKED_CAST")
+                                        val participants = gradle.extensions.extraProperties.properties["parikt.participants"] as? Set<String> ?: emptySet()
+                                        if (consumer.path in participants) {
+                                            @Suppress("UNCHECKED_CAST")
+                                            val dependencies = withGroovyBuilder { getProperty("dependencies") } as MutableMap<String, String>
+                                            val packageId = "@parikt/engine-" + selected.first.lowercase().replace('.', '-')
+                                            dependencies.keys.removeAll { it == "@parikt/engine" || (it.startsWith("@parikt/engine-") && it != packageId) }
+                                            dependencies[packageId] = "file:../../../parikt/web-engines/${selected.first}"
+                                        }
+                                    })
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     // Apply after the project's plugin block has established its classloader.
@@ -50,6 +85,7 @@ gradle.settingsEvaluated {
             apply(from = File(checkout, "gradle/parikt.jvm.gradle.kts"))
             if (plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") && path !in engines.values) {
                 apply(from = File(checkout, "gradle/parikt.native.gradle.kts"))
+                apply(from = File(checkout, "gradle/parikt.web.gradle.kts"))
             }
         }
     }

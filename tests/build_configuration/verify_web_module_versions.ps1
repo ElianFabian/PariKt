@@ -1,9 +1,10 @@
 #requires -Version 7.0
 # Disposable JS/Wasm proof. The checked-in fixture and its lockfiles are never edited.
+param([switch]$Production)
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $source = Join-Path $repositoryRoot 'examples/module-versions'
-$scratch = Join-Path $repositoryRoot 'build/web-tests'
+$scratch = Join-Path $repositoryRoot $(if ($Production) { 'build/wp' } else { 'build/web-tests' })
 $runRoot = Join-Path $scratch ([Guid]::NewGuid().ToString('N').Substring(0, 12))
 $fixture = Join-Path $runRoot 'f'
 $logs = Join-Path $runRoot 'logs'
@@ -18,7 +19,92 @@ foreach ($file in (Get-ChildItem -LiteralPath $source -Recurse -File)) {
     $null = New-Item -ItemType Directory -Path (Split-Path $destination) -Force
     Copy-Item -LiteralPath $file.FullName -Destination $destination
 }
+if ($Production) {
+    foreach ($version in @('2.19.0', '2.15.0')) {
+        foreach ($name in @('.stamp', 'parikt-engine.mjs', 'parikt-engine.wasm', 'parikt.mjs', 'package.json')) {
+            $destination = Join-Path $fixture "build/parikt/native/web-$version/$name"
+            $null = New-Item -ItemType Directory -Path (Split-Path $destination) -Force
+            Copy-Item -LiteralPath (Join-Path $repositoryRoot "parikt/.native/web-$version/$name") -Destination $destination
+        }
+        foreach ($abi in @('arm64-v8a', 'x86_64')) {
+            foreach ($library in @('gmp', 'pari')) {
+                $relative = "android-$version/$abi/$library/lib/lib$library.so"
+                $destination = Join-Path $fixture "build/parikt/native/$relative"
+                $null = New-Item -ItemType Directory -Path (Split-Path $destination) -Force
+                Copy-Item -LiteralPath (Join-Path $repositoryRoot "parikt/.native/$relative") -Destination $destination
+            }
+        }
+    }
+    $sdk = Get-Content (Join-Path $repositoryRoot 'local.properties') | Where-Object { $_ -match '^sdk.dir=' }
+    [IO.File]::WriteAllLines((Join-Path $fixture 'local.properties'), [string[]]$sdk, $utf8)
+    $settings = @'
+pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+dependencyResolutionManagement { repositories { google(); mavenCentral() } }
+rootProject.name = "ProductionWebVersions"
+extra["pariktSourceDir"] = file(providers.gradleProperty("pariktSourceDir").get())
+apply(from = File(extra["pariktSourceDir"] as File, "gradle/parikt.settings.gradle.kts"))
+include(":webAppA", ":webAppB", ":webSharedLogic")
+listOf(":webAppA", ":webAppB").forEach { project(it).buildFileName = "../web-app.gradle.kts" }
+gradle.projectsEvaluated {
+    rootProject.extra["parikt.proof.webpackVersion"] = rootProject.extra["parikt.webpackVersion"]
+    rootProject.extra["parikt.proof.kotlinVersion"] = "__KOTLIN_VERSION__"
+    rootProject.apply(from = File(settingsDir, "web-verification.gradle.kts"))
+}
+'@
+    $kotlinVersion = (Get-Content (Join-Path $repositoryRoot 'gradle/libs.versions.toml') | Where-Object { $_ -match '^kotlin = ' }).Split('"')[1]
+    [IO.File]::WriteAllText((Join-Path $fixture 'settings.gradle.kts'), $settings.Replace('__KOTLIN_VERSION__', $kotlinVersion), $utf8)
+    [IO.File]::WriteAllText((Join-Path $fixture 'build.gradle.kts'), @'
+plugins {
+    alias(pariktLibs.plugins.android.library) apply false
+    alias(pariktLibs.plugins.android.kotlin.multiplatform.library) apply false
+    alias(pariktLibs.plugins.kotlin.multiplatform) apply false
+}
+'@, $utf8)
+    $app = [IO.File]::ReadAllText((Join-Path $fixture 'web-app.gradle.kts'))
+    $app = $app.Substring(0, $app.IndexOf("kotlin {`n")).Replace('extra["parikt.selections"]', 'gradle.extensions.extraProperties["parikt.selections"]')
+    $app = $app.Replace('extra["parikt.engineProjects"]', 'gradle.extensions.extraProperties["parikt.engines"]')
+    $app += @'
+kotlin {
+    js {
+        useEsModules(); nodejs()
+        browser { commonWebpackConfig { outputFileName = "app.js"; configDirectory = rootProject.file("web-webpack.config.d") } }
+        binaries.executable()
+    }
+    wasmJs {
+        nodejs()
+        browser { commonWebpackConfig { outputFileName = "app.js"; configDirectory = rootProject.file("web-webpack.config.d") } }
+        binaries.executable()
+    }
+    sourceSets.commonMain {
+        kotlin.srcDir(rootProject.file("webAppA/src/commonMain/kotlin"))
+        kotlin.srcDir(files(settingsSource).builtBy(generateSettings))
+        resources.setSrcDirs(listOf(rootProject.file("webAppA/src/commonMain/resources")))
+        dependencies {
+            implementation(project(":webSharedLogic"))
+            implementation(project(":parikt"))
+            implementation(pariktLibs.kotlinx.coroutines.core)
+        }
+    }
+}
+'@
+    [IO.File]::WriteAllText((Join-Path $fixture 'web-app.gradle.kts'), $app, $utf8)
+    # Match real applications whose engine is hidden behind a shared library implementation.
+    $app = $app.Replace('            implementation(project(":parikt"))', '')
+    [IO.File]::WriteAllText((Join-Path $fixture 'web-app.gradle.kts'), $app, $utf8)
+    $sharedBuild = Join-Path $fixture 'webSharedLogic/build.gradle.kts'
+    [IO.File]::WriteAllText($sharedBuild, [IO.File]::ReadAllText($sharedBuild).Replace('api(project(":parikt"))', 'implementation(project(":parikt"))'), $utf8)
+    $verification = [IO.File]::ReadAllText((Join-Path $fixture 'web-verification.gradle.kts'))
+    $verification = $verification.Replace('extra["parikt.engineProjects"]', 'gradle.extensions.extraProperties["parikt.engines"]')
+    $verification = $verification.Replace('extra["parikt.selections"]', 'gradle.extensions.extraProperties["parikt.selections"]')
+    $verification = $verification.Replace('extra["parikt.checkout"]', 'gradle.extensions.extraProperties["parikt.sourceDirectory"]')
+    $verification = $verification.Replace('val knownEngines = engines.keys.associateWith', 'val knownEngines = (engines.keys + listOf("2.15.0", "2.19.0")).distinct().associateWith')
+    [IO.File]::WriteAllText((Join-Path $fixture 'web-verification.gradle.kts'), $verification, $utf8)
+}
 function Invoke-WebProof([string]$Name, [string[]]$Tasks, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Absent = @(), [string[]]$Any = @()) {
+    if ($Production) {
+        $Tasks = @($Tasks | ForEach-Object { $_.Replace(':verifyWebGraph', ':verifyPariWebGraph') })
+        $Expected = @($Expected | ForEach-Object { $_.Replace('web graph PARI=', 'web PARI=') })
+    }
     $log = Join-Path $logs ($Name + '.log')
     $startInfo = [Diagnostics.ProcessStartInfo]::new()
     $startInfo.WorkingDirectory = $repositoryRoot
@@ -67,6 +153,7 @@ try {
     $runtimes = @('PASS web sharedLogic PARI 2.19.0 arithmetic/factorization/error recovery', 'PASS web sharedLogic PARI 2.15.0 arithmetic/factorization/error recovery')
     $noBuild = @('[pari-source] fetching', '[web-native] building')
     $unused = @(':pariktEngine_2_15_0:buildWebNativeDependencies', ':pariktEngine_2_15_0:prepareWebEnginePackage')
+    if ($Production) { $unused = @(':pariktEngine_2_15_0:parikt:buildWebNativeDependencies', ':pariktEngine_2_15_0:parikt:prepareWebEnginePackage') }
     Invoke-WebProof 'single-selected-payload' ($upgrade + @(':webAppA:jsNodeProductionRun')) @($runtimes[0]) $false ($noBuild + $unused)
     if (Test-Path -LiteralPath (Join-Path $fixture 'build/parikt/web-engines/2.15.0/parikt-engine.wasm')) { throw 'Unused engine payload was staged' }
     Invoke-WebProof 'forward-identity-npm-bundles' ($forward + @('verifyWebIdentity', 'verifyWebNpm', 'verifyWebBundles', ':webAppA:verifyWebGraph', ':webAppB:verifyWebGraph')) ($runtimes + @('PASS web identity js', 'PASS web identity wasmJs', 'PASS webAppB wasm npm: one @parikt/engine-2-15-0', 'PASS :webAppB wasmJs bundle: exactly one PARI 2.15.0')) $false $noBuild
@@ -87,10 +174,53 @@ try {
     Remove-Item -LiteralPath $requirement
     $appScript = Join-Path $fixture 'web-app.gradle.kts'
     $original = [IO.File]::ReadAllBytes($appScript)
-    [IO.File]::AppendAllText($appScript, "`nkotlin { sourceSets.commonMain.dependencies { implementation(project(`":pariktEngine_2_19_0`")) } }`n", $utf8)
-    Invoke-WebProof 'duplicate-provider' @(':webAppB:verifyWebGraph') @('2_19_0', '2_15_0') $true @() @('PARI provider conflict', 'com.elianfabian.parikt:engine')
+    $provider = ':pariktEngine_2_19_0'
+    $providerExpected = @('2_19_0', '2_15_0')
+    if ($Production) {
+        [IO.File]::WriteAllText((Join-Path $fixture 'parikt.properties'), "pari.version=2.15.0`n", $utf8)
+        [IO.File]::WriteAllText((Join-Path $fixture 'webAppA/parikt.properties'), "pari.version=2.19.0`n", $utf8)
+        $provider = ':pariktEngine_2_19_0:parikt'
+        $providerExpected = @('2_19_0', '2.15.0')
+    }
+    [IO.File]::AppendAllText($appScript, "`nkotlin { sourceSets.commonMain.dependencies { implementation(project(`"$provider`")) } }`n", $utf8)
+    Invoke-WebProof 'duplicate-provider' @(':webAppB:verifyWebGraph') $providerExpected $true @() @('PARI provider conflict', 'com.elianfabian.parikt:engine')
     [IO.File]::WriteAllBytes($appScript, $original)
+    if ($Production) {
+        [IO.File]::WriteAllText((Join-Path $fixture 'parikt.properties'), "pari.version=2.19.0`n", $utf8)
+        Remove-Item -LiteralPath (Join-Path $fixture 'webAppA/parikt.properties')
+    }
     Invoke-WebProof 'restored-valid-build' ($forward + @('verifyWebNpm', 'verifyWebBundles', ':webAppA:verifyWebGraph', ':webAppB:verifyWebGraph')) ($runtimes + @('web graph PARI=2.19.0', 'web graph PARI=2.15.0')) $false $noBuild
+    if ($Production) {
+        Remove-Item -LiteralPath (Join-Path $fixture 'parikt.properties')
+        foreach ($module in @('webAppA', 'webAppB', 'webSharedLogic')) {
+            [IO.File]::WriteAllText((Join-Path $fixture "$module/parikt.properties"), "pari.version=2.19.0`n", $utf8)
+        }
+        Invoke-WebProof 'rootless-shared-version' ($upgrade + $forward + @('verifyWebIdentity', 'verifyWebNpm', 'verifyWebBundles')) @($runtimes[0], 'PASS web identity js', 'PASS web identity wasmJs', 'PASS webAppB js npm: one @parikt/engine-2-19-0') $false ($noBuild + @($runtimes[1]))
+        Invoke-WebProof 'rootless-default-engine-task' @(':parikt:prepareWebEnginePackage') @('No root PARI default', 'Module overrides are not a default') $true
+        [IO.File]::WriteAllText($override, "pari.version=2.15.0`n", $utf8)
+        Invoke-WebProof 'rootless-shared-conflict' @(':webAppB:jsNodeProductionRun') @('PARI requirement conflict', '2.19.0', '2.15.0', 'dependency path: :webAppB -> :webSharedLogic') $true
+        foreach ($relative in @('build.gradle.kts', 'src/commonMain/kotlin/proof/SharedWebLogic.kt')) {
+            $destination = Join-Path $fixture "webAlternateLogic/$relative"
+            $null = New-Item -ItemType Directory -Path (Split-Path $destination) -Force
+            Copy-Item -LiteralPath (Join-Path $fixture "webSharedLogic/$relative") -Destination $destination
+        }
+        [IO.File]::WriteAllText((Join-Path $fixture 'webAlternateLogic/parikt.properties'), "pari.version=2.15.0`n", $utf8)
+        [IO.File]::WriteAllText((Join-Path $fixture 'web-app-b.gradle.kts'), [IO.File]::ReadAllText($appScript).Replace(':webSharedLogic', ':webAlternateLogic'), $utf8)
+        [IO.File]::AppendAllText((Join-Path $fixture 'settings.gradle.kts'), "`ninclude(`":webAlternateLogic`")`nproject(`":webAppB`").buildFileName = `"../web-app-b.gradle.kts`"`n", $utf8)
+        Invoke-WebProof 'rootless-independent-versions' ($upgrade + $forward + @('verifyWebIdentity', 'verifyWebNpm', 'verifyWebBundles', ':webAppA:verifyWebGraph', ':webAppB:verifyWebGraph')) ($runtimes + @('PASS webAppB js npm: one @parikt/engine-2-15-0')) $false $noBuild
+        [IO.File]::WriteAllText((Join-Path $fixture 'parikt.properties'), "pari.version=2.19.0`n", $utf8)
+        Invoke-WebProof 'root-default-restored' ($upgrade + $forward + @('verifyWebNpm', 'verifyWebBundles')) $runtimes $false $noBuild
+        # Retain only final browser distributions alongside logs, allowing real browser checks
+        # after the disposable source/build fixture is removed.
+        foreach ($appName in @('webAppA', 'webAppB')) {
+            foreach ($target in @('js', 'wasmJs')) {
+                $destination = Join-Path $runRoot "browser/$appName/$target"
+                $null = New-Item -ItemType Directory -Path $destination -Force
+                Copy-Item -Path (Join-Path $fixture "$appName/build/dist/$target/productionExecutable/*") -Destination $destination -Recurse -Force
+            }
+        }
+        Write-Host "Browser artifacts: $(Join-Path $runRoot 'browser')"
+    }
     foreach ($lock in (Get-ChildItem (Join-Path $fixture 'kotlin-js-store') -Filter 'package-lock.json' -Recurse -File)) {
         if ([IO.File]::ReadAllText($lock.FullName) -match '(?i)"resolved"\s*:\s*"(?:file:/|[A-Z]:[\\/]|/home/|/Users/)') { throw "Nonportable npm lock: $($lock.FullName)" }
     }

@@ -17,7 +17,7 @@ for a missing file, no custom Gradle plugin, and no PariKt release for each PARI
 The previous `pariVersion` Gradle property is rejected with migration instructions.
 This repository's own file selects PARI only for its demos/tests. External consumers must provide
 their own selection files; the settings script never falls back to the checkout's demo selection.
-JVM builds can omit the root file when every participating module selects a version locally,
+JVM, Native and web builds can omit the root file when every participating module selects a version locally,
 as described below.
 
 Source integration is currently the supported consumer installation. In your settings, after
@@ -44,7 +44,7 @@ already declares these plugins, keep one declaration using the same versions. Th
 baseline is Gradle 9.6.0, Kotlin 2.4.21 and AGP 9.4.1. Android SDK/NDK and the host prerequisites
 below are still required: the source library currently configures all implemented targets,
 including its Android native model, when a root default configures the full source library.
-Module-only JVM/Native builds configure scoped providers and need the Kotlin plugin classpath:
+Module-only JVM/Native/web builds configure scoped providers and need the Kotlin plugin classpath:
 
 ```kotlin
 plugins {
@@ -66,7 +66,7 @@ From this repository on Windows:
 
 See `examples/consumer/README.md` for Linux execution and additional checks. External consumers
 own generated module outputs under `build/parikt/modules`, native engines under
-`build/parikt/native`, and staged web assets under `build/parikt/web-engine`. This repository's
+`build/parikt/native`, and staged web assets under `build/parikt/web-engines/<version>`. This repository's
 development build retains its existing `parikt/.native` engine caches. Shared host source/toolchain
 work caches are reused. Native builders lock each work cache so simultaneous consumer builds
 wait rather than modifying the same compiler/source stages.
@@ -93,7 +93,7 @@ They cannot change PARI after compilation. Binary-only Maven installation is not
 an ordinary Maven dependency plus a properties file alone cannot run these source-build steps.
 See `PARI_VERSION_PLAN.md` for the implementation checklist and cache identity discussion.
 
-JVM and Native application modules can override the root default with a `parikt.properties` in their
+JVM, Native and JS/Wasm application modules can override the root default with a `parikt.properties` in their
 own project directory. `terminalApp` inherits this repository's 2.15.0 default; `desktopApp`
 selects 2.19.0. Both use `consoleUi`, which compiles against the default and imposes no explicit
 engine requirement. A library with its own file does impose a requirement: a conflicting app
@@ -102,7 +102,7 @@ Use `pariktSelections` to inspect effective versions and origins.
 
 Each application routes direct and transitive JVM dependencies to one source provider per
 distinct version, and its JavaExec/test tasks use that provider's native output. Matching
-selections reuse the provider and compatible engine cache. Production JVM/Native builds support
+selections reuse the provider and compatible engine cache. Production JVM/Native/web builds support
 **module-only configuration**: omit the root file and put `parikt.properties` in every module
 that directly or transitively uses PariKt, including shared libraries. Unrelated modules need
 no selection. Supported KMP libraries include common metadata routing.
@@ -263,7 +263,7 @@ both orders, same-version reuse, rootless shared/independent chains, strict requ
 higher/lower provider requests and restored defaults. The harness seeds prepared 2.15.0/2.19.0
 C artifacts/stamps into disposable consumer-owned caches; builders validate them normally.
 Root-default source installation retains its existing Android SDK prerequisites. Production
-Android/web overrides remain the next integration steps.
+Android overrides remain the next integration step.
 
 In Android Studio, sync Gradle after changing the build script, then run the native main
 configuration (`runDebugExecutableMingwX64`). Generated debug/release run tasks forward console
@@ -398,7 +398,7 @@ Linux/WSL x86_64 only. Other hosts can provide an activated Emscripten 4.0.21 SD
 `-PwebEmsdkDir=<path>` and `-PwebNativeRunner=local`; those hosts remain unverified.
 
 Generated engines are cached under `parikt/.native/web-<version>/` and staged by
-`:parikt:prepareWebEnginePackage` into `build/parikt/web-engine/` for a stable local
+`:parikt:prepareWebEnginePackage` into `build/parikt/web-engines/<version>/` for a stable local
 npm dependency. This keeps lockfiles portable and avoids changing dependency URLs when selecting
 a different PARI version. Native source/bridge changes also invalidate web test and bundle inputs.
 `parikt.mjs` exports an async
@@ -417,3 +417,5 @@ Browser consumer tests are `:parikt:jsBrowserTest` and `:parikt:wasmJsBrowserTes
 Chrome; set `CHROME_BIN` to another Chromium executable (such as Edge) if needed. The native
 engine smoke has passed for PARI 2.15.0 and 2.19.0; Kotlin consumer tests use the selected version.
 macOS build-host verification remains deferred.
+
+Production web verification uses pwsh -File tests/build_configuration/verify_web_module_versions.ps1 -Production. It covers both Node targets, all four browser bundles, implementation-hidden shared dependencies, root defaults and module-only builds. Each runtime graph and final bundle contains one selected engine. JS tooling pins webpack 5.112.2 consistently with webpack-cli; Wasm retains its separate KGP tooling.

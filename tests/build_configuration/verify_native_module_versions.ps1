@@ -62,7 +62,10 @@ plugins {
     $app = $app.Substring(0, $app.IndexOf('tasks.withType<KotlinNativeLink>()'))
     $app = $app.Replace('extra["parikt.selections"]', 'gradle.extensions.extraProperties["parikt.selections"]')
     $app = $app.Replace('extra["parikt.engineProjects"]', 'gradle.extensions.extraProperties["parikt.engines"]')
+    $app = $app.Replace('            implementation(project(":parikt"))', '')
     [IO.File]::WriteAllText((Join-Path $fixture 'native-app.gradle.kts'), $app, $utf8)
+    $shared = Join-Path $fixture 'nativeSharedLogic/build.gradle.kts'
+    [IO.File]::WriteAllText($shared, [IO.File]::ReadAllText($shared).Replace('api(project(":parikt"))', 'implementation(project(":parikt"))'), $utf8)
 }
 function Invoke-NativeProof([string]$Name, [string[]]$Tasks, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Absent = @()) {
     $log = Join-Path $logs ($Name + '.log')

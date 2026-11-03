@@ -50,9 +50,13 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
-Production Native routing is implemented and verified. The next rollout stages in
-PARI_MODULE_VERSION_PLAN.md are web package/task integration, Android helpers/models/module-only
-routing, then final integrated regressions/docs. Android/web overrides remain gated.
+Native integration is committed as 44ecbb5. Production web integration is complete and ready for its checkpoint commit. It uses versioned generated imports/npm packages and stages build/parikt/web-engines/<version>; metadata generation does not build unused C/Wasm payloads. Early public packageJson actions prune inherited engine packages; selected Node/browser tasks supply payloads. Compile graphs allow implementation-hidden engines; runtime graphs require exactly one selected provider. JS webpack 5.112.2 is pinned consistently across KGP and npm; Wasm tooling remains separate. The standalone consumer reads its scoped selection and uses production JVM task wiring.
+
+Verification: all 14 production web cases plus portable locks pass (build/wp/b2d3df3c69e8/logs), including rootless shared/independent chains and conflict/reuse/restoration checks. All four retained browser pages actually run with version/arithmetic/factorization/error-recovery PASS; the owned server/tab are closed. Both real Compose browser distributions build with a temporary 2.19.0 override and selected-only payloads. Default 2.15.0 distributions, graph checks and Android minSdk-21 assembly pass afterward (build/platform-web-default-ui-android-regression.log).
+
+The standalone module-only consumer passes actual JVM, Windows/Linux Native and both Node runtimes on 2.19.0 (build/platform-web-consumer-rootless-2.log and -linux.log). Its root properties are restored, the temporary app file is removed, and normal root-default JVM/Node/lock tasks pass (build/platform-web-consumer-default-final.log). KMP Java classpaths without Kotlin platform attributes are routed via their standard-jvm usage; all 13 module-only cases pass with a real Java compilation (build/production-module-only/1e62ad4b850f/logs). Ten Native cases also pass with implementation-hidden dependencies (build/np/519825b59afb/logs).
+
+Next: commit the web checkpoint after the running real-application regression, then integrate production Android providers/helpers/CXX isolation, module-only setup and model-bootstrap timing. Preserve Startup/minSdk21 and prove APK ABI payloads/runtime before removing the Android gate. The staged rollout checklist is in PARI_MODULE_VERSION_PLAN.md.
 
 Default/scoped providers now share group com.elianfabian.parikt.engine, stable :parikt leaf names
 and Native module name parikt. Scoped providers combine typed JVM/Native templates referencing
@@ -1013,3 +1017,5 @@ packages PARI/GMP/JNI libraries for arm64-v8a and x86_64. The migrated app also 
 x86_64, initialized through Startup, and displayed the passing `2 + 2` result. The API-21 AVD
 available on the machine is x86, outside the native ABI list. The unrelated
 multiple-Kotlin-plugin-load warning was subsequently resolved by sharing AGP and KGP at the root.
+
+Web checkpoint final regression: all 11 real-application cases pass (build/application-version-tests/90cdaa0a092c42c08d8cf34d0de6c597). No temporary property overrides remain. Android production integration is next.

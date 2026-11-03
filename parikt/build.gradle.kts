@@ -9,7 +9,8 @@ plugins {
 }
 
 // Apply tool configuration in the consuming build, using KGP already on this module's classpath.
-rootProject.run {
+if (!rootProject.extensions.extraProperties.has("parikt.web.toolsConfigured")) rootProject.run {
+    extra["parikt.web.toolsConfigured"] = true
 	// Node archives are declared in settings, respecting PREFER_SETTINGS repository policy.
 	allprojects {
 		plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin> {
@@ -32,10 +33,14 @@ rootProject.run {
 	// npm otherwise installs a second webpack for webpack-cli's peer dependency. Its plugins
 	// cannot exchange Compilation objects with KGP's webpack instance when the versions differ.
 	plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin> {
-		val webpackVersion = extensions.getByType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>().versions.webpack.version
+        val versions = extensions.getByType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>().versions
+        versions.webpack.version = pariktLibs.versions.webpack.get()
+		val webpackVersion = versions.webpack.version
+        extra["parikt.webpackVersion"] = webpackVersion
 		extensions.configure<org.jetbrains.kotlin.gradle.targets.js.npm.NpmExtension> {
 			override("webpack", webpackVersion)
 		}
+        tasks.named("rootPackageJson") { inputs.property("parikt.webpackVersion", webpackVersion) }
 	}
 	plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin> {
 		val webpackVersion = extensions.getByType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootExtension>().versions.webpack.version
@@ -121,7 +126,8 @@ val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencie
 val webNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirectory, "web-$pariVersion") }).get()
 // npm resolves local dependencies relative to the consumer's KGP workspace. Keep that
 // relative path stable across engine versions, even when the source checkout is elsewhere.
-val webEnginePackageDirectory = rootProject.layout.buildDirectory.dir("parikt/web-engine")
+val webEnginePackageDirectory = rootProject.layout.buildDirectory.dir("parikt/web-engines/$pariVersion")
+val webPackageId = "@parikt/engine-" + pariVersion.lowercase().replace('.', '-')
 val webNativeRunner = providers.gradleProperty("webNativeRunner")
 	.getOrElse(if (isWindows) "wsl" else "local")
 val webEmsdkDirectory = providers.gradleProperty("webEmsdkDir").orNull
@@ -169,21 +175,35 @@ tasks.register<Exec>("verifyWebNative") {
 	doFirst { commandLine(webBuildCommand(smoke = true)) }
 }
 
-val prepareWebEnginePackage = tasks.register<Sync>("prepareWebEnginePackage") {
+val prepareWebEngineMetadata = tasks.register("prepareWebEngineMetadata") {
+    val source = layout.projectDirectory.file("native/web/package.json")
+    inputs.file(source)
+    inputs.property("packageId", webPackageId)
+    outputs.file(webEnginePackageDirectory.map { it.file("package.json") })
+    doLast {
+        webEnginePackageDirectory.get().file("package.json").asFile.apply {
+            parentFile.mkdirs()
+            writeText(source.asFile.readText().replace("\"@parikt/engine\"", "\"$webPackageId\""))
+        }
+    }
+}
+val prepareWebEnginePackage = tasks.register<Copy>("prepareWebEnginePackage") {
 	group = "native"
 	description = "Stages the selected PARI engine at a stable local npm package path."
-	dependsOn(buildWebNativeDependencies)
-	from(webNativeDirectory) { include("*.mjs", "*.wasm", "package.json") }
+	dependsOn(buildWebNativeDependencies, prepareWebEngineMetadata)
+	from(webNativeDirectory) { include("*.mjs", "*.wasm") }
 	into(webEnginePackageDirectory)
 }
 
-// Engine changes must invalidate final consumer bundles even when Kotlin sources and
-// the stable local npm dependency URL have not changed.
-rootProject.allprojects {
-	tasks.matching { it.name.endsWith("Webpack") }.configureEach {
-		dependsOn(prepareWebEnginePackage)
-		inputs.dir(webEnginePackageDirectory)
-	}
+val generatedWebBindings = layout.buildDirectory.dir("generated/web-bindings")
+val generateWebBindings = tasks.register<Sync>("generateWebBindings") {
+    inputs.property("packageId", webPackageId)
+    filteringCharset = "UTF-8"
+    from(layout.projectDirectory.dir("src/webMain/kotlin")) {
+        include("**/*.kt")
+        filter { line: String -> line.replace("@JsModule(\"@parikt/engine\")", "@JsModule(\"$webPackageId\")") }
+    }
+    into(generatedWebBindings)
 }
 
 val kotlinNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirectory, "native-$pariVersion/linux-x86_64") }).get()
@@ -290,11 +310,15 @@ kotlin {
 
 	js {
 		useEsModules()
+        outputModuleName.set("parikt-bridge-${pariVersion.replace('.', '-')}-js")
+        compilerOptions.moduleName.set("parikt")
 		browser { testTask { useKarma { useChromeHeadless() } } }
 		nodejs { testTask { useMocha { timeout = "120s" } } }
 	}
 
 	wasmJs {
+        outputModuleName.set("parikt-bridge-${pariVersion.replace('.', '-')}-wasm")
+        compilerOptions.moduleName.set("parikt")
 		browser { testTask { useKarma { useChromeHeadless() } } }
 		nodejs()
 	}
@@ -336,11 +360,13 @@ kotlin {
 			dependencies { implementation(pariktLibs.kotlinx.coroutines.core) }
 		}
 		named("webMain") {
+            kotlin.setSrcDirs(emptyList<String>())
+            kotlin.srcDir(files(generatedWebBindings).builtBy(generateWebBindings))
 			dependencies {
 				implementation(pariktLibs.kotlinx.coroutines.core)
 				// Relative to KGP's build/{js,wasm}/packages/<module> workspace directories.
 				// Keep checkout-specific absolute paths out of the checked-in npm lockfiles.
-				implementation(npm("@parikt/engine", "file:../../../parikt/web-engine"))
+				implementation(npm(webPackageId, "file:../../../parikt/web-engines/$pariVersion"))
 			}
 		}
 		named("webTest") {
@@ -389,8 +415,10 @@ tasks.register("verifyMingwX64") {
 
 // The local npm package must exist before KGP resolves or installs web dependencies.
 tasks.matching { it.name.endsWith("PackageJson") }.configureEach {
-	dependsOn(prepareWebEnginePackage)
+	dependsOn(prepareWebEngineMetadata)
 }
+rootProject.tasks.matching { it.name in setOf("kotlinNpmInstall", "kotlinWasmNpmInstall") }
+    .configureEach { mustRunAfter(prepareWebEnginePackage) }
 
 tasks.matching { it.name in setOf("jsNodeTest", "wasmJsNodeTest", "jsBrowserTest", "wasmJsBrowserTest") }.configureEach {
 	dependsOn(prepareWebEnginePackage)

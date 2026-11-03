@@ -26,14 +26,17 @@ fun jvmConfiguration(configuration: Configuration): Boolean {
     val plainJvm = !androidProject() && !consumer.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") &&
         (consumer.plugins.hasPlugin("java") || consumer.plugins.hasPlugin("org.jetbrains.kotlin.jvm"))
     val usage = configuration.attributes.getAttribute(org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE)?.name
-    return plainJvm && usage in setOf("java-api", "java-runtime")
+    // KMP's Java source-set classpaths can omit Kotlin's platform attribute.
+    val environment = configuration.attributes.keySet().find { it.name == "org.gradle.jvm.environment" }
+        ?.let { configuration.attributes.getAttribute(it)?.toString() }
+    return (plainJvm || environment == "standard-jvm") && usage in setOf("java-api", "java-runtime")
 }
 fun routedConfiguration(configuration: Configuration): Boolean = jvmConfiguration(configuration) ||
-    platform(configuration) in setOf("common", "native")
-if (defaultVersion == null && (androidProject() || consumer.configurations.any { platform(it) !in setOf(null, "common", "jvm", "native") })) {
-    throw GradleException("Module-only PARI configuration currently supports JVM and Native targets: ${consumer.path} selects ${selection.first} " +
+    platform(configuration) in setOf("common", "native", "js", "wasm")
+if (defaultVersion == null && androidProject()) {
+    throw GradleException("Module-only PARI configuration currently supports JVM, Native and web targets: ${consumer.path} selects ${selection.first} " +
         "in ${selection.second}, but also has non-JVM targets. Set pari.version in ${consumer.rootProject.file("parikt.properties")} " +
-        "until production non-JVM routing is enabled.")
+        "until production Android routing is enabled.")
 }
 consumer.configurations.configureEach {
     val configuration = this
@@ -77,10 +80,10 @@ consumer.configurations.configureEach {
     }
 }
 gradle.projectsEvaluated {
-    val unsupported = androidProject() || consumer.configurations.any { platform(it) !in setOf(null, "common", "jvm", "native") }
+    val unsupported = androidProject()
     if (selection.first != defaultVersion && unsupported) {
-        throw GradleException("Production module overrides currently support JVM and Native targets: ${consumer.path} selects ${selection.first} in ${selection.second}, " +
-            "but also has Android/web targets. Keep its root default $defaultVersion until production routing is enabled for those targets.")
+        throw GradleException("Production module overrides currently support JVM, Native and web targets: ${consumer.path} selects ${selection.first} in ${selection.second}, " +
+            "but also has Android targets. Keep its root default $defaultVersion until production Android routing is enabled.")
     }
     val hasJvm = consumer.configurations.any { platform(it) == "jvm" } ||
         (!androidProject() && consumer.plugins.hasPlugin("java"))

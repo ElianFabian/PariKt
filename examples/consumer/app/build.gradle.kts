@@ -2,7 +2,8 @@
 
 plugins { id("org.jetbrains.kotlin.multiplatform") }
 
-val selectedVersion = gradle.extensions.extraProperties["parikt.version"] as String
+@Suppress("UNCHECKED_CAST")
+val selectedVersion = (extra["parikt.selection"] as Triple<String, String, Boolean>).first
 val settingsSource = layout.buildDirectory.dir("generated/consumer-settings")
 val generateConsumerSettings = tasks.register("generateConsumerSettings") {
 	inputs.property("pariVersion", selectedVersion)
@@ -37,12 +38,8 @@ kotlin {
 
 tasks.register<JavaExec>("runJvm") {
 	group = "application"
-	dependsOn("jvmMainClasses", ":parikt:buildJvmNativeDependencies")
+	dependsOn("jvmMainClasses")
 	mainClass.set("sample.MainKt")
 	val compilation = kotlin.targets.getByName("jvm").compilations.getByName("main")
 	classpath(compilation.output.allOutputs, configurations.getByName("jvmRuntimeClasspath"))
-	doFirst {
-		val engine = project(":parikt").tasks.named("buildJvmNativeDependencies").get().outputs.files.singleFile
-		systemProperty("java.library.path", engine.absolutePath)
-	}
 }
