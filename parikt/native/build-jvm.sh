@@ -102,40 +102,65 @@ case "$TARGET" in
   windows-x86_64) JNI_PLATFORM=win32;;
 esac
 [ -f "$JNI_INCLUDE/$JNI_PLATFORM/jni_md.h" ] || die "JNI platform headers not found: $JNI_INCLUDE/$JNI_PLATFORM/jni_md.h"
-
-case "$PARI_VERSION" in
-  master|latest) PARI_REF=master;;
-  *) PARI_REF="pari-$PARI_VERSION";;
-esac
+mkdir -p "$OUT_DIR"
+OUT_DIR=$(cd "$OUT_DIR" && pwd -P)
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PARI_SRC="$WORK_DIR/src/pari-$PARI_VERSION-work"
+SOURCE_REVISION=$(bash "$SCRIPT_DIR/pari-source.sh" --pari-version "$PARI_VERSION" \
+  --destination "$PARI_SRC" --seed "$WORK_DIR/src/pari-$PARI_VERSION" \
+  --workspace-key "$(git hash-object "${BASH_SOURCE[0]}"):$TARGET")
 # Cache the bridge with its source/header and JNI/compiler identity, not PARI version alone.
-SCRIPT_ID=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/paridroid/paridroid.c" \
+SCRIPT_ID=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/pari-source.sh" "$SCRIPT_DIR/build-lock.sh" "$SCRIPT_DIR/paridroid/paridroid.c" \
   "$SCRIPT_DIR/paridroid/paridroid.h" "$SCRIPT_DIR/paridroid/jni_bridge.c" \
   "$JNI_INCLUDE/jni.h" "$JNI_INCLUDE/$JNI_PLATFORM/jni_md.h" | sha256sum | cut -d' ' -f1)
-COMPILER_ID=$("$CC" --version | sed -n '1p')
+COMPILER_BINARY_ID=$(sha256sum "$(command -v "$CC")" | cut -d' ' -f1)
+COMPILER_ID="$("$CC" --version | sed -n '1p') binary=$COMPILER_BINARY_ID target=$("$CC" -dumpmachine) sysroot=$("$CC" -print-sysroot 2>/dev/null || true)"
 STAMP="$OUT_DIR/.stamp"
-EXPECTED_STAMP="pari=$PARI_VERSION gmp=$GMP_VERSION target=$TARGET inputs=$SCRIPT_ID compiler=$COMPILER_ID"
-CHECK_BRIDGE="$OUT_DIR/libparidroid.so"
-CHECK_PARI="$OUT_DIR/libpari.so"
-if [ "$TARGET" = windows-x86_64 ]; then
-  CHECK_BRIDGE="$OUT_DIR/paridroid.dll"
-fi
-cached_pari_library_exists() {
+EXPECTED_STAMP="revision=$SOURCE_REVISION gmp=$GMP_VERSION target=$TARGET inputs=$SCRIPT_ID compiler=$COMPILER_ID"
+# Linux's configured optional-data directory is a genuine output-dependent build option.
+if [ "$TARGET" = linux-x86_64 ]; then EXPECTED_STAMP="$EXPECTED_STAMP datadir=$OUT_DIR/share/pari"; fi
+ENGINE_ROOT="${PARIKT_ENGINE_CACHE_DIR:-$HOME/.cache/parikt/engines}/jvm"
+CACHE_KEY=$(printf '%s' "$EXPECTED_STAMP" | sha256sum | cut -d' ' -f1)
+CACHE_ENTRY="$ENGINE_ROOT/$CACHE_KEY"
+parikt_lock_work_directory "$ENGINE_ROOT/locks/$CACHE_KEY"
+engine_valid() {
+  [ -f "$1/.stamp" ] && [ "$(cat "$1/.stamp")" = "$EXPECTED_STAMP" ] || return 1
   if [ "$TARGET" = windows-x86_64 ]; then
-    [ -f "$OUT_DIR/libpari-gmp.dll" ] || [ -f "$OUT_DIR/libpari.dll" ] || [ -f "$OUT_DIR/pari.dll" ]
+    [ -f "$1/paridroid.dll" ] && { [ -f "$1/libpari-gmp.dll" ] || [ -f "$1/libpari.dll" ] || [ -f "$1/pari.dll" ]; }
   else
-    [ -f "$CHECK_PARI" ]
+    [ -f "$1/libparidroid.so" ] && [ -f "$1/libpari.so" ] && [ -f "$1/libgmp.so" ]
   fi
 }
-if [ "$PARI_REF" != master ] && [ "$FORCE" = 0 ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$EXPECTED_STAMP" ] && \
-   [ -f "$CHECK_BRIDGE" ] && cached_pari_library_exists; then
+publish_engine() {
+  mkdir -p "$ENGINE_ROOT"
+  local generation
+  generation=$(mktemp -d "$ENGINE_ROOT/generation.XXXXXX")
+  printf '%s\n' "$(basename "$generation")" > "$OUT_DIR/.engine-generation"
+  rmdir "$generation"
+  rm -rf "$CACHE_ENTRY.pending"
+  mkdir "$CACHE_ENTRY.pending"
+  cp -a "$OUT_DIR/." "$CACHE_ENTRY.pending/"
+  rm -rf "$CACHE_ENTRY"
+  mv "$CACHE_ENTRY.pending" "$CACHE_ENTRY"
+}
+if [ "$FORCE" = 0 ] && engine_valid "$CACHE_ENTRY" && [ -s "$CACHE_ENTRY/.engine-generation" ]; then
+  if ! engine_valid "$OUT_DIR" || [ "$(cat "$OUT_DIR/.engine-generation" 2>/dev/null || true)" != "$(cat "$CACHE_ENTRY/.engine-generation")" ]; then
+    mkdir -p "$OUT_DIR"
+    if [ "$TARGET" = windows-x86_64 ]; then rm -f "$OUT_DIR/libpari-gmp.dll" "$OUT_DIR/libpari.dll" "$OUT_DIR/pari.dll"; fi
+    cp -a "$CACHE_ENTRY/." "$OUT_DIR/"
+  fi
+  log "reusing compiled engine $CACHE_KEY"
+  log "$TARGET PARI $PARI_VERSION artifacts are up to date at $OUT_DIR"
+  exit 0
+fi
+if [ "$FORCE" = 0 ] && engine_valid "$OUT_DIR"; then
+  publish_engine
   log "$TARGET PARI $PARI_VERSION artifacts are up to date at $OUT_DIR"
   exit 0
 fi
 
 GMP_SRC="$WORK_DIR/src/gmp-$GMP_VERSION"
-PARI_SRC="$WORK_DIR/src/pari-$PARI_VERSION"
 mkdir -p "$WORK_DIR/src" "$WORK_DIR/build" "$WORK_DIR/logs" "$OUT_DIR"
 
 if [ ! -f "$GMP_SRC/configure" ]; then
@@ -144,24 +169,6 @@ if [ ! -f "$GMP_SRC/configure" ]; then
     "https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.xz"
   tar -xf "$WORK_DIR/src/gmp-$GMP_VERSION.tar.xz" -C "$WORK_DIR/src"
   rm "$WORK_DIR/src/gmp-$GMP_VERSION.tar.xz"
-fi
-
-if [ ! -d "$PARI_SRC/.git" ]; then
-  log "fetching PARI $PARI_REF"
-  mkdir -p "$PARI_SRC"
-  git -C "$PARI_SRC" init -q
-  git -C "$PARI_SRC" remote add origin https://pari.math.u-bordeaux.fr/git/pari.git
-  if [ "$PARI_REF" = master ]; then
-    git -C "$PARI_SRC" fetch --depth 1 origin master
-    git -C "$PARI_SRC" checkout -q FETCH_HEAD
-  else
-    git -C "$PARI_SRC" fetch --depth 1 origin "refs/tags/$PARI_REF:refs/tags/$PARI_REF" || \
-      git -C "$PARI_SRC" fetch --depth 1 origin "$PARI_REF"
-    git -C "$PARI_SRC" checkout -q "$PARI_REF"
-  fi
-elif [ "$PARI_REF" = master ]; then
-  git -C "$PARI_SRC" fetch --depth 1 origin master
-  git -C "$PARI_SRC" checkout -q --detach FETCH_HEAD
 fi
 
 if [ "$TARGET" = windows-x86_64 ]; then
@@ -281,4 +288,7 @@ else
 fi
 
 echo "$EXPECTED_STAMP" > "$STAMP"
+# Publish only complete engines. The fingerprint lock also coordinates different
+# --work directories, so another producer restores this entry instead of compiling.
+publish_engine
 log "built $TARGET PARI $PARI_VERSION artifacts in $OUT_DIR"

@@ -96,13 +96,17 @@ for tool in cc ar make m4 git curl tar xz sha256sum; do
   command -v "$tool" >/dev/null || die "missing '$tool'; install a C build environment, m4, git, curl, tar and xz"
 done
 mkdir -p "$WORK/src" "$WORK/logs" "$OUT/lib" "$OUT/include"
-INPUT_HASH=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/kotlin-native/bridge.c" \
+SOURCE="$WORK/src/pari-$PARI_VERSION-work"
+SOURCE_ID=$(bash "$SCRIPT_DIR/pari-source.sh" --pari-version "$PARI_VERSION" \
+  --destination "$SOURCE" --seed "$WORK/src/pari-$PARI_VERSION" \
+  --workspace-key "$(git hash-object "${BASH_SOURCE[0]}"):$TARGET")
+INPUT_HASH=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/pari-source.sh" "$SCRIPT_DIR/build-lock.sh" "$SCRIPT_DIR/kotlin-native/bridge.c" \
   "$SCRIPT_DIR/kotlin-native/bridge.h" "$SCRIPT_DIR/paridroid/paridroid.c" \
   "$SCRIPT_DIR/paridroid/paridroid.h" | sha256sum | cut -d' ' -f1)
 COMPILER="$("$CC" --version | sed -n '1p') [$(basename "$TOOLCHAIN")] platform=${platform_id:-linux}"
-BUILD_ID=$( { cat "${BASH_SOURCE[0]}"; printf '%s' "$COMPILER"; } | sha256sum | cut -c1-16)
-STAMP="pari=$PARI_VERSION gmp=$GMP_VERSION target=$TARGET inputs=$INPUT_HASH compiler=$COMPILER"
-if [ "$FORCE" = 0 ] && [ "$PARI_VERSION" != master ] && [ "$PARI_VERSION" != latest ] && \
+BUILD_ID=$( { cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/pari-source.sh"; printf '%s' "$COMPILER"; } | sha256sum | cut -c1-16)
+STAMP="pari=$PARI_VERSION revision=$SOURCE_ID gmp=$GMP_VERSION target=$TARGET inputs=$INPUT_HASH compiler=$COMPILER"
+if [ "$FORCE" = 0 ] && \
    [ -f "$OUT/.stamp" ] && [ "$(cat "$OUT/.stamp")" = "$STAMP" ] && \
    [ -f "$OUT/lib/libparikt.a" ] && [ -f "$OUT/include/bridge.h" ]; then
   log "PARI $PARI_VERSION $TARGET artifacts are up to date"
@@ -121,24 +125,6 @@ if [ ! -f "$GMP_SRC/configure" ]; then
     tar -xf "$WORK/src/gmp.tar.xz" -C "$WORK/src"
   fi
 fi
-SOURCE="$WORK/src/pari-$PARI_VERSION"
-REF="pari-$PARI_VERSION"
-case "$PARI_VERSION" in master|latest) REF=master;; esac
-if [ ! -d "$SOURCE/.git" ]; then
-  cached="$HOME/.cache/parikt-jvm-native/src/pari-$PARI_VERSION"
-  if [ "$REF" != master ] && git -C "$cached" rev-parse --verify "refs/tags/$REF" >/dev/null 2>&1; then
-    log "reusing local PARI $REF source"
-    git -c advice.detachedHead=false clone -q --no-hardlinks --branch "$REF" "$cached" "$SOURCE"
-    git -C "$SOURCE" remote set-url origin https://pari.math.u-bordeaux.fr/git/pari.git
-  else
-    log "fetching PARI $REF"
-    git -c advice.detachedHead=false clone -q --depth 1 --branch "$REF" https://pari.math.u-bordeaux.fr/git/pari.git "$SOURCE"
-  fi
-elif [ "$REF" = master ]; then
-  git -C "$SOURCE" fetch --depth 1 origin master
-  git -C "$SOURCE" checkout -q --detach FETCH_HEAD
-fi
-SOURCE_ID=$(git -C "$SOURCE" rev-parse HEAD)
 GMP_STAGE="$WORK/gmp-$GMP_VERSION-$TARGET-$BUILD_ID"
 if [ "$FORCE" = 1 ] || [ ! -f "$GMP_STAGE/lib/libgmp.a" ]; then
   log "building static GMP $GMP_VERSION"
@@ -157,7 +143,7 @@ if [ "$FORCE" = 1 ] || [ ! -f "$PARI_STAGE/lib/libpari.a" ]; then
   log "building static PARI $PARI_VERSION"
   build=$(mktemp -d "$WORK/pari-build.XXXXXX")
   # A clean source copy avoids sharing generated Configure files with Android/JVM builds.
-  git -C "$SOURCE" archive HEAD | tar -x -C "$build"
+  cp -R "$SOURCE/." "$build/"
   (
     cd "$build" &&
     if [ "$TARGET" = windows-x86_64 ]; then

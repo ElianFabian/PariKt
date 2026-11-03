@@ -78,13 +78,21 @@ TOOLBIN="$NDK/toolchains/llvm/prebuilt/$NDK_HOST/bin"
 [ -d "$TOOLBIN" ] || die "no $NDK_HOST toolchain in NDK: $NDK"
 
 # ---- up-to-date check ------------------------------------------------------
-SCRIPT_ID=$(cksum < "${BASH_SOURCE[0]}" | cut -d' ' -f1)
-expected_stamp() { echo "pari=$PARI_VERSION gmp=$GMP_VERSION api=$API ndk=$(basename "$NDK") script=$SCRIPT_ID"; }
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PARI_SRC="$WORK_DIR/src/pari-$PARI_VERSION-work"
+SOURCE_REVISION=$(bash "$SCRIPT_DIR/pari-source.sh" --pari-version "$PARI_VERSION" \
+  --destination "$PARI_SRC" --seed "$WORK_DIR/src/pari-$PARI_VERSION" \
+  --workspace-key "$(git hash-object "${BASH_SOURCE[0]}"):$ABIS:$API")
+SCRIPT_ID=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/pari-source.sh" "$SCRIPT_DIR/build-lock.sh" | cksum | cut -d' ' -f1)
+NDK_ID=$(cksum < "$NDK/source.properties" | cut -d' ' -f1)
+expected_stamp() { echo "pari=$PARI_VERSION revision=$SOURCE_REVISION gmp=$GMP_VERSION abi=$abi api=$API ndk=$NDK_ID datadir=$DATADIR script=$SCRIPT_ID"; }
 
 todo=""
 for abi in $ABIS; do
   if [ "$FORCE" = 0 ] && [ -f "$OUT_DIR/$abi/.stamp" ] \
-     && [ "$(cat "$OUT_DIR/$abi/.stamp")" = "$(expected_stamp)" ]; then
+     && [ "$(cat "$OUT_DIR/$abi/.stamp")" = "$(expected_stamp)" ] \
+     && [ -f "$OUT_DIR/$abi/gmp/lib/libgmp.so" ] && [ -f "$OUT_DIR/$abi/pari/lib/libpari.so" ] \
+     && [ -f "$OUT_DIR/$abi/gmp/include/gmp.h" ] && [ -f "$OUT_DIR/$abi/pari/include/pari/paripriv.h" ]; then
     log "$abi: up to date"
   else
     todo="$todo $abi"
@@ -94,43 +102,12 @@ if [ -z "$todo" ]; then log "nothing to do"; exit 0; fi
 
 # ---- sources ---------------------------------------------------------------
 GMP_SRC="$WORK_DIR/src/gmp-$GMP_VERSION"
-PARI_SRC="$WORK_DIR/src/pari-$PARI_VERSION"
 mkdir -p "$WORK_DIR/src" "$WORK_DIR/logs"
 
 if [ ! -f "$GMP_SRC/configure" ]; then
   log "downloading GMP $GMP_VERSION"
   curl -fL --retry 3 -o "$WORK_DIR/src/gmp.tar.xz" "https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.xz"
   tar -xf "$WORK_DIR/src/gmp.tar.xz" -C "$WORK_DIR/src" && rm "$WORK_DIR/src/gmp.tar.xz"
-fi
-
-case "$PARI_VERSION" in master|latest) PARI_REF=master;; *) PARI_REF="pari-$PARI_VERSION";; esac
-if [ ! -d "$PARI_SRC/.git" ]; then
-  log "cloning PARI $PARI_REF"
-  mkdir -p "$PARI_SRC"
-  git -C "$PARI_SRC" init -q
-  git -C "$PARI_SRC" remote add origin https://pari.math.u-bordeaux.fr/git/pari.git
-
-  if [ "$PARI_REF" = "master" ]; then
-    git -C "$PARI_SRC" fetch --depth 1 origin master || die "cannot fetch master branch"
-    git -C "$PARI_SRC" checkout -q FETCH_HEAD
-  else
-    if ! git -C "$PARI_SRC" fetch --depth 1 origin "refs/tags/$PARI_REF:refs/tags/$PARI_REF" 2>/dev/null && \
-       ! git -C "$PARI_SRC" fetch --depth 1 origin "$PARI_REF" 2>/dev/null; then
-
-       echo "error: PARI version '$PARI_VERSION' (tag '$PARI_REF') not found." >&2
-       echo "Available versions:" >&2
-       git ls-remote --tags https://pari.math.u-bordeaux.fr/git/pari.git | \
-         awk -F'/' '{print $3}' | sed 's/\^{}//' | grep '^pari-' | sed 's/^pari-//' | sort -V | uniq >&2
-       rm -rf "$PARI_SRC"
-       exit 1
-    fi
-    git -C "$PARI_SRC" checkout -q "$PARI_REF" || {
-       rm -rf "$PARI_SRC"
-       die "cannot checkout ref '$PARI_REF'"
-    }
-  fi
-elif [ "$PARI_REF" = master ] && [ "$FORCE" = 1 ]; then
-  git -C "$PARI_SRC" fetch --depth 1 origin master && git -C "$PARI_SRC" reset --hard FETCH_HEAD
 fi
 
 JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)

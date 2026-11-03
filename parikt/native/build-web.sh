@@ -82,16 +82,10 @@ emcc --version | grep -q "$EMSCRIPTEN_VERSION" || die "web build requires Emscri
 
 mkdir -p "$WORK_DIR/src" "$WORK_DIR/logs"
 if [ -z "$SOURCE" ]; then
-  SOURCE="$WORK_DIR/src/pari-$PARI_VERSION"
-  REF="pari-$PARI_VERSION"
-  if [ "$PARI_VERSION" = master ] || [ "$PARI_VERSION" = latest ]; then REF=master; fi
-  if [ ! -f "$SOURCE/Configure" ]; then
-    log "fetching PARI $REF"
-    git clone --depth 1 --branch "$REF" https://pari.math.u-bordeaux.fr/git/pari.git "$SOURCE"
-  elif [ "$REF" = master ]; then
-    git -C "$SOURCE" fetch --depth 1 origin master
-    git -C "$SOURCE" checkout --detach FETCH_HEAD
-  fi
+  SOURCE="$WORK_DIR/src/pari-$PARI_VERSION-work"
+  SOURCE_REVISION=$(bash "$SCRIPT_DIR/pari-source.sh" --pari-version "$PARI_VERSION" \
+    --destination "$SOURCE" --seed "$WORK_DIR/src/pari-$PARI_VERSION" \
+    --workspace-key "$(git hash-object "${BASH_SOURCE[0]}"):web")
 fi
 SOURCE=$(cd "$SOURCE" && pwd)
 [ -f "$SOURCE/Configure" ] || die "PARI sources do not contain Configure"
@@ -106,7 +100,7 @@ for file in sorted(root.rglob('*')):
 print(digest.hexdigest())
 PY
 )
-INPUT_HASH=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/web/bridge.c" "$SCRIPT_DIR/web/parikt.mjs" "$SCRIPT_DIR/web/package.json" \
+INPUT_HASH=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/pari-source.sh" "$SCRIPT_DIR/build-lock.sh" "$SCRIPT_DIR/web/bridge.c" "$SCRIPT_DIR/web/parikt.mjs" "$SCRIPT_DIR/web/package.json" \
   "$SCRIPT_DIR/paridroid/paridroid.c" "$SCRIPT_DIR/paridroid/paridroid.h" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')
 STAMP="pari=$PARI_VERSION source=$SOURCE_HASH gmp=$GMP_VERSION emscripten=$EMSCRIPTEN_VERSION inputs=$INPUT_HASH"
 run_smoke() {
@@ -128,7 +122,7 @@ if [ ! -f "$GMP_SRC/configure" ]; then
   tar -xf "$WORK_DIR/src/gmp.tar.xz" -C "$WORK_DIR/src"
 fi
 BUILD=$(mktemp -d "$WORK_DIR/build-$PARI_VERSION.XXXXXX")
-PARI_LIBRARY_KEY=$(printf '%s' "$SOURCE_HASH $EMSCRIPTEN_VERSION $GMP_VERSION web-config-v1" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:16])')
+PARI_LIBRARY_KEY=$(printf '%s' "$SOURCE_HASH $EMSCRIPTEN_VERSION $GMP_VERSION $INPUT_HASH" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:16])')
 STAGE="$WORK_DIR/pari-$PARI_VERSION-$PARI_LIBRARY_KEY"
 GMP_STAGE="$WORK_DIR/gmp-$GMP_VERSION-emscripten-$EMSCRIPTEN_VERSION"
 mkdir -p "$BUILD/gmp" "$STAGE"

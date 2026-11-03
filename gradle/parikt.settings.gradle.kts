@@ -1,25 +1,13 @@
-import java.util.Properties
-
 // The caller supplies the pinned checkout location; all engine configuration belongs to
 // the calling build. No plugin or modification of the PariKt checkout is required.
 val sourceDirectory = (extra.properties["pariktSourceDir"] as? File)?.canonicalFile
 	?: throw GradleException("Set extra[\"pariktSourceDir\"] to the PariKt checkout before applying parikt.settings.gradle.kts.")
+apply(from = File(sourceDirectory, "gradle/parikt.properties.settings.gradle.kts"))
 val configurationFile = layout.rootDirectory.file("parikt.properties")
-if (!configurationFile.asFile.isFile) {
-	throw GradleException("Missing ${configurationFile.asFile}. Create it with pari.version=<PARI release>, for example pari.version=2.19.0.")
-}
-if (providers.gradleProperty("pariVersion").isPresent) {
-	throw GradleException("pariVersion is no longer supported. Set pari.version in ${configurationFile.asFile} instead.")
-}
-val configuration = Properties().apply {
-	providers.fileContents(configurationFile).asText.get().reader().use { load(it) }
-}
-val unknownKeys = configuration.stringPropertyNames() - setOf("pari.version")
-if (unknownKeys.isNotEmpty()) throw GradleException("Unknown PariKt settings in ${configurationFile.asFile}: ${unknownKeys.sorted().joinToString()}. Supported key: pari.version.")
-val selectedVersion = configuration.getProperty("pari.version")?.trim().orEmpty()
-if (!Regex("[0-9]+\\.[0-9]+\\.[0-9]+([.-][A-Za-z0-9]+)*|master|latest").matches(selectedVersion)) {
-	throw GradleException("Invalid or missing pari.version in ${configurationFile.asFile}: '$selectedVersion'. Use a release such as 2.19.0, master or latest.")
-}
+@Suppress("UNCHECKED_CAST")
+val defaultSelection = gradle.extensions.extraProperties["parikt.defaultSelection"] as Triple<String, String, Boolean>?
+val selectedVersion = defaultSelection?.first
+	?: throw GradleException("Missing ${configurationFile.asFile}. Create it with pari.version=<PARI release>, for example pari.version=2.19.0.")
 check(File(sourceDirectory, "parikt/native/build-native.sh").isFile) { "Not a PariKt checkout: $sourceDirectory" }
 
 gradle.extensions.extraProperties["parikt.version"] = selectedVersion

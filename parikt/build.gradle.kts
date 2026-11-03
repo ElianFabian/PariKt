@@ -79,6 +79,7 @@ val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencie
 	description = "Builds GMP/PARI and the JNI bridge for the $jvmHost JVM host."
 	inputs.file(jvmNativeScript)
 	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
+	inputs.file(layout.projectDirectory.file("native/pari-source.sh"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/jni_bridge.c"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
@@ -148,6 +149,7 @@ val buildWebNativeDependencies = tasks.register<Exec>("buildWebNativeDependencie
 	description = "Builds GMP/PARI $pariVersion and the web bridge with Emscripten."
 	inputs.file(webNativeScript)
 	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
+	inputs.file(layout.projectDirectory.file("native/pari-source.sh"))
 	inputs.dir(layout.projectDirectory.dir("native/web"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
@@ -209,6 +211,7 @@ fun registerKotlinNativeBuild(taskName: String, target: String, directory: Direc
 	dependsOn(preparation)
 	inputs.file(layout.projectDirectory.file("native/build-kotlin-native.sh"))
 	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
+	inputs.file(layout.projectDirectory.file("native/pari-source.sh"))
 	inputs.dir(layout.projectDirectory.dir("native/kotlin-native"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
 	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))

@@ -63,10 +63,31 @@ wait rather than modifying the same compiler/source stages.
 Native build tasks invoke the builders to validate their own fingerprints on each requested
 build. A cache hit is reported by the script; it need not carry Gradle's `UP-TO-DATE` label.
 
+The four native builders share PARI acquisition under the build host's
+`~/.cache/parikt/sources`: one Git object store and pristine snapshots keyed by resolved commit.
+Each backend derives its own mutable workspace for patches/configuration. Existing downloaded
+release tags can seed the shared store without downloading again; legacy caches remain intact.
+Selecting an already cached release, including during a forced compilation, does not fetch it
+again. `master`/`latest` refresh their resolved revision.
+
+JVM builders additionally share complete compatible engines under `~/.cache/parikt/engines/jvm`.
+The key includes the source revision, bridge/JNI inputs, compiler identity and build options.
+The Linux JVM's configured optional-data path is an output-dependent build option, so different
+data paths use different entries. Consumer outputs are staged copies; matching modules share a
+source component and native task. Force rebuilds replace the matching cache entry, and other
+consumers refresh their staged output on their next builder invocation. Native/Web/Android
+module routing remains gated by the module-version plan.
+
 Generated AARs, klibs, executables and web bundles contain the consumer-selected engine.
 They cannot change PARI after compilation. Binary-only Maven installation is not implemented;
 an ordinary Maven dependency plus a properties file alone cannot run these source-build steps.
 See `PARI_VERSION_PLAN.md` for the implementation checklist and cache identity discussion.
+
+The separate [module-version JVM proof](examples/module-versions/README.md) exercises two
+applications sharing a Kotlin library while selecting different PARI versions in one build.
+The JVM fixture now includes property discovery and `pariktSelections` diagnostics from step 2
+of [the module-version plan](PARI_MODULE_VERSION_PLAN.md). It shares the strict properties parser
+with production; production source integration still selects one version for the whole build.
 
 ## Android
 

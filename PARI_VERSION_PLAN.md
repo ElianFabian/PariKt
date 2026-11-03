@@ -1,5 +1,10 @@
 # Consumer-selected PARI version
 
+Follow-up plan: PARI_MODULE_VERSION_PLAN.md describes project defaults with module overrides.
+The isolated JVM proof and step-2 selection/discovery checks pass. Production shares the strict
+properties parser; its integration still uses one version per build.
+The completed checklist below covers that production baseline.
+
 ## Decision
 
 The consumer selects PARI in its root `parikt.properties`, independently of the PariKt source

@@ -95,6 +95,7 @@ val buildNativeDependencies = tasks.register<Exec>("buildNativeDependencies") {
 	description = "Builds GMP and PARI/GP $pariVersion for Android."
 	inputs.file(nativeScript)
 	inputs.file(File(sourceDirectory, "parikt/native/build-lock.sh"))
+	inputs.file(File(sourceDirectory, "parikt/native/pari-source.sh"))
 	inputs.property("pariVersion", pariVersion)
 	inputs.property("abis", nativeAbis)
 	inputs.property("api", minAndroidApi)

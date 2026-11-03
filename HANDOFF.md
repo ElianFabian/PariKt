@@ -50,6 +50,87 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+PARI_MODULE_VERSION_PLAN.md implementation has started with the isolated examples/module-versions
+JVM proof. It uses root defaults/module overrides, generated KMP JVM source components, scoped
+project substitution and a common engine capability. Steps 1–2 are complete in the experimental
+JVM selection layer. Steps 3–8 remain open; production shares the parser and keeps global routing.
+Both applications pass in one invocation in both orders with 2.19.0/2.15.0, exact arithmetic/
+factorization checks and one PariKt class resource per JVM. sharedLogic compiles against the
+default once and its unchanged jar works with both providers. Class/Kotlin module metadata hashes
+match across providers (stable module name parikt); compile/runtime graphs each contain one engine.
+
+The new tests/build_configuration/verify_module_versions.ps1 passes all seven cases in PowerShell
+7.6.9 on Windows 11 x86_64 with WSL native builds: both orders/cache reuse, matching requirement,
+compile/runtime requirement conflicts, duplicate-provider rejection, and restored graph. Negative
+cases fail before native setup and report the required origins/dependency path or capability
+conflict. Copied test fixtures are cleaned up; logs are under build/module-version-tests. The
+checked-in fixture passes identity, all three module graphs and both app launches again with
+--warning-mode all and no deprecation warnings (build/module-versions-final-graphs.log). Root help
+and terminal Kotlin compilation pass (build/module-versions-baseline.log). Script execution on
+Linux/Windows PowerShell 5.1 and full cross-target regressions were not performed for this proof.
+
+Step 2: shared strict parsing is now used by production and the experimental JVM
+integration. Deferred settings discovery replaces the prototype's three-module list and reads
+actual projectDir mappings. The JVM diagnostic task is pariktSelections; missing selections are
+required only for modules with direct/transitive PariKt dependencies. :parikt convenience tasks
+use only the root default and fail actionably when it is absent. All 24 cases in the new
+verify_module_selections.ps1 pass in PowerShell 7.6.9 and Windows PowerShell 5.1, without engine
+compilation/deprecation warnings. The existing five production diagnostic cases pass in both
+shells. Logs are in build/module-selection-tests, with shell transcripts in
+build/module-selections-{verification,ps51}.log. Root help/terminal compilation also pass with
+--warning-mode all (build/module-selections-baseline.log). The seven original JVM runtime/graph/
+conflict cases pass after generalization. The eighth case also passes: remove the root file,
+explicitly select matching 2.15.0 in appA/appB/sharedLogic, compile/resolve both apps to one reused
+source component and run both with version/arithmetic/factorization assertions. The module-only
+native cache is reused. All eight cases pass under PowerShell 7; see
+build/module-selections-jvm-regression.log and build/module-version-tests/*.log. Temporary
+fixtures are cleaned up. Next is step 3's output isolation/routing work; keep the platform gates.
+User clarified reuse is mandatory: a module requesting an already downloaded PARI version must
+reuse it, and compatible engine builds must share one provider/cache entry across modules.
+Do not interpret module-local selection as a forced download/rebuild. The JVM fixture already
+deduplicates same-version source components and engine paths within a build. The cache-reuse
+portion of step 3 is now implemented: all four builders call pari-source.sh for one shared Git
+object store and pristine commit snapshots in ~/.cache/parikt/sources. Legacy downloads seed
+the store from immutable tag objects, not patched working files, and remain intact. Git stores
+are fully initialized before atomic publication. Separate mutable workspaces have recipe/target
+identities and reset to pristine sources when those identities change. Web's PARI stage also
+includes its build input hash. Different targets/ABIs/toolchains still need different binaries.
+
+JVM complete engines are shared under ~/.cache/parikt/engines/jvm/<fingerprint>, keyed by resolved
+commit and compatible build inputs. Force replaces the same entry; generation markers refresh
+other consumers' staged copies. Release/master/latest labels resolving to one commit reuse one
+entry. Linux's optional-data directory remains an actual build option in its cache identity.
+Other backends retain existing compiled stage caches; their full module routing remains gated.
+Portable locking now combines exclusive file claims with legacy directory guards, supports
+multiple held locks, checks ownership/subshell identity on cleanup, and needs no extra package.
+
+Verification: all nine source-cache cases pass in PowerShell 7 and Windows PowerShell 5.1,
+including three actual concurrent requests with one acquisition, recipe reset, failure/retry
+and ownership cleanup. The contention suite passed three repetitions per shell; the expanded
+nested-lock test passes. All eleven module/runtime/conflict cases pass with the final code:
+build/cache-reuse-jvm-final.log. A later appC reuses the existing engine without download or
+compilation; force has one producer and following consumers reuse it. All four independent-
+workspace compiled-cache cases pass: build/cache-reuse-concurrent-jvm-final.log (concurrent
+producer, force/refresh, metadata repair, release/master/latest alias reuse).
+
+The JVM harness had stalled waiting for captured output after its Gradle child exited. It now
+reads direct UTF-8 file logs after client exit, using unique per-run log directories so inherited
+daemon handles cannot block subsequent runs. build/module-version-tests/latest-run.txt identifies
+the latest retained case logs. Generated fixtures are removed after safe path checks.
+The final cross-target run passed 145 tasks (24 executed/121 up to date): Android minSdk-21
+assembly for both ABIs, Native Linux/Windows verification, direct Windows Native test execution,
+web engine smoke, and Kotlin JS/WasmJS Node tests. See build/cache-reuse-target-regressions.log.
+An unrelated Renderer.kt change appeared during the pause and is preserved.
+The ordinary production consumer (2.19.0) and terminal launcher (2.15.0) also pass again using
+the final compiled cache; see build/cache-reuse-independent-consumer-final.log and
+build/cache-reuse-terminal-final.log. The interrupted harness and its temporary fixture have
+been cleaned up. Its earlier automatic-review usage-limit interruption is resolved.
+The prototype has no configuration-cache support. Production still selects one version globally.
+See examples/module-versions/README.md and the plan's proof results for layout and commands.
+Rollout remains gated on Native klib/link identity, scoped npm packaging and Android NDK model
+checks. Multiple versions within one application remain outside the scope. Existing target
+declarations/minSdk 21 are unchanged. No custom Gradle plugin was introduced.
+
 Consumer-selected PARI source integration is implemented. PARI_VERSION_PLAN.md contains the
 completed checklist and verification. The consuming root owns parikt.properties (pari.version);
 the checkout's demo selection is never a fallback. gradle/parikt.settings.gradle.kts includes
@@ -67,9 +148,10 @@ The native builders own cache validation with source/toolchain stamps; their Exe
 Gradle doNotTrackState. Ordinary Kotlin/cinterop/webpack tasks still track actual engine inputs.
 A cache hit is reported by the script, not necessarily a Gradle UP-TO-DATE label. JVM stamps now
 hash bridge/header/JNI sources and compiler identity; declared task inputs also include JNI
-headers and explicit native PATH. JVM master/latest bypass the cache and refresh their sources.
+headers and explicit native PATH. JVM master/latest refresh their source revision and can reuse
+a compiled engine when that resolved revision and the other inputs are unchanged.
 Shared staging directories require serialization: build-lock.sh protects all four builders using
-portable mkdir locks, without an extra host package. Competing-process/subshell cleanup tests
+portable exclusive file claims plus legacy directory guards, without an extra host package. Competing-process/subshell cleanup tests
 and actual concurrent builds pass. A hard kill can leave a stale lock; the timeout identifies it
 for removal after checking no builder is running.
 
