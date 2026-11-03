@@ -13,8 +13,8 @@ internal actual fun launchConsoleUi() {
 	val script = document.createElement("script") as HTMLScriptElement
 	script.src = "skiko.js"
 	script.onload = { onWasmReady { ComposeViewport("app") { ConsoleApp() } } }
-	script.addEventListener("error", {
+	script.addEventListener("error") {
 		document.getElementById("app")?.textContent = "Unable to load the graphics engine. Reload to retry."
-	})
+	}
 	document.head!!.appendChild(script)
 }
