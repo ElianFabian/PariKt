@@ -8,6 +8,7 @@
 int32_t parikt_native_init(int64_t stack_bytes);
 int32_t parikt_native_is_owner_thread(void);
 int32_t parikt_native_set_tmpdir(const char *path);
+const char *parikt_native_default_tmpdir(void);
 const char *parikt_native_eval(const char *input);
 int32_t parikt_native_command_count(void);
 const char *parikt_native_command(int32_t index);

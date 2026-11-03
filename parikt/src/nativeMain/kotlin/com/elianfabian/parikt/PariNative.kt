@@ -4,7 +4,6 @@ package com.elianfabian.parikt
 
 import com.elianfabian.parikt.cinterop.*
 import kotlinx.cinterop.toKString
-import platform.posix.getenv
 
 internal actual object PariNative {
     actual suspend fun prepareLibraries() {}
@@ -25,7 +24,7 @@ internal actual object PariNative {
     actual fun init(pariSize: Long) {
         checkThread()
         require(pariSize > 0) { "PARI stack size must be positive." }
-        val directory = getenv("TMPDIR")?.toKString()?.takeIf { it.isNotBlank() } ?: "/tmp"
+        val directory = checkNotNull(parikt_native_default_tmpdir()).toKString()
         check(setTemporaryDirectory(directory)) { "Unable to configure PARI's temporary directory." }
         check(parikt_native_init(pariSize) != 0) { "Unable to initialize PARI." }
     }

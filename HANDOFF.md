@@ -53,7 +53,8 @@ changing lifecycle semantics.
 PariKt is a KMP library in `:parikt`. Android and JVM are implemented in the documented host
 matrix. Kotlin/JS and Kotlin/WasmJS now have working Node and Chromium-browser consumer bindings
 around an Emscripten PARI engine. Kotlin/Native linuxX64 uses a statically linked C interop
-backend and has a separate native terminal demo. Other Kotlin/Native targets are not configured.
+backend; mingwX64 reuses the same native backend and terminal demo on Windows. Other
+Kotlin/Native targets are not configured.
 
 Common API and expect declaration: `src/commonMain/kotlin/com/elianfabian/parikt/`. Android JNI
 Kotlin: `src/androidMain/kotlin/`. The NDK makefiles remain under `src/androidMain/jni/`; shared
@@ -593,6 +594,57 @@ subsequent archive/interop/link tasks were up to date. The default remains pariV
 Unverified: running Gradle itself on a Linux host, additional Linux distributions, a completely
 fresh machine including source/host prerequisites, native publication, and other native targets.
 Only the Windows Gradle + WSL build/run path has been exercised in this phase.
+
+## Phase 9 — Kotlin/Native Windows
+
+The user requested committing all completed Linux work, then continuing with Windows.
+Linux work was committed as bbb5211. Add mingwX64 and reuse the backend, tests and terminal;
+retain version selection and Linux behavior. Apple targets remain deferred.
+
+- [x] Build static Windows GMP/PARI with a pinned MinGW compiler and MSVCRT-compatible flags.
+- [x] Share the native backend through nativeMain with commonized C interop bindings.
+- [x] Add Windows OS-thread ownership and default temporary-directory handling.
+- [x] Build/run the Windows native terminal and verify its DLL imports.
+- [x] Test PARI 2.15.0/2.19.0, error recovery, lifecycle and thread rejection on Windows.
+- [x] Verify Linux and existing-target regressions, document commands and remaining limits.
+
+Windows native compilation, terminal execution and the shared test suite pass for PARI 2.15.0.
+The native C builder now handles linux-x86_64 and windows-x86_64 separately. Windows uses the
+same pinned xPack GCC 15.2.0-2 as the JVM builder, explicitly selecting MSVCRT via
+`-mcrtdll=msvcrt-os` to match Kotlin/Native. PARI cross-probe corrections follow the verified
+JVM Windows configuration. The shared native backend gets its temporary directory from C;
+Windows uses TEMP/TMP, and ownership checks use GetCurrentThreadId (no pthread DLL required).
+The first Windows C compilation succeeded. PARI installs its Windows static archive in bin
+rather than lib; the packaging step now normalizes that location before assembling libparikt.a.
+Windows Kotlin/cinterop compilation passed, but final linking exposed modern MinGW's stat64i32
+wrapper absent from Kotlin/Native's older runtime. The C build now uses Kotlin/Native's exact
+Windows sysroot headers (cached in WSL) with the pinned cross compiler, instead of adding a
+handwritten stat ABI shim or mixing MinGW runtime versions.
+The shared integration test now writes/reads a GP file with spaces in its name and removes it
+afterwards, exercising file-status/opening paths in addition to arithmetic and error recovery.
+The Windows executable imports only ADVAPI32.dll, KERNEL32.dll and msvcrt.dll; no PARI/GMP,
+MinGW runtime DLL, JRE or java.library.path is required to run it. A direct .exe launch also
+passes. Linux tests and CLI linking pass after the shared-source move, and
+compileNativeMainKotlinMetadata/commonizeCInterop pass, verifying shared binding visibility.
+Windows tests, terminal version/factor smoke and import-table checks also pass for PARI 2.19.0.
+Both versions import the same three system DLLs. README now documents Windows/Linux native
+commands, runtime/build requirements, shared sources and remaining platform limits.
+The final default-version checks pass both native test suites and CLI links, Native metadata,
+Android assembleDebug, desktop/shared-state tests and JS/Wasm compilation. Both native test
+suites, CLI links and shared metadata also pass with PARI 2.19.0 and the final shared sources.
+Both native test suites, shared metadata and CLI links passed again after restoring build
+outputs to the unchanged pariVersion=2.15.0 default. Remaining limits:
+Windows runtime checks used this Windows 11 x86_64 host; a completely fresh machine, other
+Windows versions, running Gradle itself on Linux, Apple targets and publication remain unverified.
+
+Native console IDE input follow-up: the user reported `runDebugExecutableMingwX64` exiting at
+the first prompt, while `runMingwX64` worked in PowerShell. Task inspection confirmed KGP's
+generated debug/release run tasks had null stdin, while custom tasks used Gradle's StdInStream.
+All nativeTerminalApp Exec tasks whose names start with run now forward System.in, covering
+generated IDE tasks and custom launchers. The exact generated task now passes both piped input
+and a delayed-input check: it remains alive at gp>, accepts factor/variable commands after the
+prompt, and closes on quit. The IDE UI itself was not automated; reload Gradle changes before
+rerunning its configuration. README includes that instruction.
 
 ## Android build defaults and environment notes
 

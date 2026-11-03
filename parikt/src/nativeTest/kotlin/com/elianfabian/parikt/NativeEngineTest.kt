@@ -8,6 +8,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.random.Random
 
 class NativeEngineTest {
 	@Test fun engineLifecycleAndEvaluation() = runBlocking {
@@ -27,6 +28,12 @@ class NativeEngineTest {
 			assertTrue(PariKt.eval("1/0").contains(Regex("division|inverse|zero", RegexOption.IGNORE_CASE)))
 			assertEquals("4", result("2+2"))
 			assertContains(PariKt.getSupportedCommands(), "factor")
+			// Exercise file status/opening too: Windows CRT mismatches can pass arithmetic.
+			val filename = "parikt native test ${Random.nextLong()}.gp"
+			try {
+				PariKt.eval("write(\"$filename\", 42)")
+				assertEquals("42", result("read(\"$filename\")"))
+			} finally { removeTestFile(filename) }
 			withContext(Dispatchers.Default) {
 				assertFailsWith<IllegalStateException> { PariKt.eval("2+2") }
 				assertFailsWith<IllegalStateException> { PariKt.getSupportedCommands() }
@@ -39,5 +46,10 @@ class NativeEngineTest {
 		PariKt.init()
 		try { assertTrue(PariKt.eval("2+2").trim().endsWith("4")) }
 		finally { PariKt.close() }
+	}
+
+	@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+	private fun removeTestFile(path: String) {
+		check(platform.posix.remove(path) == 0) { "Unable to remove native test file: $path" }
 	}
 }
