@@ -14,7 +14,7 @@ val selections = gradle.extensions.extraProperties["parikt.selections"] as Map<S
 @Suppress("UNCHECKED_CAST")
 val engines = gradle.extensions.extraProperties["parikt.jvm.engines"] as Map<String, String>
 val enginePath = engines.getValue(selection.first)
-val defaultVersion = gradle.extensions.extraProperties["parikt.version"] as String
+val defaultVersion = gradle.extensions.extraProperties.properties["parikt.version"] as? String
 fun platform(configuration: Configuration): String? = configuration.attributes.keySet()
     .find { it.name == "org.jetbrains.kotlin.platform.type" }
     ?.let { configuration.attributes.getAttribute(it)?.toString() }
@@ -28,19 +28,26 @@ fun jvmConfiguration(configuration: Configuration): Boolean {
     val usage = configuration.attributes.getAttribute(org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE)?.name
     return plainJvm && usage in setOf("java-api", "java-runtime")
 }
+fun routedConfiguration(configuration: Configuration): Boolean = jvmConfiguration(configuration) ||
+    (defaultVersion == null && platform(configuration) == "common")
+if (defaultVersion == null && (androidProject() || consumer.configurations.any { platform(it) !in setOf(null, "common", "jvm") })) {
+    throw GradleException("Module-only PARI configuration currently supports JVM targets: ${consumer.path} selects ${selection.first} " +
+        "in ${selection.second}, but also has non-JVM targets. Set pari.version in ${consumer.rootProject.file("parikt.properties")} " +
+        "until production non-JVM routing is enabled.")
+}
 consumer.configurations.configureEach {
     val configuration = this
     resolutionStrategy.dependencySubstitution {
         val target = project(enginePath)
         all {
             val reference = requested as? org.gradle.api.artifacts.component.ProjectComponentSelector
-            if (reference?.projectPath == ":parikt" && enginePath != ":parikt" && jvmConfiguration(configuration)) {
+            if (reference?.projectPath == ":parikt" && enginePath != ":parikt" && routedConfiguration(configuration)) {
                 useTarget(target, "PARI ${selection.first} selected by ${selection.second}")
             }
         }
     }
     incoming.afterResolve {
-        if (!jvmConfiguration(configuration)) return@afterResolve
+        if (!routedConfiguration(configuration)) return@afterResolve
         val queue = ArrayDeque<Pair<org.gradle.api.artifacts.result.ResolvedComponentResult, List<String>>>()
         queue.add(incoming.resolutionResult.rootComponent.get() to listOf(consumer.path))
         val visited = mutableSetOf<org.gradle.api.artifacts.component.ComponentIdentifier>()

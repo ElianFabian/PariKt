@@ -5,8 +5,8 @@ val checkout = extra["pariktSourceDir"] as File
 gradle.settingsEvaluated {
     @Suppress("UNCHECKED_CAST")
     val selections = gradle.extensions.extraProperties["parikt.selections"] as Map<String, Triple<String, String, Boolean>>
-    val defaultVersion = gradle.extensions.extraProperties["parikt.version"] as String
-    val engines = selections.values.map { it.first }.plus(defaultVersion).distinct().associateWith { version ->
+    val defaultVersion = gradle.extensions.extraProperties.properties["parikt.version"] as? String
+    val engines = (selections.values.map { it.first } + listOfNotNull(defaultVersion)).distinct().associateWith { version ->
         if (version == defaultVersion) ":parikt" else ":pariktEngine_" + version.replace('.', '_')
     }
     if (engines.size > 1 && (providers.gradleProperty("jvmNativeDir").isPresent || providers.systemProperty("parikt.native.dir").isPresent)) {
@@ -23,7 +23,9 @@ gradle.settingsEvaluated {
     }
     gradle.extensions.extraProperties["parikt.jvm.engines"] = engines
     gradle.beforeProject {
-        val selected = if (path == ":parikt") Triple(defaultVersion, File(settingsDir, "parikt.properties").absolutePath, false) else selections[path]
+        val selected = if (path == ":parikt") defaultVersion?.let {
+            Triple(it, File(settingsDir, "parikt.properties").absolutePath, false)
+        } else selections[path]
         engines.entries.find { it.value == path && path != ":parikt" }?.let {
             extensions.extraProperties["parikt.checkout"] = checkout
             extensions.extraProperties["parikt.engineVersion"] = it.key
@@ -45,6 +47,7 @@ gradle.settingsEvaluated {
             group = "verification"
             dependsOn(engines.values.map { "$it:jvmJar" })
             doLast {
+                check(engines.isNotEmpty()) { "No JVM PARI providers selected. Set pari.version in a participating module's parikt.properties or the root file." }
                 val identities = engines.values.map { path ->
                     val file = buildRoot.project(path).tasks.named("jvmJar").get().outputs.files.singleFile
                     JarFile(file).use { jar ->

@@ -1,6 +1,6 @@
 # Project defaults and module-specific PARI versions
 
-Status: steps 1–2 complete in the experimental JVM selection layer; step 4 is complete for the
+Status: steps 1–2 complete for JVM in the experimental and production integrations; step 4 is complete for the
 production JVM launchers and steps 5–7's isolated Native/web/Android compatibility proofs are complete.
 Steps 3 and 8 remain open in part, including production Native/web/Android component/output integration.
 Production now shares scoped JVM routing and the strict parser; Native/web/Android keep the root
@@ -129,6 +129,29 @@ JVM success as proof that the same mechanism works on Native and web.
 
 ## Implementation checklist
 
+### Production module-only rollout
+
+Complete for the current production JVM contract. All 13 disposable production acceptance cases
+pass: build/production-module-only/9a887c3c6a0f/logs. They exercise the actual production settings
+script, same-version shared libraries, independent versions, common metadata, both task orders,
+compatible cache reuse, missing/invalid/conflicting selections, duplicate providers, ambiguous
+outputs, default tasks, empty-root rejection and restored valid builds. No source fetch or engine
+compilation occurs. All 11 existing application checks, five property diagnostics, standalone
+consumer JVM execution and Android/Native/web compilation regressions pass. Non-JVM production
+routing/module-only coverage remains part of step 3; no local file supplies a root default.
+Module-only acceptance is verified on Windows x86_64/WSL with prepared compatible engines; the
+cache prerequisite is documented. Property diagnostics pass in both PowerShell 7 and 5.1.
+All 24 scoped selection/discovery checks also pass (build/module-only-selection-regressions.log).
+
+- [x] Make the root default optional; include empty public selectors without configuring a
+  singleton engine/helper when no root default exists.
+- [x] Route explicit JVM selections to generated providers and preserve strict transitive
+  requirements, one provider per final application and compatible engine-cache reuse.
+- [x] Diagnose missing participating selections and default-engine convenience tasks clearly;
+  retain an explicit gate for rootless non-JVM targets until their production routing is enabled.
+- [x] Verify production rootless consumers, same/different selections, cache reuse, missing and
+  conflicting requirements, property restoration and existing root-default builds; update docs.
+
 ### 1. Prove two JVM applications with a shared library
 
 - [x] Create a standalone fixture containing appA, appB and sharedLogic in one Gradle build.
@@ -143,8 +166,8 @@ JVM success as proof that the same mechanism works on Native and web.
 ### 2. Implement property discovery and scoped selections
 
 This stage was proven in the experimental JVM selection layer. Production now shares its strict
-parser/discovery and supports JVM routing; module-only configuration without a root default and
-other platform implementations remain gated.
+parser/discovery and supports JVM routing and module-only JVM configuration without a root default.
+Other platform production routing/module-only configurations remain gated.
 
 - [x] Discover declared consumer project directories after includes are known; exclude generated
   engine/helper projects. Preserve existing settings-script placement where possible.
@@ -303,7 +326,7 @@ All 24 configuration/discovery regression cases also pass; both examples folders
 
 - [x] Add PowerShell configuration/graph checks for inheritance, module-only configuration,
   invalid overrides, nested paths, custom projectDir and explicit transitive conflicts.
-- [ ] Preserve existing configuration checks, adapting the missing-root case to the new rules.
+- [x] Preserve existing configuration checks, adapting the missing-root case to the new rules.
   Demonstrate simultaneous selections in the fixture, not just sequential global-file changes.
 - [ ] Run existing Android, Compose, JVM, Native and JS/Wasm checks. Root-only consumers retain
   their existing dependency declarations and behavior; matching selections reuse caches.
@@ -346,10 +369,10 @@ Windows PowerShell 5.1 coverage below applies to the configuration/discovery scr
 ## Step 2 selection/discovery results (2026-11-03)
 
 gradle/parikt.properties.settings.gradle.kts is the single provider-based parser used by the
-production root-only installer and experimental JVM settings. It records version/origin and
+production installer and experimental JVM settings. It records version/origin and
 explicit/inherited status, rejects invalid present files (including malformed Java-properties
-Unicode escapes), and preserves unknown-key and obsolete-property diagnostics. Production keeps
-its required root default; the experimental selection layer permits module-only configuration.
+Unicode escapes), and preserves unknown-key and obsolete-property diagnostics. Production and the
+experimental JVM layer now both permit module-only configuration within their supported scopes.
 
 gradle/parikt.selections.settings.gradle.kts discovers descriptors at settingsEvaluated, observing
 all ordinary includes and final projectDir mappings. Integration-owned selector/engine/helper

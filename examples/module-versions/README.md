@@ -2,7 +2,10 @@
 
 This standalone build exercises the compatibility proofs in [the module-version plan](../../PARI_MODULE_VERSION_PLAN.md).
 The default fixture is the experimental JVM integration. Production now supports JVM module
-overrides too. Native routing here is an opt-in linking proof; production Native/web/Android
+overrides and module-only JVM configuration too. The disposable production acceptance command
+`pwsh -File tests/build_configuration/verify_production_module_only.ps1` uses the real production
+settings script with this fixture's Kotlin sources; it does not use this fixture's engine scaffold.
+Native routing here is an opt-in linking proof; production Native/web/Android
 overrides remain gated. Existing targets and Android minSdk 21 are preserved.
 
 From the repository root, using its JDK/Gradle/native build prerequisites:

@@ -27,6 +27,11 @@ extra["pariktSourceDir"] = file("$kotlinRoot")
 apply(from = file("$kotlinRoot/gradle/parikt.settings.gradle.kts"))
 "@
         [IO.File]::WriteAllText((Join-Path $projectDirectory 'settings.gradle.kts'), $settings, $utf8)
+        if ($case.Name -eq 'missing') {
+            # An unrelated empty root needs no selection. A participating module does.
+            [IO.File]::WriteAllText((Join-Path $projectDirectory 'build.gradle.kts'),
+                'configurations.create("engine"); dependencies.add("engine", project(":parikt"))', $utf8)
+        }
         if ($null -ne $case.Content) {
             [IO.File]::WriteAllText((Join-Path $projectDirectory 'parikt.properties'), $case.Content, $utf8)
         }

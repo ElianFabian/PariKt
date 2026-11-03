@@ -7,10 +7,9 @@ val configurationFile = layout.rootDirectory.file("parikt.properties")
 @Suppress("UNCHECKED_CAST")
 val defaultSelection = gradle.extensions.extraProperties["parikt.defaultSelection"] as Triple<String, String, Boolean>?
 val selectedVersion = defaultSelection?.first
-	?: throw GradleException("Missing ${configurationFile.asFile}. Create it with pari.version=<PARI release>, for example pari.version=2.19.0.")
 check(File(sourceDirectory, "parikt/native/build-native.sh").isFile) { "Not a PariKt checkout: $sourceDirectory" }
 
-gradle.extensions.extraProperties["parikt.version"] = selectedVersion
+if (selectedVersion != null) gradle.extensions.extraProperties["parikt.version"] = selectedVersion
 // Repository development retains its existing caches; external consumers own their outputs.
 gradle.extensions.extraProperties["parikt.nativeDirectory"] = if (settingsDir.canonicalFile == sourceDirectory) {
 	File(sourceDirectory, "parikt/.native")
@@ -36,8 +35,22 @@ dependencyResolutionManagement.repositories {
 	}
 }
 include(":parikt", ":pariktAndroidNative")
-project(":parikt").projectDir = File(sourceDirectory, "parikt")
-project(":pariktAndroidNative").projectDir = File(sourceDirectory, "pariktAndroidNative")
+if (selectedVersion != null) {
+    project(":parikt").projectDir = File(sourceDirectory, "parikt")
+    project(":pariktAndroidNative").projectDir = File(sourceDirectory, "pariktAndroidNative")
+} else {
+    // No local override becomes an implicit default. These selectors have no engine variants
+    // or Android bootstrap; JVM consumers are routed to their explicitly selected providers.
+    listOf(":parikt", ":pariktAndroidNative").forEach { path ->
+        project(path).projectDir = File(settingsDir, "build/parikt/selectors/${path.removePrefix(":")}").apply {
+            mkdirs()
+            val content = File(sourceDirectory, "gradle/parikt.selector.gradle.kts").readText()
+            val script = File(this, "build.gradle.kts")
+            if (!script.exists() || script.readText() != content) script.writeText(content)
+        }
+    }
+}
 // JVM consumers can select scoped providers. Other target overrides stay gated.
 apply(from = File(sourceDirectory, "gradle/parikt.jvm.settings.gradle.kts"))
-logger.lifecycle("[PariKt] Consumer selected PARI $selectedVersion (${configurationFile.asFile})")
+if (selectedVersion != null) logger.lifecycle("[PariKt] Consumer selected PARI $selectedVersion (${configurationFile.asFile})")
+else logger.lifecycle("[PariKt] No root PARI default; participating JVM modules must select pari.version locally.")

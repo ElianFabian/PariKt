@@ -16,7 +16,9 @@ Changing PARI requires editing only this file and syncing/rebuilding. There is n
 for a missing file, no custom Gradle plugin, and no PariKt release for each PARI release.
 The previous `pariVersion` Gradle property is rejected with migration instructions.
 This repository's own file selects PARI only for its demos/tests. External consumers must provide
-their own file; the settings script never falls back to the checkout's demo selection.
+their own selection files; the settings script never falls back to the checkout's demo selection.
+JVM builds can omit the root file when every participating module selects a version locally,
+as described below.
 
 Source integration is currently the supported consumer installation. In your settings, after
 configuring plugin/dependency repositories, add:
@@ -41,7 +43,15 @@ Your Kotlin module can then declare `implementation(project(":parikt"))`. If you
 already declares these plugins, keep one declaration using the same versions. The current build
 baseline is Gradle 9.6.0, Kotlin 2.4.21 and AGP 9.4.1. Android SDK/NDK and the host prerequisites
 below are still required: the source library currently configures all implemented targets,
-including its Android native model, even for a JVM-only consumer.
+including its Android native model, when a root default configures the full source library.
+Module-only JVM builds configure JVM providers instead and need only the Kotlin plugin classpath:
+
+```kotlin
+plugins {
+    alias(pariktLibs.plugins.kotlin.multiplatform) apply false
+    alias(pariktLibs.plugins.kotlin.jvm) apply false // If the consumer uses this plugin.
+}
+```
 
 The standalone `examples/consumer` build demonstrates JVM, Native Windows/Linux and JS/Wasm
 Node consumers. Its `parikt.properties` is independent of this repository's demo selection.
@@ -92,9 +102,21 @@ Use `pariktSelections` to inspect effective versions and origins.
 
 Each application routes direct and transitive JVM dependencies to one source provider per
 distinct version, and its JavaExec/test tasks use that provider's native output. Matching
-selections reuse the provider and compatible engine cache. Root configuration remains required
-by production integration; modules with non-JVM targets must retain the root default until
-their linking/packaging proofs in [the module-version plan](PARI_MODULE_VERSION_PLAN.md) pass.
+selections reuse the provider and compatible engine cache. Production JVM builds also support
+**module-only configuration**: omit the root file and put `parikt.properties` in every module
+that directly or transitively uses PariKt, including shared libraries. Unrelated modules need
+no selection. JVM-only KMP libraries are supported, including common metadata routing.
+
+Every local library file is a strict requirement, so a shared library's selection must agree
+with all consuming apps. Independent applications with separate dependency chains can select
+different versions. No module supplies a default for its siblings. A present empty/invalid root
+file remains an error even if all modules have local files.
+
+Without a root default, `:parikt` and `:pariktAndroidNative` are empty selectors. Invoke the
+application's task; default-engine tasks such as `:parikt:jvmJar` fail with instructions to
+provide a root default, even if all local files agree. No Android model/bootstrap is configured
+in this mode. Modules with non-JVM targets still require the root default until production
+component/output routing is integrated; their isolated compatibility proofs are complete.
 
 Verify the existing applications without opening a window:
 
@@ -102,7 +124,12 @@ Verify the existing applications without opening a window:
 .\gradlew.bat :terminalApp:verifyPariEngine :desktopApp:verifyPariEngine
 .\gradlew.bat :terminalApp:verifyPariJvmGraph :desktopApp:verifyPariJvmGraph verifyPariJvmIdentity
 .\tests\build_configuration\verify_application_versions.ps1
+pwsh -File tests/build_configuration/verify_production_module_only.ps1
 ```
+
+The module-only acceptance suite is verified on Windows x86_64 with WSL. It expects prepared
+2.15.0/2.19.0 JVM engine caches, which the application suite above populates; its cases reject
+source fetches or engine recompilation while checking compatible reuse.
 
 The separate [module-version proofs](examples/module-versions/README.md) retain the focused
 JVM fixture and add opt-in Native, JS/Wasm and Android compatibility proofs. `examples/consumer` also remains

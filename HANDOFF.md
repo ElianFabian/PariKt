@@ -50,6 +50,34 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+Production module-only JVM configuration is implemented and verified. Without a root default,
+the production installer includes empty :parikt/:pariktAndroidNative selectors and generates JVM
+providers for explicit module selections. No local selection becomes a sibling/root default;
+default-engine tasks fail clearly instead of guessing. JVM/common configurations route to their
+selected provider, including JVM-only KMP metadata. Every participating module needs a selection;
+an explicit library selection remains strict. Non-JVM production configurations remain gated.
+
+All 13 disposable verify_production_module_only.ps1 cases pass using the actual production
+settings script: build/production-module-only/9a887c3c6a0f/logs. They cover shared same-version
+apps, both orders/cache reuse, common metadata, unrelated modules, missing/invalid selections,
+strict shared conflicts, independent 2.19.0/2.15.0 application chains, duplicate rejection,
+ambiguous output overrides, default-engine/helper errors, empty-root rejection and restored
+valid rootless builds. No source fetch or engine compilation occurred. The metadata probe checks
+only common configurations with PariKt dependencies, excluding empty tooling/test configurations.
+
+All 11 existing application cases also pass (build/application-version-tests/02dc66be474c483cbedcc2e684b0ec84),
+including shared UI tests and restored property/build files. All five property diagnostics pass;
+the missing case now declares a participating root, since unrelated builds need no selection.
+The standalone examples/consumer JVM run passes on 2.19.0. Existing Android assembly (minSdk 21),
+consoleUi JS/Wasm compilation and Linux/Windows Native checks pass in a 97-task regression build.
+Logs: build/module-only-{property-diagnostics,consumer-regression,target-regressions}.log.
+README and the module plan describe module-only JVM setup and the remaining non-JVM gate.
+The module-only suite is verified on Windows x86_64/WSL with prepared 2.15.0/2.19.0 engines;
+this cache prerequisite is explicit in the script/README. Windows PowerShell 5.1 also passes all
+five updated property diagnostics. All 24 scoped-discovery regression cases also pass:
+build/module-only-selection-regressions.log. Disposable fixtures are removed; checked-in demo
+property/build files are restored. Both examples folders, all existing targets and minSdk 21 remain.
+
 Step 7's isolated Android proof passes behind -PandroidProof. androidAppA inherits 2.19.0;
 androidAppB overrides 2.15.0. Both share androidSharedLogic compiled against the default and
 generate arm64-v8a/x86_64 APK splits with minSdk 21. Generated source providers reference shared
@@ -122,7 +150,7 @@ browser outputs were rechecked in a fresh IAB tab; temporary tabs/server are cle
 All 24 configuration/discovery cases also pass (build/module-web-selections-regression.log).
 Next: finish step 3 production component/output integration for Native, web and Android, carrying
 the proven identities and package checks into the shared settings/build scripts. Then finish
-module-only production configuration and step 8 regressions/documentation. Keep examples/consumer
+module-only non-JVM coverage and step 8 regressions/documentation. Keep examples/consumer
 and examples/module-versions; they verify standalone installation and multi-app boundaries.
 
 JVM integration committed as 5610057. Step 5's isolated Native compatibility proof is complete,
