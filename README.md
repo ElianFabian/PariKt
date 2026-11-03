@@ -105,7 +105,7 @@ Verify the existing applications without opening a window:
 ```
 
 The separate [module-version proofs](examples/module-versions/README.md) retain the focused
-JVM fixture and add opt-in Native and JS/Wasm compatibility proofs. `examples/consumer` also remains
+JVM fixture and add opt-in Native, JS/Wasm and Android compatibility proofs. `examples/consumer` also remains
 the standalone installation example.
 
 ## Android
@@ -144,6 +144,12 @@ such as `factor(123456)`, and tap an earlier result to edit and run it again. It
 detected PARI version and keeps a scrollable result history. You can also install it from a terminal
 with `gradlew.bat :androidApp:installDebug` on Windows or `./gradlew :androidApp:installDebug` on
 Linux/macOS when an emulator is running.
+
+The demo packages only `arm64-v8a` and `x86_64`, so transitive graphics libraries cannot advertise
+unsupported 32-bit PARI architectures. `-PnativeAbis=x86_64` selects a supported subset. Its normal
+APK contains the selected ABIs; separate ABI APKs are demonstrated by the opt-in Android
+[module-version proof](examples/module-versions/README.md#opt-in-android-proof), using standard
+AGP ABI splits. All APKs preserve minSdk 21.
 
 ### JVM terminal app (Windows and WSL/Linux bring-up)
 

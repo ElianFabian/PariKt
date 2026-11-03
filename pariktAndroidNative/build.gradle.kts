@@ -2,10 +2,15 @@ plugins {
 	id("com.android.library")
 }
 
-val pariVersion = gradle.extensions.extraProperties["parikt.version"] as String
+val scopedVersion = extra.properties["parikt.engineVersion"] as? String
+val pariVersion = scopedVersion ?: gradle.extensions.extraProperties["parikt.version"] as String
 val nativeCacheDirectory = gradle.extensions.extraProperties["parikt.nativeDirectory"] as File
 val sourceDirectory = gradle.extensions.extraProperties["parikt.sourceDirectory"] as File
-if (rootProject.projectDir.canonicalFile != sourceDirectory) {
+if (scopedVersion != null) {
+    group = "com.elianfabian.parikt.nativebridge.v${pariVersion.replace('.', '_').replace('-', '_')}"
+    project.version = pariVersion
+    layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("parikt/android-helpers/$pariVersion"))
+} else if (rootProject.projectDir.canonicalFile != sourceDirectory) {
 	layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("parikt/modules/pariktAndroidNative"))
 }
 val nativeAbis = providers.gradleProperty("nativeAbis")
@@ -109,7 +114,8 @@ val buildNativeDependencies = tasks.register<Exec>("buildNativeDependencies") {
 }
 
 android {
-	namespace = "com.elianfabian.parikt.nativebridge"
+	namespace = "com.elianfabian.parikt.nativebridge" +
+        if (scopedVersion != null) ".v${pariVersion.replace('.', '_').replace('-', '_')}" else ""
 	compileSdk = 36
 	ndkVersion = "28.2.13676358"
 
@@ -127,11 +133,18 @@ android {
 	externalNativeBuild {
 		ndkBuild {
 			path = File(sourceDirectory, "parikt/src/androidMain/jni/Android.mk")
-			if (rootProject.projectDir.canonicalFile != sourceDirectory) {
+			if (scopedVersion != null) {
+                buildStagingDirectory = layout.buildDirectory.dir("cxx").get().asFile
+            } else if (rootProject.projectDir.canonicalFile != sourceDirectory) {
 				buildStagingDirectory = rootProject.layout.buildDirectory.dir("parikt/cxx").get().asFile
 			}
 		}
 	}
+}
+
+if (scopedVersion != null) configurations.matching { it.isCanBeConsumed }.configureEach {
+    outgoing.capability("${project.group}:${project.name}:${project.version}")
+    outgoing.capability("com.elianfabian.parikt:android-native-engine:$pariVersion")
 }
 
 // Configure ndkVersion before resolving sdkComponents.ndkDirectory on fresh checkouts.

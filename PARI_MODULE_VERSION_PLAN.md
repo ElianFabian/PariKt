@@ -1,8 +1,8 @@
 # Project defaults and module-specific PARI versions
 
 Status: steps 1–2 complete in the experimental JVM selection layer; step 4 is complete for the
-production JVM launchers and steps 5–6's isolated Native/web compatibility proofs are complete.
-Steps 3 and 7–8 remain open in part, including production Native/web component/output integration.
+production JVM launchers and steps 5–7's isolated Native/web/Android compatibility proofs are complete.
+Steps 3 and 8 remain open in part, including production Native/web/Android component/output integration.
 Production now shares scoped JVM routing and the strict parser; Native/web/Android keep the root
 selection. PARI_VERSION_PLAN.md records the earlier verified baseline. JVM success does not
 establish Native/web/Android compatibility.
@@ -272,14 +272,31 @@ be isolated. Multiple versions inside one application are a separate, unplanned 
 
 ### 7. Support Android application overrides
 
-- [ ] Add two Android apps with distinct application IDs and shared Kotlin code. One inherits
+Complete as an isolated compatibility proof behind -PandroidProof; production Android overrides
+remain gated on step 3 integration. Eight PowerShell 7 cases pass:
+build/android-tests/0eb0443f458e/logs. They cover both task orders, shared Kotlin reuse, byte-identical
+classes/module metadata, same-version reuse, override removal/restoration, explicit requirements,
+duplicate engines/helpers and restored builds. Conflicts fail actual assembly before packaging.
+Every split has one complete native set; PARI/GMP hashes match stripped canonical selected cache
+binaries. Both helper AARs have independent namespaces/outputs, two ABI sets and minSdk 21.
+
+The opt-in root shares AGP/KGP classpaths without loading AGP in other modes. The helper reuses
+the existing build script and canonical caches, with independent CXX/model directories. The
+Activity uses AGP's Kotlin source-directory API. Both apps pass on x86_64 API 36.1 through
+automatic Startup, exact versions, arithmetic/factorization and recovery. Emulator storage required
+sequential installs; unrelated apps were untouched. arm64 runtime and Android Studio sync UI
+remain unverified; NDK models configure/build for both versions and ABIs. Production demo assembly,
+supported ABI filtering/minSdk, default JVM, Native identity/graphs and JS/Wasm Node checks pass.
+All 24 configuration/discovery regression cases also pass; both examples folders are preserved.
+
+- [x] Add two Android apps with distinct application IDs and shared Kotlin code. One inherits
   the root selection; the other overrides it. Retain minSdk 21 and automatic Startup initialization.
-- [ ] Resolve one matching native bridge AAR per app, with independent helper/CXX directories.
-  Verify Gradle sync/NDK model generation with both selections.
-- [ ] Assemble both APKs in one invocation and inspect each ABI for exactly one GMP/PARI/JNI set.
+- [x] Resolve one matching native bridge AAR per app, with independent helper/CXX directories.
+  Verify NDK model generation with both selections; IDE sync UI coverage is recorded above.
+- [x] Assemble both APKs in one invocation and inspect each ABI for exactly one GMP/PARI/JNI set.
   Restrict packaging to arm64-v8a/x86_64 and demonstrate per-ABI APK splits; transitive 32-bit
   graphics libraries must not make an APK advertise unsupported PARI architectures.
-- [ ] Run both apps on the supported emulator and assert their respective versions and evaluation.
+- [x] Run both apps on the supported emulator and assert their respective versions and evaluation.
   Reject conflicts before packaging; do not conceal them using native-library pickFirst rules.
 
 ### 8. Regression coverage, examples and documentation

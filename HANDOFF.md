@@ -50,6 +50,40 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+Step 7's isolated Android proof passes behind -PandroidProof. androidAppA inherits 2.19.0;
+androidAppB overrides 2.15.0. Both share androidSharedLogic compiled against the default and
+generate arm64-v8a/x86_64 APK splits with minSdk 21. Generated source providers reference shared
+sources and the existing Startup manifest. Scoped helpers reuse the production helper script,
+with separate helper/CXX/model outputs and shared versioned native caches. Each runtime graph
+contains exactly the selected engine/helper; the implementation-only helper need not appear on
+compile graphs. Kotlin class and module metadata hashes are identical across both providers.
+
+All eight disposable PowerShell 7 cases pass: build/android-tests/0eb0443f458e/logs. They cover
+both orders, same-version reuse, override removal/restoration, strict shared requirements,
+duplicate engine/helper rejection and restored builds. Actual assemble-task conflicts fail before
+packaging. Every split contains exactly one GMP/PARI/JNI/C++ runtime set; PARI/GMP hashes match
+the canonical selected cache binaries after standard NDK stripping. Cache cases fetch no source
+and rebuild no GMP/PARI engine. Both helper AARs also assemble with exactly those two ABI sets,
+distinct namespaces and minSdk 21 (build/module-android-helper-aars.log).
+
+Both x86_64 apps actually pass on the API-36.1 emulator with automatic Startup, exact versions,
+arithmetic, factorization and error recovery (build/module-android-runtime.log). Storage required
+sequential installs; only the newly installed proof apps were removed. The test-started emulator
+was stopped afterwards. Android Studio sync UI and arm64 runtime remain unverified; NDK model
+configuration/build passes for both versions/ABIs. Initial AGP/KGP classloader failure was fixed
+by generating an opt-in root script with standard apply-false AGP declarations. Other proof modes
+do not load AGP. Activity sources use AndroidSourceSet.kotlin.directories; the Android-only shared
+library connects commonTest through withHostTest.
+
+The production demo assembles and filters unsupported transitive 32-bit graphics ABIs. aapt
+confirms only arm64-v8a/x86_64 and minSdk 21 (build/module-android-production-regression.log).
+Default JVM apps/identity/graphs, Native identity/graphs and all four JS/Wasm Node apps/graphs
+pass after the Android changes: build/module-android-{jvm,native,web}-regression.log.
+Configuration/discovery regression results are in build/module-android-selections-regression.log.
+All 24 selection/discovery cases pass. No temporary proof app or test-started emulator remains.
+Both READMEs describe the proof, ABI splits and actual verified scope. Production non-JVM
+overrides remain gated pending shared component/output integration.
+
 JVM integration is committed as 5610057; the isolated Native proof is committed as 35ff177.
 Step 6's isolated JS/Wasm proof is complete behind -PwebProof in examples/module-versions.
 Production Native/web/Android module overrides remain gated; root defaults and minSdk 21 persist.
@@ -86,10 +120,10 @@ Default JVM identity/graphs/apps and Native identity/graphs pass after the web e
 cache fallback passes with the recorded path temporarily removed and restored. All four final
 browser outputs were rechecked in a fresh IAB tab; temporary tabs/server are cleaned up.
 All 24 configuration/discovery cases also pass (build/module-web-selections-regression.log).
-Next: step 7 Android overrides.
-Android currently supports arm64-v8a/x86_64. Per-ABI APK splits are possible but not enabled in
-the demo. Its APK also contains transitive 32-bit graphics libraries without PARI counterparts;
-Android packaging work should restrict output ABIs to the two implemented native backends.
+Next: finish step 3 production component/output integration for Native, web and Android, carrying
+the proven identities and package checks into the shared settings/build scripts. Then finish
+module-only production configuration and step 8 regressions/documentation. Keep examples/consumer
+and examples/module-versions; they verify standalone installation and multi-app boundaries.
 
 JVM integration committed as 5610057. Step 5's isolated Native compatibility proof is complete,
 opt-in via -PnativeProof in examples/module-versions. Production Native overrides remain gated.

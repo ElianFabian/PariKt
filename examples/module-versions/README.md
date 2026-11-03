@@ -1,6 +1,6 @@
-# Module-specific PARI versions: JVM, Native and web proofs
+# Module-specific PARI versions: JVM, Native, web and Android proofs
 
-This standalone build exercises steps 1–2 of [the module-version plan](../../PARI_MODULE_VERSION_PLAN.md).
+This standalone build exercises the compatibility proofs in [the module-version plan](../../PARI_MODULE_VERSION_PLAN.md).
 The default fixture is the experimental JVM integration. Production now supports JVM module
 overrides too. Native routing here is an opt-in linking proof; production Native/web/Android
 overrides remain gated. Existing targets and Android minSdk 21 are preserved.
@@ -88,6 +88,45 @@ browser pages also actually load and report their selected versions and arithmet
 error-recovery success. Each distribution includes index.html and can be served over HTTP.
 Production web overrides remain gated; this is an isolated compatibility proof.
 
+## Opt-in Android proof
+
+With Android SDK 36, NDK 28.2.13676358 and the existing native prerequisites:
+
+```powershell
+.\gradlew.bat -p examples/module-versions -PandroidProof :androidAppA:assembleDebug :androidAppB:assembleDebug verifyAndroidIdentity :androidAppA:verifyAndroidGraph :androidAppB:verifyAndroidGraph
+pwsh -File tests/build_configuration/verify_android_module_versions.ps1
+```
+
+androidAppA inherits 2.19.0; androidAppB selects 2.15.0. Both use androidSharedLogic compiled
+against the default. Each has its own application ID and produces arm64-v8a and x86_64 APKs
+under its build/outputs/apk/debug directory. All app/library manifests retain minSdk 21.
+The check deliberately evaluates without calling init, proving AndroidX Startup integration.
+
+The flag loads standard AGP plugins at the root alongside KGP to share their classpath; the
+default fixture does not load AGP. Generated source providers have stable :parikt leaf names
+and reference the checked-in Android/common Kotlin sources. Helpers reuse the production build
+script with scoped version/output parameters. Native caches remain shared in the checkout's
+parikt/.native/android-<version>; helper/CXX/model outputs live in distinct ignored build paths.
+No custom plugin, pickFirst native-library rules or copied native engine source trees are used.
+
+All eight disposable acceptance cases pass on Windows/WSL with PowerShell 7: both task orders,
+identical Kotlin classes/metadata, same-version reuse, override removal/restoration, strict shared
+requirements, duplicate providers/helpers and restored builds. Conflicts fail actual assemble
+tasks before packaging. Every split has exactly one GMP/PARI/JNI/C++ runtime set, and its PARI/GMP
+hashes match the selected canonical cache binaries after standard NDK stripping. Same-version
+apps schedule one helper, with no source fetch or engine rebuild. Logs remain in build/android-tests.
+Pass -AndroidSdk <path> if SDK discovery through environment/root local.properties is unavailable.
+
+Both x86_64 apps actually pass on the API-36.1 emulator: exact version, Startup, arithmetic,
+factorization and recovery after division by zero. They were installed sequentially because
+the existing emulator had limited storage; unrelated apps were preserved. Install the matching
+split with adb install -r, launch <applicationId>/proof.AndroidMainActivity and inspect the
+PariKtProof logcat tag. Application IDs are com.elianfabian.parikt.proof.a and .b.
+NDK models configure/build successfully for both ABIs and versions; the Android Studio sync UI
+was not automated. Production Android overrides remain gated pending common integration.
+
+## Default JVM fixture details
+
 The root `parikt.properties` sets 2.19.0. `appA` and `sharedLogic` inherit it; `appB/parikt.properties`
 overrides it with 2.15.0. Both apps call the existing public API through the same compiled
 `sharedLogic` library. Each runs in its own JVM, asserts the selected engine version, arithmetic
@@ -168,7 +207,6 @@ The test requires a previously prepared JVM compiler/GMP source cache and perfor
 Consumer library paths stay in their own staged output directories. Linux JVM optional-data
 paths are part of engine identity; different configured paths are separate build options.
 
-Configuration-cache support, broader production/launcher integration and Native/web/Android
-identity and packaging proofs remain in the plan. JVM class/metadata equality does not prove
-Native klib or JS/Wasm interchangeability. Do not enable overrides in the production integration
-on the strength of this fixture alone.
+Configuration-cache support and production Native/web/Android routing remain in the plan.
+The isolated compatibility proofs above establish their recorded scope; production integration
+must preserve those identities, package boundaries and cache behavior.

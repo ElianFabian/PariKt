@@ -28,11 +28,16 @@ if (providers.gradleProperty("webProof").isPresent) {
 if (providers.gradleProperty("nativeProof").isPresent) {
     apply(from = file("native-verification.gradle.kts"))
 }
+if (providers.gradleProperty("androidProof").isPresent) {
+    apply(from = file("android-verification.gradle.kts"))
+}
 
 @Suppress("UNCHECKED_CAST")
 val selections = extra["parikt.selections"] as Map<String, Triple<String, String, Boolean>>
 @Suppress("UNCHECKED_CAST")
 val engineProjects = extra["parikt.engineProjects"] as Map<String, String>
+@Suppress("UNCHECKED_CAST")
+val androidHelpers = gradle.extensions.extraProperties["parikt.proof.androidHelpers"] as Map<String, String>
 subprojects {
     val consumerPath = path
     val selection = selections[consumerPath] ?: return@subprojects
@@ -66,6 +71,11 @@ subprojects {
                             if (requestedPath in engineProjects.values && requestedPath != enginePath) {
                                 throw GradleException("PARI provider conflict in ${consumerPath}:$name: explicit provider $requestedPath " +
                                     "conflicts with selected $enginePath (${selection.first}, ${selection.second}); " +
+                                    "dependency path: ${(chain + requestedPath!!).joinToString(" -> ")}")
+                            }
+                            if (requestedPath in androidHelpers.values && requestedPath != androidHelpers[selection.first]) {
+                                throw GradleException("PARI Android helper conflict in ${consumerPath}:$name: explicit helper $requestedPath " +
+                                    "conflicts with selected ${androidHelpers[selection.first]} (${selection.first}, ${selection.second}); " +
                                     "dependency path: ${(chain + requestedPath!!).joinToString(" -> ")}")
                             }
                             queue.add(edge.selected to (chain +
