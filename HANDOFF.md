@@ -50,6 +50,40 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+JVM integration committed as 5610057. Step 5's isolated Native compatibility proof is complete,
+opt-in via -PnativeProof in examples/module-versions. Production Native overrides remain gated.
+The nativeAppA/nativeAppB applications share nativeSharedLogic, compiled against the 2.19.0
+root default once per target, while nativeAppB explicitly selects 2.15.0. Both engines run on
+Windows x86_64 and WSL Linux with version, arithmetic, factorization and error-recovery checks.
+
+KGP 2.4.21 derives its read-only interop module identity from group/project.name/interop name.
+Providers therefore use :pariktEngine_<version>:parikt paths with stable leaf/group names.
+Namespace parents have empty scripts; Native templates are combined into generated project
+scripts so KGP APIs use the plugin classpath. Both apps share native-app.gradle.kts. The Native
+source hierarchy/commonization is explicit, and custom tasks run Linux executables through WSL.
+Stable leaf/group names also share Gradle's default capability: requested provider edges must
+be checked as well as resolved components, otherwise version coalescing can hide a competing
+provider. This guard must be preserved when integrating Native routing into production.
+
+All seven tests/build_configuration/verify_native_module_versions.ps1 cases pass: forward and
+reverse orders, matching-provider/cache reuse, explicit shared-library conflicts, higher and
+hidden-lower duplicate providers, and restored executables/graphs after injected failures.
+Negative cases stop before native preparation. Metadata/IR and manifest dependency identities
+match across both source and interop providers on both targets. Every final link contains
+exactly one libparikt.a whose hash matches the selected engine. No new source fetch or Native
+engine compilation occurs on cache/reuse/restoration cases. Logs: build/native-tests/fbf7cc895dc8/logs.
+The harness copies the fixture, uses short paths for Windows GNU ld.gold's archive path limit,
+and safely removes the generated fixture. Checks run under PowerShell 7 on Windows/WSL;
+standalone Linux-host Gradle execution and Windows PowerShell 5.1 were not tested here.
+The final default JVM fixture identity/graphs/apps also pass without deprecation warnings
+(build/module-native-jvm-regression-final.log). README and fixture README document the proof.
+JVM graph tasks are registered only for JVM consumer plugins; Native consumers expose their
+own verifyNativeGraph task. Final task-registration checks pass for JVM graphs and Native
+graphs/identity (build/module-native-task-scope-{jvm,native}.log), without deprecation warnings.
+Next: step 6 JS/Wasm identities/imports/npm packaging; production Native rollout remains part
+of step 3's unresolved component/output integration. Existing targets, examples and minSdk 21
+are unchanged. The Native proof is a separate checkpoint from the JVM integration.
+
 Production JVM routing/launcher integration is implemented using terminalApp, desktopApp and
 consoleUi. The default :parikt provider retains all existing targets; JVM overrides use scoped
 source projects and selected JavaExec/Test native outputs. Both consoles share ConsoleSession
@@ -76,7 +110,8 @@ folders are retained. README documents real-module JVM selection and the platfor
 PARI_MODULE_VERSION_PLAN.md implementation has started with the isolated examples/module-versions
 JVM proof. It uses root defaults/module overrides, generated KMP JVM source components, scoped
 project substitution and a common engine capability. Steps 1–2 are complete in the experimental
-JVM selection layer. Step 4 is complete; steps 3 and 5–8 remain open in part. Production JVM routing now uses that design,
+JVM selection layer. Steps 4 and 5's isolated Native proof are complete; steps 3 and 6–8 remain
+open in part. Production JVM routing now uses that design,
 while Native/web/Android retain the root selection.
 Both applications pass in one invocation in both orders with 2.19.0/2.15.0, exact arithmetic/
 factorization checks and one PariKt class resource per JVM. sharedLogic compiles against the

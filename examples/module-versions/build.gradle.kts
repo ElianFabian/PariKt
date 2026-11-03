@@ -1,4 +1,5 @@
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.artifacts.component.ProjectComponentSelector
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.artifacts.result.UnresolvedDependencyResult
 import java.util.jar.JarFile
@@ -7,6 +8,10 @@ import java.security.MessageDigest
 plugins {
     alias(pariktLibs.plugins.kotlin.multiplatform) apply false
     alias(pariktLibs.plugins.kotlin.jvm) apply false
+}
+
+if (providers.gradleProperty("nativeProof").isPresent) {
+    apply(from = file("native-verification.gradle.kts"))
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -39,11 +44,28 @@ subprojects {
                 }
                 node.dependencies.forEach { edge ->
                     when (edge) {
-                        is ResolvedDependencyResult -> queue.add(edge.selected to (chain +
-                            ((edge.selected.id as? ProjectComponentIdentifier)?.projectPath ?: edge.selected.id.displayName)))
+                        is ResolvedDependencyResult -> {
+                            val requestedPath = (edge.requested as? ProjectComponentSelector)?.projectPath
+                            // Stable Native leaf names share a default Gradle capability. Inspect
+                            // explicit requests too, before version conflict resolution can hide one.
+                            if (requestedPath in engineProjects.values && requestedPath != enginePath) {
+                                throw GradleException("PARI provider conflict in ${consumerPath}:$name: explicit provider $requestedPath " +
+                                    "conflicts with selected $enginePath (${selection.first}, ${selection.second}); " +
+                                    "dependency path: ${(chain + requestedPath!!).joinToString(" -> ")}")
+                            }
+                            queue.add(edge.selected to (chain +
+                                ((edge.selected.id as? ProjectComponentIdentifier)?.projectPath ?: edge.selected.id.displayName)))
+                        }
                         is UnresolvedDependencyResult -> throw GradleException("Unresolved dependency in ${consumerPath}:$name: ${edge.attempted}", edge.failure)
                     }
                 }
+            }
+            val providers = incoming.resolutionResult.allComponents.mapNotNull {
+                (it.id as? ProjectComponentIdentifier)?.projectPath
+            }.filter { it in engineProjects.values }
+            if (providers.any { it != enginePath }) {
+                throw GradleException("PARI provider conflict in ${consumerPath}:$name: selected $enginePath " +
+                    "(${selection.first}, ${selection.second}), resolved $providers")
             }
         }
     }
@@ -57,33 +79,35 @@ subprojects {
             }
         }
     }
-    tasks.register("verifyEngineGraph") {
-        dependsOn("classes", "$enginePath:jvmJar")
-        doLast {
-            listOf("compileClasspath", "runtimeClasspath").forEach { name ->
-                val configuration = configurations.getByName(name)
-                val engines = configuration.incoming.resolutionResult.allComponents.mapNotNull {
-                    (it.id as? ProjectComponentIdentifier)?.projectPath
-                }.filter { it in engineProjects.values }
-                check(engines == listOf(enginePath)) { "$path:$name expected $enginePath, got $engines" }
-                val classOwners = mutableMapOf<String, String>()
-                val metadata = mutableListOf<String>()
-                configuration.files.filter { it.extension == "jar" }.forEach { file ->
-                    JarFile(file).use { jar ->
-                        jar.entries().asSequence().forEach { entry ->
-                            if (entry.name.startsWith("com/elianfabian/parikt/") && entry.name.endsWith(".class")) {
-                                check(classOwners.put(entry.name, file.name) == null) { "Duplicate PariKt class ${entry.name}" }
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        tasks.register("verifyEngineGraph") {
+            dependsOn("classes", "$enginePath:jvmJar")
+            doLast {
+                listOf("compileClasspath", "runtimeClasspath").forEach { name ->
+                    val configuration = configurations.getByName(name)
+                    val engines = configuration.incoming.resolutionResult.allComponents.mapNotNull {
+                        (it.id as? ProjectComponentIdentifier)?.projectPath
+                    }.filter { it in engineProjects.values }
+                    check(engines == listOf(enginePath)) { "$path:$name expected $enginePath, got $engines" }
+                    val classOwners = mutableMapOf<String, String>()
+                    val metadata = mutableListOf<String>()
+                    configuration.files.filter { it.extension == "jar" }.forEach { file ->
+                        JarFile(file).use { jar ->
+                            jar.entries().asSequence().forEach { entry ->
+                                if (entry.name.startsWith("com/elianfabian/parikt/") && entry.name.endsWith(".class")) {
+                                    check(classOwners.put(entry.name, file.name) == null) { "Duplicate PariKt class ${entry.name}" }
+                                }
+                                if (entry.name == "META-INF/parikt.kotlin_module") metadata.add(file.name)
                             }
-                            if (entry.name == "META-INF/parikt.kotlin_module") metadata.add(file.name)
                         }
                     }
+                    check(classOwners.containsKey("com/elianfabian/parikt/PariKt.class"))
+                    check(metadata.size == 1) { "Expected one stable parikt Kotlin module: $metadata" }
+                    logger.lifecycle("PASS ${consumerPath}:$name engine=$enginePath classes=${classOwners.size} Kotlin module=parikt")
+                    configuration.incoming.resolutionResult.allDependencies.filterIsInstance<ResolvedDependencyResult>()
+                        .filter { (it.selected.id as? ProjectComponentIdentifier)?.projectPath in engineProjects.values }
+                        .forEach { logger.lifecycle("  ${it.from.id.displayName} -> ${it.requested.displayName} => ${it.selected.id.displayName}") }
                 }
-                check(classOwners.containsKey("com/elianfabian/parikt/PariKt.class"))
-                check(metadata.size == 1) { "Expected one stable parikt Kotlin module: $metadata" }
-                logger.lifecycle("PASS ${consumerPath}:$name engine=$enginePath classes=${classOwners.size} Kotlin module=parikt")
-                configuration.incoming.resolutionResult.allDependencies.filterIsInstance<ResolvedDependencyResult>()
-                    .filter { (it.selected.id as? ProjectComponentIdentifier)?.projectPath in engineProjects.values }
-                    .forEach { logger.lifecycle("  ${it.from.id.displayName} -> ${it.requested.displayName} => ${it.selected.id.displayName}") }
             }
         }
     }

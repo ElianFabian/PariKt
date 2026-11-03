@@ -1,8 +1,9 @@
-# Module-specific PARI versions: JVM proof
+# Module-specific PARI versions: JVM and Native proofs
 
 This standalone build exercises steps 1–2 of [the module-version plan](../../PARI_MODULE_VERSION_PLAN.md).
-It is an experimental JVM integration. Production and the fixture now share the properties parser;
-production version routing and all existing targets remain unchanged, including Android minSdk 21.
+The default fixture is the experimental JVM integration. Production now supports JVM module
+overrides too. Native routing here is an opt-in linking proof; production Native/web/Android
+overrides remain gated. Existing targets and Android minSdk 21 are preserved.
 
 From the repository root, using its JDK/Gradle/native build prerequisites:
 
@@ -15,8 +16,43 @@ pwsh -File tests/build_configuration/verify_jvm_cache.ps1
 .\gradlew.bat -p examples/module-versions pariktSelections
 ```
 
-On Linux, use `./gradlew` and PowerShell 7 for the verification script. Linux execution of this
+On Linux, use `./gradlew` and PowerShell 7 for the JVM verification script. Linux execution of this
 fixture is not yet verified. Windows requires WSL with the existing JVM builder prerequisites.
+
+## Opt-in Kotlin/Native linking proof
+
+On Windows x86_64 with WSL and the existing Native build prerequisites:
+
+```powershell
+.\gradlew.bat -p examples/module-versions -PnativeProof :nativeAppA:verifyMingwX64 :nativeAppB:verifyMingwX64 :nativeAppA:verifyLinuxX64 :nativeAppB:verifyLinuxX64
+.\gradlew.bat -p examples/module-versions -PnativeProof verifyNativeIdentity :nativeAppA:verifyNativeGraph :nativeAppB:verifyNativeGraph
+pwsh -File tests/build_configuration/verify_native_module_versions.ps1
+```
+
+The flag adds nativeAppA (inherited 2.19.0), nativeAppB (explicit 2.15.0), and nativeSharedLogic.
+Both apps use the same shared library compiled against the default once per target. Custom
+launch tasks run Windows executables directly and Linux executables through WSL. Each app
+checks its version, arithmetic, factorization and recovery after division by zero.
+
+Generated engine paths become `:pariktEngine_<version>:parikt`. Their stable leaf project name
+is necessary because KGP derives its read-only interop module identity from that name.
+Each provider has its own outputs, references the existing common/Native sources and reuses
+the checkout's fingerprint-validated Native caches. Namespace parents use empty build scripts.
+The Native extension template is combined into each generated project build script so its
+Kotlin plugin APIs use the project's plugin classpath. Both apps share native-app.gradle.kts.
+
+Before linking, checks inspect the resolved provider, every engine klib path and all embedded
+libparikt.a archives. There must be exactly one archive and its SHA-256 hash must match the
+selected engine. verifyNativeIdentity compares manifest dependency identities and hashes of
+Kotlin metadata/IR across the providers, excluding the intentionally different native archives.
+The stable leaf/group names also share Gradle's default capability. The fixture therefore
+checks explicitly requested provider paths as well as resolved components: both higher and
+lower competing engine requests must fail, even if Gradle would merge their versions.
+All seven disposable acceptance cases pass on Windows x86_64 with WSL Linux: both orders,
+identity/archive checks, same-version reuse, explicit requirements, higher/lower duplicate
+providers and restored executables. Cache/reuse/restoration cases fetch no source and compile
+no Native engines. Logs are under build/native-tests; temporary fixtures are safely removed.
+This is a compatibility proof, not production Native override support.
 
 The root `parikt.properties` sets 2.19.0. `appA` and `sharedLogic` inherit it; `appB/parikt.properties`
 overrides it with 2.15.0. Both apps call the existing public API through the same compiled

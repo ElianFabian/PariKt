@@ -1,7 +1,8 @@
 # Project defaults and module-specific PARI versions
 
 Status: steps 1–2 complete in the experimental JVM selection layer; step 4 is complete for the
-production JVM launchers. Steps 3 and 5–8 remain open in part.
+production JVM launchers and step 5's isolated Native compatibility proof is complete.
+Steps 3 and 6–8 remain open in part, including production Native component/output integration.
 Production now shares scoped JVM routing and the strict parser; Native/web/Android keep the root
 selection. PARI_VERSION_PLAN.md records the earlier verified baseline. JVM success does not
 establish Native/web/Android compatibility.
@@ -159,6 +160,8 @@ other platform implementations remain gated.
 
 - [ ] Parameterize shared source paths, helper dependencies, build directories and CXX/model paths.
   Remove fixed singleton output locations from generated source components.
+  Production JVM and the isolated Native proof have scoped providers; production Native rollout
+  must preserve the proven stable klib identities and explicit provider-request checks.
 - [x] Preserve target/version/source/toolchain fingerprints and work-cache locks. Share compatible
   dependency caches, without sharing incompatible mutable compilation outputs.
 - [x] Unify PARI source acquisition across backend work caches using a canonical immutable source
@@ -187,14 +190,40 @@ other platform implementations remain gated.
 
 ### 5. Prove Kotlin/Native linking and shared-library compatibility
 
-- [ ] Extend the fixture to mingwX64 and linuxX64. Inspect Kotlin/interop klib identities rather
+Verified (2026-11-03): -PnativeProof adds nativeAppA/nativeAppB/nativeSharedLogic to the existing
+fixture without changing its default JVM layout. Both linuxX64/mingwX64 apps share a library
+compiled against the 2.19.0 default; nativeAppB selects 2.15.0. All seven PowerShell acceptance
+cases pass on Windows x86_64 with WSL Linux: forward/reverse launches, same-version reuse,
+explicit shared requirements, higher/lower provider rejection and restored executable behavior.
+Logs: build/native-tests/fbf7cc895dc8/logs. The default JVM fixture also passes afterward.
+JVM graph tasks are scoped to JVM plugins; Native consumers expose verifyNativeGraph. Final
+JVM graph and Native graph/identity checks pass (build/module-native-task-scope-{jvm,native}.log).
+
+Stable leaf paths (:pariktEngine_<version>:parikt) preserve KGP's read-only interop identity;
+Native extension templates are combined into generated project scripts. Manifest dependency
+identities and Kotlin metadata/IR hashes match for both source and interop klibs on each target.
+Pre-link scans require exactly one embedded libparikt.a matching the selected archive hash.
+Because stable leaf/group names also share Gradle's default capability, resolved-edge validation
+rejects explicit competing provider requests even if Gradle would coalesce them. Both higher
+and hidden-lower injections fail before native preparation. Preserve this check in rollout.
+
+The seven-case disposable harness is tests/build_configuration/verify_native_module_versions.ps1.
+It uses short build/native-tests/<id>/f paths for Windows GNU ld.gold, direct log capture, and
+safe fixture cleanup. Cache/reuse/restoration cases perform no source fetch or Native engine
+compilation. Windows PowerShell 5.1 and standalone Linux-host Gradle execution are unverified.
+Production Native routing remains gated on step 3's component/output integration; this proof
+does not enable Native/web/Android overrides in the production installer.
+
+- [x] Extend the fixture to mingwX64 and linuxX64. Inspect Kotlin/interop klib identities rather
   than assuming different Gradle project names produce interchangeable native dependencies.
-- [ ] Confirm sharedLogic can compile against the default API and be used by the overriding app.
+- [x] Confirm sharedLogic can compile against the default API and be used by the overriding app.
   Inspect final link inputs for exactly one selected libparikt.a and no incompatible duplicate.
-- [ ] Run both selected versions on Windows and through WSL Linux; assert version, arithmetic,
+- [x] Run both selected versions on Windows and through WSL Linux; assert version, arithmetic,
   factorization and error recovery without rewriting configuration between application tasks.
-- [ ] If embedded archives prevent compatible substitution, resolve the design gate before
+- [x] If embedded archives prevent compatible substitution, resolve the design gate before
   enabling Native overrides; evaluate version-neutral bindings with app-selected final linking.
+  Compatible source/interop identities allow one selected embedded archive in the proof; no
+  separate C ABI is needed for these two versions. Production integration remains gated above.
 
 ### 6. Isolate JS/Wasm engine imports and assets
 

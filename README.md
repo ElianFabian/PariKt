@@ -104,8 +104,9 @@ Verify the existing applications without opening a window:
 .\tests\build_configuration\verify_application_versions.ps1
 ```
 
-The separate [module-version JVM proof](examples/module-versions/README.md) remains a focused
-regression fixture. `examples/consumer` also remains the standalone installation example.
+The separate [module-version proofs](examples/module-versions/README.md) retain the focused
+JVM fixture and add an opt-in Native compatibility proof. `examples/consumer` also remains
+the standalone installation example.
 
 ## Android
 

@@ -6,6 +6,8 @@ properties parser. Production JVM integration now routes module overrides throug
 providers; non-JVM targets retain the root selection. All 11 real-application JVM acceptance
 cases pass, along with Android, shared web compilation and existing Native checks. See the
 follow-up plan for exact coverage and remaining platform gates.
+Its isolated Native proof now also passes on Windows/WSL with two simultaneous versions and
+one selected archive per executable; production Native overrides remain gated.
 The completed checklist below covers the original production baseline.
 
 ## Decision

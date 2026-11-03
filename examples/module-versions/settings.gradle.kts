@@ -10,15 +10,22 @@ extra["pariktSourceDir"] = checkout
 // Keep the existing placement before consumer includes; discovery is deferred.
 apply(from = File(checkout, "gradle/parikt.selections.settings.gradle.kts"))
 include(":appA", ":appB", ":sharedLogic")
+if (providers.gradleProperty("nativeProof").isPresent) {
+    include(":nativeAppA", ":nativeAppB", ":nativeSharedLogic")
+    listOf(":nativeAppA", ":nativeAppB").forEach {
+        project(it).buildFileName = "../native-app.gradle.kts"
+    }
+}
 
-// JVM-only scaffold. Native/web/Android selection remains gated on platform proofs.
+// Default JVM scaffold, with opt-in Native linking proof. Production platform gates remain.
 gradle.settingsEvaluated {
     @Suppress("UNCHECKED_CAST")
     val selections = gradle.extensions.extraProperties["parikt.selections"] as Map<String, Triple<String, String, Boolean>>
     @Suppress("UNCHECKED_CAST")
     val defaultSelection = gradle.extensions.extraProperties["parikt.defaultSelection"] as Triple<String, String, Boolean>?
     val engineProjects = (selections.values.map { it.first } + listOfNotNull(defaultSelection?.first))
-        .distinct().associateWith { version -> ":pariktEngine_" + version.replace('.', '_') }
+        .distinct().associateWith { version -> ":pariktEngine_" + version.replace('.', '_') +
+            if (providers.gradleProperty("nativeProof").isPresent) ":parikt" else "" }
     if (engineProjects.size > 1 && providers.gradleProperty("jvmNativeDir").isPresent) {
         throw GradleException("jvmNativeDir is ambiguous with multiple PARI engines; use the versioned default directories.")
     }
@@ -26,9 +33,21 @@ gradle.settingsEvaluated {
     project(":parikt").projectDir = file("build/parikt/selector").apply { mkdirs() }
     engineProjects.forEach { (_, path) ->
         include(path)
-        project(path).projectDir = file("build/parikt/engineProjects/${path.removePrefix(":")}").apply {
+        if (path.endsWith(":parikt")) {
+            val parent = project(path.substringBeforeLast(':'))
+            parent.projectDir = file("build/parikt/engineProjects/${path.removePrefix(":").substringBefore(':')}").apply { mkdirs() }
+            // This directory can also contain the ordinary JVM fixture's generated build file.
+            parent.buildFileName = "namespace.gradle.kts"
+            File(parent.projectDir, parent.buildFileName).writeText("// Namespace for a selected Native provider.\n")
+        }
+        project(path).projectDir = file("build/parikt/engineProjects/${path.removePrefix(":").replace(':', '/')}").apply {
             mkdirs()
-            val content = providers.fileContents(layout.settingsDirectory.file("engine.gradle.kts")).asText.get()
+            val base = providers.fileContents(layout.settingsDirectory.file("engine.gradle.kts")).asText.get()
+            val content = if (providers.gradleProperty("nativeProof").isPresent) {
+                val native = providers.fileContents(layout.settingsDirectory.file("native-engine.gradle.kts")).asText.get()
+                val (imports, body) = native.lines().partition { it.startsWith("import ") }
+                imports.joinToString("\n") + "\n" + base + "\nrun {\n" + body.joinToString("\n") + "\n}\n"
+            } else base
             val script = File(this, "build.gradle.kts")
             if (!script.exists() || script.readText() != content) script.writeText(content)
         }
