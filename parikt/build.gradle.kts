@@ -271,6 +271,7 @@ kotlin {
 
 	jvm("jvm") {
 		compilerOptions {
+			moduleName.set("parikt")
 			jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 		}
 	}
@@ -346,6 +347,12 @@ kotlin {
 			}
 		}
 	}
+}
+
+// Reject competing JVM implementations while preserving Gradle's project capability.
+configurations.matching { it.name in setOf("jvmApiElements", "jvmRuntimeElements", "jvmSourcesElements") }.configureEach {
+	outgoing.capability("${project.group.toString().ifBlank { rootProject.name }}:${project.name}:${project.version}")
+	outgoing.capability("com.elianfabian.parikt:engine:$pariVersion")
 }
 
 tasks.named("cinteropPariLinuxX64") {

@@ -39,21 +39,18 @@ apply(from = file("$kotlinRoot/gradle/parikt.settings.gradle.kts"))
         $startInfo.WorkingDirectory = $repositoryRoot
         $startInfo.UseShellExecute = $false
         $startInfo.CreateNoWindow = $true
-        $startInfo.RedirectStandardOutput = $true
-        $startInfo.RedirectStandardError = $true
-        $startInfo.StandardOutputEncoding = $utf8
-        $startInfo.StandardErrorEncoding = $utf8
         if ($onWindows) {
             $startInfo.FileName = $env:ComSpec
             # Keep paths in quoted environment expansions rather than inserting them into
             # command text. Delayed expansion is disabled; options are fixed test literals.
             $startInfo.EnvironmentVariables['PARIKT_TEST_WRAPPER'] = $wrapper
             $startInfo.EnvironmentVariables['PARIKT_TEST_PROJECT'] = $projectDirectory
+            $startInfo.EnvironmentVariables['PARIKT_TEST_LOG'] = $logPath
             $options = $case.Options -join ' '
-            $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_TEST_WRAPPER%" -p "%PARIKT_TEST_PROJECT%" help --console=plain ' + $options + ' 2>&1"'
+            $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_TEST_WRAPPER%" -p "%PARIKT_TEST_PROJECT%" help --console=plain ' + $options + ' > "%PARIKT_TEST_LOG%" 2>&1"'
         } else {
             $startInfo.FileName = 'bash'
-            foreach ($argument in (@('-c', 'exec bash "$@" 2>&1', '--', $wrapper) + $gradleArguments)) {
+            foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $logPath, $wrapper) + $gradleArguments)) {
                 $startInfo.ArgumentList.Add($argument)
             }
         }
@@ -61,15 +58,15 @@ apply(from = file("$kotlinRoot/gradle/parikt.settings.gradle.kts"))
         $process.StartInfo = $startInfo
         try {
             $null = $process.Start()
-            $stdout = $process.StandardOutput.ReadToEndAsync()
-            $stderr = $process.StandardError.ReadToEndAsync()
             $process.WaitForExit()
             $gradleExitCode = $process.ExitCode
-            $output = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
         } finally {
             $process.Dispose()
         }
-        [IO.File]::WriteAllText($logPath, $output, $utf8)
+        # Daemons can inherit pipe handles; read the shared log after the client exits.
+        $stream = [IO.File]::Open($logPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        $reader = [IO.StreamReader]::new($stream, $utf8, $true)
+        try { $output = $reader.ReadToEnd() } finally { $reader.Dispose() }
         if ($gradleExitCode -eq 0 -or -not $output.Contains($case.Expected)) {
             throw "Unexpected result for $($case.Name). See $logPath`n$output"
         }

@@ -2,7 +2,7 @@
 // the calling build. No plugin or modification of the PariKt checkout is required.
 val sourceDirectory = (extra.properties["pariktSourceDir"] as? File)?.canonicalFile
 	?: throw GradleException("Set extra[\"pariktSourceDir\"] to the PariKt checkout before applying parikt.settings.gradle.kts.")
-apply(from = File(sourceDirectory, "gradle/parikt.properties.settings.gradle.kts"))
+apply(from = File(sourceDirectory, "gradle/parikt.selections.settings.gradle.kts"))
 val configurationFile = layout.rootDirectory.file("parikt.properties")
 @Suppress("UNCHECKED_CAST")
 val defaultSelection = gradle.extensions.extraProperties["parikt.defaultSelection"] as Triple<String, String, Boolean>?
@@ -38,4 +38,6 @@ dependencyResolutionManagement.repositories {
 include(":parikt", ":pariktAndroidNative")
 project(":parikt").projectDir = File(sourceDirectory, "parikt")
 project(":pariktAndroidNative").projectDir = File(sourceDirectory, "pariktAndroidNative")
+// JVM consumers can select scoped providers. Other target overrides stay gated.
+apply(from = File(sourceDirectory, "gradle/parikt.jvm.settings.gradle.kts"))
 logger.lifecycle("[PariKt] Consumer selected PARI $selectedVersion (${configurationFile.asFile})")

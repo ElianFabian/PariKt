@@ -1,11 +1,25 @@
 # Project defaults and module-specific PARI versions
 
-Status: steps 1–2 complete in the experimental JVM selection layer. Steps 3–8 remain open.
-Production shares the strict parser but still selects one PARI version per Gradle build. PARI_VERSION_PLAN.md
-remains its verified baseline. JVM success does not establish Native/web/Android compatibility.
+Status: steps 1–2 complete in the experimental JVM selection layer; step 4 is complete for the
+production JVM launchers. Steps 3 and 5–8 remain open in part.
+Production now shares scoped JVM routing and the strict parser; Native/web/Android keep the root
+selection. PARI_VERSION_PLAN.md records the earlier verified baseline. JVM success does not
+establish Native/web/Android compatibility.
 Step 3 now has shared source acquisition implemented across backend builders and JVM compiled
 engine reuse verified, including the expanded concurrency and force checks. Broader output/routing
 work remains open.
+Production JVM routing/launcher integration uses terminalApp, desktopApp and consoleUi. All 11
+real-module acceptance cases pass, including UI/state tests, both task orders, shared-library
+conflicts, duplicate providers and restored builds after negative cases. Logs:
+build/application-version-tests/8276cdb43e164afbb374d77601afa93b. Android assembleDebug (minSdk 21),
+consoleUi JS/Wasm compilation and existing Linux/Windows Native checks pass in a 97-task build
+(build/application-target-regression.log). The ordinary terminal command/factorization/close
+flow, all five property diagnostics and all 24 scoped discovery checks also pass. The preserved
+examples/consumer :app:runJvm passes on 2.19.0 (build/application-consumer-regression.log).
+Routing is applied after project plugin setup to preserve Kotlin DSL catalog
+classloader setup. Non-JVM overrides remain gated; README describes the JVM contract and both
+examples folders are retained. The older property/selection verification scripts now use direct log
+redirection to avoid inherited daemon pipes hanging their output readers.
 
 ## Configuration contract
 
@@ -85,7 +99,8 @@ for the same missing source/engine have one producer and waiting consumers reuse
 - gradle/parikt.settings.gradle.kts sets one gradle.extra["parikt.version"] and includes one
   :parikt and :pariktAndroidNative. Their build files and output paths assume those singletons.
 - consoleUi depends on :parikt, so routing only direct application dependencies would miss shared
-  library dependencies. terminalApp/desktopApp also look up the root native task directly.
+  library dependencies. Production JVM substitution now handles both direct and transitive edges;
+  JavaExec/Test use the selected provider rather than looking up the root native task directly.
 - Native's pari.def embeds libparikt.a in interop klibs. Replacing a runtime path alone cannot
   change that engine. Kotlin module/interop identities must survive transitive dependency routing.
 - WebEngine.kt imports @parikt/engine; all apps currently share build/parikt/web-engine. The global
@@ -126,8 +141,9 @@ JVM success as proof that the same mechanism works on Native and web.
 
 ### 2. Implement property discovery and scoped selections
 
-This stage applies to the experimental JVM selection layer. Production shares its strict parser;
-production module routing and other platform implementations remain gated by the following stages.
+This stage was proven in the experimental JVM selection layer. Production now shares its strict
+parser/discovery and supports JVM routing; module-only configuration without a root default and
+other platform implementations remain gated.
 
 - [x] Discover declared consumer project directories after includes are known; exclude generated
   engine/helper projects. Preserve existing settings-script placement where possible.
@@ -153,17 +169,20 @@ production module routing and other platform implementations remain gated by the
   Verified in the JVM fixture and independent Windows JVM workspaces; other platform routing
   and complete global compiled-engine caches remain outside this completed cache proof.
 - [ ] Scope force/output-directory overrides; reject ambiguous paths shared by different engines.
+  JVM global directory overrides are rejected with multiple selections; force rebuilds use the
+  selected provider/cache. Other target scoping remains open.
 - [ ] Validate explicit transitive requirements and reject duplicate providers before final linking,
   packaging or launch. Diagnostics must identify the dependency chain and configuration files.
+  Production JVM graph requirements and capability conflicts are verified; other platforms remain open.
 - [ ] Account for Android model bootstrap timing: do not promise conflict detection before all
   downloads until proven. Avoid preparing unused engines where requested models permit it.
 
 ### 4. Finish JVM launchers and tests
 
-- [ ] Wire JavaExec, test tasks and desktop launchers to their selected engine provider/output.
+- [x] Wire JavaExec, test tasks and desktop launchers to their selected engine provider/output.
   Replace hardcoded :parikt native-task lookup where an override can apply.
-- [ ] Verify root inheritance, local override, same-version reuse and override edits/removal.
-- [ ] Run both apps in separate JVM processes in both task orders; keep the terminal/desktop
+- [x] Verify root inheritance, local override, same-version reuse and override edits/removal.
+- [x] Run both apps in separate JVM processes in both task orders; keep the terminal/desktop
   demos working and verify strict dependency-conflict diagnostics.
 
 ### 5. Prove Kotlin/Native linking and shared-library compatibility

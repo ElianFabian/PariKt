@@ -1,6 +1,6 @@
 import org.gradle.api.artifacts.ProjectDependency
 
-// Experimental scoped-selection infrastructure. Apply before or after consumer
+// Shared scoped-selection infrastructure. Apply before or after consumer
 // includes: the callback observes final projectDir mappings, not guessed paths.
 val checkout = extra["pariktSourceDir"] as File
 apply(from = File(checkout, "gradle/parikt.properties.settings.gradle.kts"))

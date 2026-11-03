@@ -2,8 +2,11 @@
 
 Follow-up plan: PARI_MODULE_VERSION_PLAN.md describes project defaults with module overrides.
 The isolated JVM proof and step-2 selection/discovery checks pass. Production shares the strict
-properties parser; its integration still uses one version per build.
-The completed checklist below covers that production baseline.
+properties parser. Production JVM integration now routes module overrides through scoped source
+providers; non-JVM targets retain the root selection. All 11 real-application JVM acceptance
+cases pass, along with Android, shared web compilation and existing Native checks. See the
+follow-up plan for exact coverage and remaining platform gates.
+The completed checklist below covers the original production baseline.
 
 ## Decision
 

@@ -31,22 +31,14 @@ java {
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
-tasks.withType<JavaExec>().configureEach {
-	dependsOn(":parikt:buildJvmNativeDependencies")
-	doFirst {
-		val libraryDirectory = providers.systemProperty("parikt.native.dir").orNull?.let(rootProject::file)
-			?: project(":parikt").tasks.named("buildJvmNativeDependencies").get().outputs.files.singleFile
-		systemProperty("java.library.path", libraryDirectory.absolutePath)
-	}
+tasks.register<JavaExec>("verifyPariEngine") {
+	group = "verification"
+	description = "Checks this console's selected engine without opening a window."
+	mainClass.set(application.mainClass)
+	classpath(sourceSets.main.get().runtimeClasspath)
+	args("--check-engine")
 }
 
 tasks.test {
-	dependsOn(":parikt:buildJvmNativeDependencies")
-	inputs.files(project(":parikt").tasks.named("buildJvmNativeDependencies").map { it.outputs.files })
 	systemProperty("java.awt.headless", "true")
-	doFirst {
-		val libraryDirectory = providers.systemProperty("parikt.native.dir").orNull?.let(rootProject::file)
-			?: project(":parikt").tasks.named("buildJvmNativeDependencies").get().outputs.files.singleFile
-		systemProperty("java.library.path", libraryDirectory.absolutePath)
-	}
 }

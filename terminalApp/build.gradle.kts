@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
 	implementation(project(":parikt"))
+	implementation(project(":consoleUi"))
 }
 
 application {
@@ -16,13 +17,12 @@ java {
 	targetCompatibility = JavaVersion.VERSION_17
 }
 
-tasks.withType<JavaExec>().configureEach {
-	dependsOn(":parikt:buildJvmNativeDependencies")
-	doFirst {
-		val directory = providers.systemProperty("parikt.native.dir").orNull?.let(rootProject::file)
-			?: project(":parikt").tasks.named("buildJvmNativeDependencies").get().outputs.files.singleFile
-		systemProperty("java.library.path", directory.absolutePath)
-	}
+tasks.register<JavaExec>("verifyPariEngine") {
+	group = "verification"
+	description = "Checks this console's selected engine through the shared console API."
+	mainClass.set(application.mainClass)
+	classpath(sourceSets.main.get().runtimeClasspath)
+	args("--check-engine")
 }
 
 tasks.named<JavaExec>("run") {

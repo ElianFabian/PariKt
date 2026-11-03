@@ -4,8 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.elianfabian.parikt.PariKt
-import com.elianfabian.parikt.getVersionName
 import kotlinx.coroutines.CancellationException
 
 internal data class ConsoleEntry(val command: String, val result: String)
@@ -17,9 +15,9 @@ internal interface ConsoleEngine {
 }
 
 internal object LiveConsoleEngine : ConsoleEngine {
-	override suspend fun initialize() = PariKt.init()
-	override fun version(): String = PariKt.getVersionName()
-	override fun evaluate(command: String): String = PariKt.eval(command)
+	override suspend fun initialize() = ConsoleSession.initialize()
+	override fun version(): String = ConsoleSession.version()
+	override fun evaluate(command: String): String = ConsoleSession.evaluate(command)
 }
 
 internal class ConsoleState(private val engine: ConsoleEngine = LiveConsoleEngine) {

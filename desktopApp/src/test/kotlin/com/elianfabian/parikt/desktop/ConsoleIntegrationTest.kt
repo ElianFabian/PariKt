@@ -8,20 +8,25 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performTextInput
-import com.elianfabian.parikt.PariKt
+import com.elianfabian.parikt.console.ConsoleSession
 import com.elianfabian.parikt.console.ConsoleApp
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertEquals
 
 class ConsoleIntegrationTest {
 	@get:Rule val compose = createComposeRule()
 
-	@After fun closeEngine() { compose.runOnUiThread { PariKt.close() } }
+	@After fun closeEngine() { compose.runOnUiThread { ConsoleSession.close() } }
 
 	@Test fun realEngineStartupExamplesAndCommandEntry() {
 		compose.setContent { ConsoleApp() }
 		compose.onNodeWithTag("engine-status").assertTextContains("Ready", substring = true)
+		compose.runOnUiThread {
+			val expected = System.getProperty("parikt.expected.version")
+			if (expected !in setOf("master", "latest")) assertEquals(expected, ConsoleSession.version())
+		}
 		compose.onNodeWithText("Factor a number").clickOnUiThread()
 		compose.onNodeWithTag("run-command").assertIsEnabled().clickOnUiThread()
 		compose.onNodeWithText("643", substring = true).assertExists()

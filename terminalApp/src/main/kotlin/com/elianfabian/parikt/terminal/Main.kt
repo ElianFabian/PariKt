@@ -1,14 +1,18 @@
 package com.elianfabian.parikt.terminal
 
-import com.elianfabian.parikt.PariKt
-import com.elianfabian.parikt.getVersionName
+import com.elianfabian.parikt.console.ConsoleSession
+import com.elianfabian.parikt.console.checkConsoleEngine
 
-suspend fun main() {
-	PariKt.init()
+suspend fun main(args: Array<String>) {
+	if ("--check-engine" in args) {
+		checkConsoleEngine(requireNotNull(System.getProperty("parikt.expected.version")) { "Run verifyPariEngine through Gradle to select the expected version." })
+		return
+	}
+	ConsoleSession.initialize()
 	try {
 		println("PariKt terminal console")
-		println("PARI version: ${PariKt.getVersionName()}")
-		println("Startup check: 2 + 2 = ${PariKt.eval("2 + 2")}")
+		println("PARI version: ${ConsoleSession.version()}")
+		println("Startup check: 2 + 2 = ${ConsoleSession.evaluate("2 + 2")}")
 		println("Enter GP commands, or type quit / exit (Ctrl+D/Ctrl+Z to end input).")
 
 		while (true) {
@@ -23,7 +27,7 @@ suspend fun main() {
 			if (command.isBlank()) continue
 
 			try {
-				println(PariKt.eval(command))
+				println(ConsoleSession.evaluate(command))
 			}
 			catch (error: Exception) {
 				System.err.println("Command failed: ${error.message}")
@@ -31,7 +35,7 @@ suspend fun main() {
 		}
 	}
 	finally {
-		PariKt.close()
+		ConsoleSession.close()
 		println("PARI/GP closed.")
 	}
 }

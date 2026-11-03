@@ -83,11 +83,29 @@ They cannot change PARI after compilation. Binary-only Maven installation is not
 an ordinary Maven dependency plus a properties file alone cannot run these source-build steps.
 See `PARI_VERSION_PLAN.md` for the implementation checklist and cache identity discussion.
 
-The separate [module-version JVM proof](examples/module-versions/README.md) exercises two
-applications sharing a Kotlin library while selecting different PARI versions in one build.
-The JVM fixture now includes property discovery and `pariktSelections` diagnostics from step 2
-of [the module-version plan](PARI_MODULE_VERSION_PLAN.md). It shares the strict properties parser
-with production; production source integration still selects one version for the whole build.
+JVM-only application modules can override the root default with a `parikt.properties` in their
+own project directory. `terminalApp` inherits this repository's 2.15.0 default; `desktopApp`
+selects 2.19.0. Both use `consoleUi`, which compiles against the default and imposes no explicit
+engine requirement. A library with its own file does impose a requirement: a conflicting app
+fails with both files and the dependency path. Empty or invalid local files fail explicitly.
+Use `pariktSelections` to inspect effective versions and origins.
+
+Each application routes direct and transitive JVM dependencies to one source provider per
+distinct version, and its JavaExec/test tasks use that provider's native output. Matching
+selections reuse the provider and compatible engine cache. Root configuration remains required
+by production integration; modules with non-JVM targets must retain the root default until
+their linking/packaging proofs in [the module-version plan](PARI_MODULE_VERSION_PLAN.md) pass.
+
+Verify the existing applications without opening a window:
+
+```powershell
+.\gradlew.bat :terminalApp:verifyPariEngine :desktopApp:verifyPariEngine
+.\gradlew.bat :terminalApp:verifyPariJvmGraph :desktopApp:verifyPariJvmGraph verifyPariJvmIdentity
+.\tests\build_configuration\verify_application_versions.ps1
+```
+
+The separate [module-version JVM proof](examples/module-versions/README.md) remains a focused
+regression fixture. `examples/consumer` also remains the standalone installation example.
 
 ## Android
 
@@ -159,8 +177,10 @@ Run the Linux build from a WSL checkout with a Linux JDK installed:
 ./gradlew :terminalApp:run
 ```
 
-You can override the output/library directory with `-PjvmNativeDir=<directory>` or force a native
-rebuild with `-PjvmNativeForce`. Earlier Windows/WSL terminal checks passed for PARI 2.17.1,
+With a single selected version, you can override the output/library directory with
+`-PjvmNativeDir=<directory>`. Global output/library directory overrides are rejected when multiple
+versions are selected. `-PjvmNativeForce` rebuilds each requested engine; matching consumers reuse
+the resulting cache entry. Earlier Windows/WSL terminal checks passed for PARI 2.17.1,
 with an additional Windows check for 2.18.0. The standalone source consumer now verifies 2.15.0
 and 2.19.0 on the Windows JVM. Clean-machine setup, macOS, missing-library diagnostics and packaged
 distribution still need validation; this is not yet a published cross-platform distribution.

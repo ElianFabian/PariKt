@@ -50,10 +50,34 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+Production JVM routing/launcher integration is implemented using terminalApp, desktopApp and
+consoleUi. The default :parikt provider retains all existing targets; JVM overrides use scoped
+source projects and selected JavaExec/Test native outputs. Both consoles share ConsoleSession
+and offer headless engine checks. desktopApp selects 2.19.0; the root stays 2.15.0. All 11
+tests/build_configuration/verify_application_versions.ps1 cases pass: smoke checks in both
+orders, graph/identity, desktop UI/shared-state tests, same-version provider/cache reuse,
+override edits/removal, shared-library requirement conflicts, ambiguous directory rejection,
+non-JVM gating, invalid local files, duplicate-provider rejection and restored valid builds.
+Temporary edits restore bytes in finally; logs are under
+build/application-version-tests/8276cdb43e164afbb374d77601afa93b.
+Applied routing runs after each project's plugin block to preserve Kotlin DSL catalog
+classloader setup. A pre-fix idle daemon required restarting; the full suite then passed on
+a warm daemon, including recovery after negative cases. Android assembleDebug (minSdk 21),
+consoleUi JS/Wasm compilation and existing Linux/Windows Native checks pass: 97 tasks,
+21 executed/76 up to date (build/application-target-regression.log). The ordinary terminal
+factorization/quit flow passes (build/application-terminal-interactive.log), as do all five
+property diagnostics (build/application-properties-regression.log). All 24 scoped selection
+checks pass (build/application-selections-regression.log), and examples/consumer :app:runJvm
+passes on 2.19.0 (build/application-consumer-regression.log).
+The older property/selection verification runners now redirect to files to avoid output pipes inherited
+by idle daemons. Non-JVM overrides remain gated, minSdk 21 is unchanged, and both examples
+folders are retained. README documents real-module JVM selection and the platform gates.
+
 PARI_MODULE_VERSION_PLAN.md implementation has started with the isolated examples/module-versions
 JVM proof. It uses root defaults/module overrides, generated KMP JVM source components, scoped
 project substitution and a common engine capability. Steps 1–2 are complete in the experimental
-JVM selection layer. Steps 3–8 remain open; production shares the parser and keeps global routing.
+JVM selection layer. Step 4 is complete; steps 3 and 5–8 remain open in part. Production JVM routing now uses that design,
+while Native/web/Android retain the root selection.
 Both applications pass in one invocation in both orders with 2.19.0/2.15.0, exact arithmetic/
 factorization checks and one PariKt class resource per JVM. sharedLogic compiles against the
 default once and its unchanged jar works with both providers. Class/Kotlin module metadata hashes
@@ -125,7 +149,9 @@ The ordinary production consumer (2.19.0) and terminal launcher (2.15.0) also pa
 the final compiled cache; see build/cache-reuse-independent-consumer-final.log and
 build/cache-reuse-terminal-final.log. The interrupted harness and its temporary fixture have
 been cleaned up. Its earlier automatic-review usage-limit interruption is resolved.
-The prototype has no configuration-cache support. Production still selects one version globally.
+The prototype has no configuration-cache support. Production JVM routing now supports module
+overrides; other platforms retain the root selection. Both older property/selection runners
+now read direct file logs after client exit to avoid inherited daemon pipe hangs.
 See examples/module-versions/README.md and the plan's proof results for layout and commands.
 Rollout remains gated on Native klib/link identity, scoped npm packaging and Android NDK model
 checks. Multiple versions within one application remain outside the scope. Existing target

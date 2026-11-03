@@ -14,24 +14,22 @@ function Write-Fixture([string]$Relative, [string]$Content) {
     [IO.File]::WriteAllText($path, $Content, $utf8)
 }
 function Invoke-Selection([string]$Name, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Tasks = @('pariktSelections'), [string[]]$Absent = @()) {
+    $log = Join-Path $scratch ($Name + '.log')
     $startInfo = [Diagnostics.ProcessStartInfo]::new()
     $startInfo.WorkingDirectory = $repositoryRoot
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-    $startInfo.StandardOutputEncoding = $utf8
-    $startInfo.StandardErrorEncoding = $utf8
     if ($onWindows) {
         $startInfo.FileName = $env:ComSpec
         $startInfo.EnvironmentVariables['PARIKT_SELECTION_WRAPPER'] = $wrapper
         $startInfo.EnvironmentVariables['PARIKT_SELECTION_FIXTURE'] = $fixture
         $startInfo.EnvironmentVariables['PARIKT_SELECTION_SOURCE'] = $repositoryRoot
+        $startInfo.EnvironmentVariables['PARIKT_SELECTION_LOG'] = $log
         # Task/option strings are fixed literals below. Quote path expansions.
-        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_SELECTION_WRAPPER%" -p "%PARIKT_SELECTION_FIXTURE%" "-PpariktSourceDir=%PARIKT_SELECTION_SOURCE%" --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' 2>&1"'
+        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_SELECTION_WRAPPER%" -p "%PARIKT_SELECTION_FIXTURE%" "-PpariktSourceDir=%PARIKT_SELECTION_SOURCE%" --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' > "%PARIKT_SELECTION_LOG%" 2>&1"'
     } else {
         $startInfo.FileName = 'bash'
-        foreach ($argument in (@('-c', 'exec bash "$@" 2>&1', '--', $wrapper, '-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--console=plain', '--warning-mode=all') + $Tasks)) {
+        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--console=plain', '--warning-mode=all') + $Tasks)) {
             $startInfo.ArgumentList.Add($argument)
         }
     }
@@ -39,14 +37,12 @@ function Invoke-Selection([string]$Name, [string[]]$Expected, [bool]$Failure = $
     $process.StartInfo = $startInfo
     try {
         $null = $process.Start()
-        $stdout = $process.StandardOutput.ReadToEndAsync()
-        $stderr = $process.StandardError.ReadToEndAsync()
         $process.WaitForExit()
         $code = $process.ExitCode
-        $output = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
     } finally { $process.Dispose() }
-    $log = Join-Path $scratch ($Name + '.log')
-    [IO.File]::WriteAllText($log, $output, $utf8)
+    $stream = [IO.File]::Open($log, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+    $reader = [IO.StreamReader]::new($stream, $utf8, $true)
+    try { $output = $reader.ReadToEnd() } finally { $reader.Dispose() }
     if (($code -ne 0) -ne $Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
     foreach ($fragment in $Expected) {
         if (-not $output.Contains($fragment)) { throw "Missing '$fragment' for $Name. See $log`n$output" }
