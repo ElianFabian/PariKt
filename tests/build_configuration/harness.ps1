@@ -1,5 +1,15 @@
 # Shared by verification scripts; dot-source without changing the caller's preferences/state.
 # Compatible with Windows PowerShell 5.1 and PowerShell 7.
+function Get-PariKtToolVersion {
+    param([string]$Repository, [string]$Name)
+    $inVersions = $false
+    foreach ($line in [IO.File]::ReadAllLines((Join-Path $Repository 'gradle/libs.versions.toml'))) {
+        if ($line -match '^\s*\[([^]]+)\]') { $inVersions = $Matches[1] -eq 'versions' }
+        if ($inVersions -and $line -match ('^\s*' + [regex]::Escape($Name) + '\s*=\s*"([^"]+)"')) { return $Matches[1] }
+    }
+    throw "Missing tool version '$Name' in gradle/libs.versions.toml"
+}
+
 function Invoke-PariKtGradle {
     param([string]$Repository, [string]$Wrapper, [string]$Log, [string[]]$Arguments)
     $start = [Diagnostics.ProcessStartInfo]::new()

@@ -78,15 +78,23 @@ internal actual object PariNative {
 		nativeInit(pariSize)
 	}
 
-	actual external fun eval(cmd: String): String?
+	actual fun eval(cmd: String): String? = nativeEval(cmd)
 
-	actual external fun getCommands(): Array<String>?
+	actual fun getSupportedCommands(): Array<String>? = nativeGetSupportedCommands()
 
-	actual external fun paridroidClose()
+	actual fun close() = nativeClose()
 
-	actual external fun pariVersionCode(): Int
+	actual fun getVersionCode(): Int = nativeGetVersionCode()
 
 	private external fun nativeSetTemporaryDirectory(path: String): Boolean
 
 	private external fun nativeInit(pariSize: Long)
+
+	private external fun nativeEval(cmd: String): String?
+
+	private external fun nativeGetSupportedCommands(): Array<String>?
+
+	private external fun nativeClose()
+
+	private external fun nativeGetVersionCode(): Int
 }

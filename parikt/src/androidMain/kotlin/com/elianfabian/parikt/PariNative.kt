@@ -9,14 +9,14 @@ internal actual object PariNative {
 
 	const val MSG_TAG: String = "PariKt::PariNative"
 
-	init {
+	private var librariesLoaded = false
+
+	actual fun loadLibraries() {
+		if (librariesLoaded) return
 		loadLibrary("gmp")
 		loadLibrary("pari")
 		loadLibrary("paridroid")
-	}
-
-	actual fun loadLibraries() {
-		// Libraries are loaded in init block
+		librariesLoaded = true
 	}
 
 	private var temporaryDirectoryConfigured = false
@@ -42,8 +42,11 @@ internal actual object PariNative {
 	}
 
 	actual fun init(pariSize: Long) {
-		check(temporaryDirectoryConfigured) {
-			"Android requires an app cache directory. Initialize PariKt through AndroidX Startup before use."
+		val directory = checkNotNull(AndroidEnvironment.temporaryDirectory) {
+			"Android temporary directory is unavailable. Enable PariKt's AndroidX Startup initializer."
+		}
+		if (!temporaryDirectoryConfigured) {
+			check(setTemporaryDirectory(directory)) { "Unable to configure PARI's temporary directory at '$directory'." }
 		}
 		nativeInit(pariSize)
 	}
@@ -52,11 +55,19 @@ internal actual object PariNative {
 
 	private external fun nativeInit(pariSize: Long)
 
-	actual external fun eval(cmd: String): String?
+	actual fun eval(cmd: String): String? = nativeEval(cmd)
 
-	actual external fun getCommands(): Array<String>?
+	actual fun getSupportedCommands(): Array<String>? = nativeGetSupportedCommands()
 
-	actual external fun paridroidClose()
+	actual fun close() = nativeClose()
 
-	actual external fun pariVersionCode(): Int
+	actual fun getVersionCode(): Int = nativeGetVersionCode()
+
+	private external fun nativeEval(cmd: String): String?
+
+	private external fun nativeGetSupportedCommands(): Array<String>?
+
+	private external fun nativeClose()
+
+	private external fun nativeGetVersionCode(): Int
 }

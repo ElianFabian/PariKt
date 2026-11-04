@@ -35,17 +35,17 @@ internal actual object PariNative {
         return parikt_native_eval(cmd)?.toKString()
     }
 
-    actual fun getCommands(): Array<String>? {
+    actual fun getSupportedCommands(): Array<String>? {
         checkThread()
         val count = parikt_native_command_count()
         check(count >= 0) { "Unable to read PARI's command list (uninitialized engine or capacity exceeded)." }
         return Array(count) { index -> checkNotNull(parikt_native_command(index)).toKString() }
     }
 
-    actual fun paridroidClose() {
+    actual fun close() {
         checkThread()
         parikt_native_close()
     }
 
-    actual fun pariVersionCode(): Int = parikt_native_version()
+    actual fun getVersionCode(): Int = parikt_native_version()
 }

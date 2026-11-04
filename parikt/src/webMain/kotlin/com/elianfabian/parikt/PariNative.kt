@@ -44,12 +44,12 @@ internal actual object PariNative {
 	actual fun eval(cmd: String): String? = engine().eval(cmd)
 
 	@Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD") // JsString is already String on JS, but not Wasm.
-	actual fun getCommands(): Array<String>? {
+	actual fun getSupportedCommands(): Array<String>? {
 		val commands = engine().getSupportedCommands()
 		return Array(commands.length) { commands[it].toString() }
 	}
 
-	actual fun paridroidClose() { module?.close() }
+	actual fun close() { module?.close() }
 
-	actual fun pariVersionCode(): Int = engine().getVersionCode()
+	actual fun getVersionCode(): Int = engine().getVersionCode()
 }

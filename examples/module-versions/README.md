@@ -106,7 +106,9 @@ pwsh -File tests/build_configuration/verify_android_module_versions.ps1
 androidAppA inherits 2.19.0; androidAppB selects 2.15.0. Both use androidSharedLogic compiled
 against the default. Each has its own application ID and produces arm64-v8a and x86_64 APKs
 under its build/outputs/apk/debug directory. All app/library manifests retain minSdk 21.
-The check deliberately evaluates without calling init, proving AndroidX Startup integration.
+The check first requires evaluation to fail before initialization. It then explicitly initializes
+with a custom stack size and exercises evaluation, close and reinitialization. Startup supplies
+the temporary directory only; the runtime verifier also checks JNI loads after the app's init marker.
 
 The flag loads standard AGP plugins at the root alongside KGP to share their classpath; the
 default fixture does not load AGP. Generated source providers have stable :parikt leaf names
@@ -123,7 +125,7 @@ hashes match the selected canonical cache binaries after standard NDK stripping.
 apps schedule one helper, with no source fetch or engine rebuild. Logs remain in build/android-tests.
 Pass -AndroidSdk <path> if SDK discovery through environment/root local.properties is unavailable.
 
-Both x86_64 apps actually pass on the API-36.1 emulator: exact version, Startup, arithmetic,
+The previous eager-initialization checkpoint passed both x86_64 apps on API36.1: exact version, Startup, arithmetic,
 factorization and recovery after division by zero. They were installed sequentially because
 the existing emulator had limited storage; unrelated apps were preserved. Install the matching
 split with adb install -r, launch <applicationId>/proof.AndroidMainActivity and inspect the

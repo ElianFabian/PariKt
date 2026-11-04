@@ -5,7 +5,7 @@ the API and applications; PARI and GMP remain C libraries compiled for each dest
 You do not need to understand every Gradle script to make a first change. Start with the map
 below, follow the backend you are changing, then choose its verification checks.
 
-This guide describes the implementation after `c298bd0`. See [README](../README.md) for consumer
+This guide describes the current source implementation. See [README](../README.md) for consumer
 installation and detailed host prerequisites, [HANDOFF](../HANDOFF.md) for current work and
 coverage limits, and [the module-version plan](../PARI_MODULE_VERSION_PLAN.md) for design history.
 
@@ -82,6 +82,11 @@ release. Linux loads GMP, PARI and the wrapper as shared libraries. The Kotlin c
 are kept identical between providers; the selected native libraries supply the mathematics engine.
 Do not try to load two PARI releases into one application's process.
 
+JNI entry points are private and consistently named `nativeInit`, `nativeEval`,
+`nativeGetSupportedCommands`, `nativeClose`, `nativeGetVersionCode` and
+`nativeSetTemporaryDirectory` on JVM/Android. The internal Kotlin adapters expose ordinary
+`init`, `eval`, `getSupportedCommands`, `close` and `getVersionCode` operations on every target.
+
 ### Android: JNI libraries packaged for the device ABI
 
 Android uses the same JNI/shared-C bridge with an Android Kotlin adapter.
@@ -90,8 +95,10 @@ The `pariktAndroidNative` helper runs `ndk-build` using
 [`Android.mk`](../parikt/src/androidMain/jni/Android.mk), which compiles the JNI wrapper and links
 the prepared libraries. The application packages the selected ABI's `.so` files.
 
-AndroidX Startup initializes PariKt before use and supplies the host application's cache
-directory for GP temporary files. There is no hardcoded consumer application ID. Android keeps
+AndroidX Startup only records the host application's cache directory for GP temporary files.
+It loads no JNI libraries and initializes no engine. The application calls suspending
+`PariKt.init()` at its chosen time; the adapter then loads libraries, applies that path and
+initializes PARI with the requested stack size. There is no hardcoded consumer application ID. Android keeps
 minSdk 21 and supports `arm64-v8a` and `x86_64`; the proof apps build separate APKs for those ABIs.
 The helper can prepare missing native dependencies during configuration before the Android NDK
 model needs them. Consequently, a cold Android configuration/sync can compile C dependencies.
@@ -136,7 +143,8 @@ try {
 }
 ```
 
-Android normally uses Startup instead of calling `init()` explicitly. Calls to `eval()` and
+Every target, including Android, requires an explicit `init()` call. Android Startup supplies
+the cache path automatically; leave its manifest entry enabled. Calls to `eval()` and
 command listing require initialization. Repeated `close()` and close-before-init are safe;
 reinitialization after close is supported. Empty input returns an empty string. GP `quit()`
 produces a recoverable evaluation error; `PariKt.close()` releases the engine. Stack sizes must
@@ -227,6 +235,10 @@ not every script/host combination has been exercised. The pinned baseline is Gra
 Kotlin 2.4.21, AGP 9.4.1, SDK 36 and NDK 28.2.13676358. Consult the README's backend prerequisites
 before the first native build. Initial builds can download toolchains and take substantial time.
 
+The NDK SDK version (`ndk`) and its Linux download archive label (`ndkArchive`) are maintained
+together in `gradle/libs.versions.toml`. Gradle and Android verification read the SDK version;
+the WSL/Linux bootstrap reads the archive label. Update both catalog entries for an NDK upgrade.
+
 ### Start with the backend you changed
 
 ```powershell
@@ -280,7 +292,7 @@ installer; omitting it on the three platform suites tests the older compatibilit
 
 | Script / options | What it proves; notable setup or effects |
 | --- | --- |
-| `verify_harness.ps1` | Real Gradle argument/log-path handling, expected failures, output assertions and fixture copy/cleanup boundaries. No PARI compilation. |
+| `verify_harness.ps1` | Shared tool-catalog version/missing-key handling, real Gradle argument/log paths, expected failures, output assertions and fixture copy/cleanup boundaries. No PARI compilation. |
 | `verify_properties.ps1` | Missing, empty, invalid, unknown and obsolete property diagnostics before native setup. |
 | `verify_module_selections.ps1` | Discovery/inheritance/overrides, nested/custom module paths, participation and missing-selection diagnostics without native compilation. |
 | `verify_production_module_only.ps1` | Real installer in Kotlin-only rootless JVM consumers: shared/independent versions, conflicts, selectors, reuse and actual Java compilation. Requires both JVM engines prepared. |
@@ -289,7 +301,7 @@ installer; omitting it on the three platform suites tests the older compatibilit
 | `verify_native_module_versions.ps1 -Production` | Real Linux/Windows Native applications on both versions, metadata identity, final-link archive hashes, orders, reuse, rootless chains and conflicts. Uses prepared C artifacts; Windows/WSL executes both hosts. |
 | `verify_web_module_versions.ps1 -Production` | Both Node adapters, browser bundles, npm/bundle selected-engine identity, orders, reuse, rootless chains, conflicts and portable lockfiles. Retains browser artifacts; does not itself open pages in a browser. |
 | `verify_android_module_versions.ps1 -Production [-AndroidSdk <path>]` | Both versions and ABI split APKs, class identity, exact native payload/hash checks, reuse, rootless chains and provider/helper conflicts. Builds/packages; does not run a device. Retains final proof APKs. |
-| `verify_android_runtime.ps1 -ApkDirectory <path> -DeviceSerial <serial> -AndroidSdk <path>` | Runs retained proof APKs on a booted disposable supported-ABI device: Startup, version, arithmetic, factorization, command enumeration, empty input and error recovery. Rejects preinstalled proof packages; removes its new installations afterward. Does not create an emulator. |
+| `verify_android_runtime.ps1 -ApkDirectory <path> -DeviceSerial <serial> -AndroidSdk <path>` | Runs retained proof APKs on a booted disposable supported-ABI device: no startup engine/JNI loading, explicit init with custom size, reinit, version, arithmetic, factorization, enumeration, empty input and error recovery. Checks process log ordering; rejects preinstalled proof packages and removes its new installations. Does not create an emulator. |
 | `verify_module_versions.ps1` | Independent JVM scaffold: shared-library compatibility, later consumer reuse, forced rebuild with one producer, generation reuse, strict conflicts and module-only runtime. Intentionally recompiles an engine. |
 | `verify_source_cache.ps1` / `verify_source_cache.sh` | Concurrent acquisition, pristine snapshots, repair, moving revisions, legacy imports and retry/cleanup using a local fake Git remote. Bash worker also checks builder syntax; PowerShell selects WSL on Windows. Does not compile PARI. |
 | `verify_jvm_cache.ps1` / `verify_jvm_cache.sh` | Real concurrent Windows engine builds from separate workspaces: one compiled producer, forced replacement/generation refresh, repair and compatible reuse. Requires Windows/WSL, `JAVA_HOME`, and an already prepared compiler/GMP source cache. Can take time. |

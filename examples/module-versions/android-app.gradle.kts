@@ -45,6 +45,7 @@ kotlin {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }
 dependencies {
+    implementation(pariktLibs.kotlinx.coroutines.core)
     implementation(project(":androidSharedLogic"))
     implementation(project(":parikt"))
 }

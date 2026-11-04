@@ -1,5 +1,22 @@
 # Project defaults and module-specific PARI versions
 
+## Android explicit initialization follow-up
+
+- [x] Separate Startup cache-path configuration from JNI loading and explicit PariKt.init().
+- [x] Update proof apps to exercise deferred startup, invalid/custom sizes and reinitialization.
+- [x] Update onboarding/API documentation and verify Android runtime on both selected versions.
+- [x] Run Android packaging/identity and shared backend/configuration-cache regressions.
+- [x] Centralize NDK pins and align JNI entry-point/adapter names; rebuild and retest bindings.
+
+Both versions pass explicit-init/reinit and deferred JNI loading on x86_64 API36.1; the Compose
+demo passes its Ready/arithmetic check. Fourteen Android production cases, both ABI payloads,
+root/consumer backend tests, strict configuration-cache storage/reuse and JVM/Native identities
+pass. NDK pins are centralized in the catalog; private JNI names and all platform adapters are
+aligned. Normal engine fingerprints rebuilt affected C libraries and reused canonical sources.
+Four harness checks pass on PowerShell 7/5.1. Logs: build/android-explicit-init/; Android cases:
+build/android-tests/3de42b05cb1a. The owned emulator/apps/data are cleaned up. All existing targets,
+examples and minSdk21 remain; ARM64/API21 runtime and other environment limits remain unverified.
+
 Production JVM, Native, Android and JS/Wasm support scoped versions and module-only configuration. Native checkpoint: 44ecbb5. Production web acceptance passes all 14 cases plus portable locks and actual execution of all four browser pages (build/wp/b2d3df3c69e8). Production Android acceptance passes 14 cases, both ABI split payloads and actual x86_64 Startup/runtime checks. The implementation checklist is complete within the verified host/runtime scope below. Shared source acquisition and complete JVM engine caching are verified. Both examples folders and all existing targets are preserved.
 
 ## Configuration contract

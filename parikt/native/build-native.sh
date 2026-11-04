@@ -15,7 +15,10 @@ VERBOSE=0
 # Keep GMP pinned independently of pariVersion. PARI currently supports GMP 4.2+;
 # change this only if a future PARI release requires it or a build issue calls for it.
 GMP_VERSION=6.3.0
-NDK_REV=r28c   # only used when --ndk is not given (Linux/WSL/Docker); keep in sync with ndkVersion
+CATALOG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../gradle" && pwd)/libs.versions.toml"
+# The archive label and Android SDK version are maintained together in the catalog.
+NDK_REV=$(sed -n 's/^ndkArchive[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$CATALOG")
+[ -n "$NDK_REV" ] || { echo 'error: missing ndkArchive in version catalog' >&2; exit 1; }
 
 die() { echo "error: $*" >&2; exit 1; }
 log() { echo "[native] $*"; }

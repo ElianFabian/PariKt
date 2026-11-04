@@ -10,7 +10,7 @@ public object PariKt {
 
 	/**
 	 * Load the platform engine and initialize PARI with the given stack size.
-	 * Web targets suspend while loading their engine. Android normally initializes via Startup.
+	 * Web targets suspend while loading their engine. Every target requires this explicit call.
 	 * Calls after initialization have no effect.
 	 * @param pariSize Positive stack size in bytes (default: 4,000,000).
 	 * Web targets require a positive value that fits a signed 32-bit integer. Successful
@@ -20,23 +20,9 @@ public object PariKt {
 		if (_initialized) return
 		require(pariSize > 0) { "PARI stack size must be positive." }
 		PariNative.prepareLibraries()
-		initialize(pariSize, null)
-	}
-
-	/** Internal Android entry point for supplying the host app's cache directory. */
-	internal fun initWithTemporaryDirectory(pariSize: Long, path: String) {
-		initialize(pariSize, path)
-	}
-
-	private fun initialize(pariSize: Long, temporaryDirectory: String?) {
+		// Another caller may finish initialization while web engine loading suspends.
 		if (_initialized) return
-		require(pariSize > 0) { "PARI stack size must be positive." }
 		PariNative.loadLibraries()
-		if (temporaryDirectory != null) {
-			check(PariNative.setTemporaryDirectory(temporaryDirectory)) {
-				"Unable to set PARI's temporary directory to '$temporaryDirectory'."
-			}
-		}
 		PariNative.init(pariSize)
 		_initialized = true
 	}
@@ -60,7 +46,7 @@ public object PariKt {
 	 */
 	public fun getSupportedCommands(): List<String> {
 		check(_initialized) { "Engine not initialized. Call PariKt.init() first." }
-		return PariNative.getCommands().orEmpty().toList()
+		return PariNative.getSupportedCommands().orEmpty().toList()
 	}
 
 	/**
@@ -69,7 +55,7 @@ public object PariKt {
 	 */
 	public fun close() {
 		if (!_initialized) return
-		PariNative.paridroidClose()
+		PariNative.close()
 		_initialized = false
 	}
 
@@ -77,5 +63,5 @@ public object PariKt {
 	 * Get the PARI version code.
 	 * @return Version code as integer
 	 */
-	public fun getVersionCode(): Int = PariNative.pariVersionCode()
+	public fun getVersionCode(): Int = PariNative.getVersionCode()
 }

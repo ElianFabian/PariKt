@@ -16,9 +16,9 @@ internal expect object PariNative {
 
 	fun eval(cmd: String): String?
 
-	fun getCommands(): Array<String>?
+	fun getSupportedCommands(): Array<String>?
 
-	fun paridroidClose()
+	fun close()
 
-	fun pariVersionCode(): Int
+	fun getVersionCode(): Int
 }

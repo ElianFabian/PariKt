@@ -60,7 +60,7 @@ internal object JniBoundaryProbe {
                 try { initialize.invoke(instance, size); error("Native init accepted $size") }
                 catch (error: InvocationTargetException) { check(error.cause is IllegalArgumentException) { error } }
             }
-            repeat(2) { native.getMethod("paridroidClose").invoke(instance) }
+            repeat(2) { native.getDeclaredMethod("nativeClose").apply { isAccessible = true }.invoke(instance) }
         } else EngineBoundaryChecks.verify(scenario)
         PariKt.init()
         if (version !in setOf("master", "latest")) check(PariKt.getVersionName() == version)

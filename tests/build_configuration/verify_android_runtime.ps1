@@ -31,15 +31,19 @@ foreach ($case in $cases) {
         $installed = $true
         $null = Invoke-Adb @('logcat', '-c')
         $null = Invoke-Adb @('shell', 'am', 'start', '-W', '-n', "$($case.Id)/proof.AndroidMainActivity")
-        $expected = "PASS Android PARI $($case.Version) Startup/arithmetic/factorization/error recovery"
+        $appProcessId = (Invoke-Adb @('shell', 'pidof', $case.Id)).Trim()
+        $expected = "PASS Android PARI $($case.Version) deferred startup/explicit init/reinit/arithmetic/factorization/error recovery/JNI boundaries"
         $deadline = [DateTime]::UtcNow.AddSeconds(30)
         do {
-            $output = Invoke-Adb @('logcat', '-d', '-s', 'PariKtProof:I', '*:S')
+            $output = Invoke-Adb @('logcat', '-d', "--pid=$appProcessId", '*:I')
             if ($output.Contains($expected)) { break }
             if ($output.Contains('FAIL:') -or $output.Contains('Engine verification failed')) { throw $output }
             Start-Sleep -Milliseconds 500
         } while ([DateTime]::UtcNow -lt $deadline)
         if (-not $output.Contains($expected)) { throw "No runtime success for $($case.App): $output" }
+        $beforeInit = $output.IndexOf('Android activity before explicit init')
+        $loading = $output.IndexOf('Loading libgmp.so')
+        if ($beforeInit -lt 0 -or $loading -le $beforeInit) { throw "JNI loaded before the app requested initialization: $output" }
         Write-Host "$expected ($DeviceSerial, $abi)"
     } finally {
         if ($installed) { $null = Invoke-Adb @('uninstall', $case.Id) }

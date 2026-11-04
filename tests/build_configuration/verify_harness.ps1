@@ -9,6 +9,13 @@ $wrapper = Join-Path $repository $(if ([Environment]::OSVersion.Platform -eq [Pl
 $utf8 = [Text.UTF8Encoding]::new($false)
 $null = New-Item -ItemType Directory -Path $fixture -Force
 try {
+    $ndk = Get-PariKtToolVersion -Repository $repository -Name 'ndk'
+    if ($ndk -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid NDK catalog version: $ndk" }
+    $rejected = $false
+    try { $null = Get-PariKtToolVersion -Repository $repository -Name 'missingVerificationTool' }
+    catch { $rejected = $true }
+    if (-not $rejected) { throw 'Missing catalog tool was accepted' }
+    Write-Host 'PASS: shared tool catalog version and missing-key diagnostic'
     [IO.File]::WriteAllText((Join-Path $fixture 'settings.gradle'), "rootProject.name = 'HarnessProbe'", $utf8)
     [IO.File]::WriteAllText((Join-Path $fixture 'build.gradle'), @'
 tasks.register('probe') {

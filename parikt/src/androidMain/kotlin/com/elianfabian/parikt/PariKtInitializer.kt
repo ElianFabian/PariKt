@@ -3,7 +3,7 @@ package com.elianfabian.parikt
 import android.content.Context
 import androidx.startup.Initializer
 
-/** Initializes the PARI/GP engine automatically during Android app startup. */
+/** Records the app's temporary directory; the application chooses when to call [PariKt.init]. */
 public class PariKtInitializer : Initializer<Unit> {
 
 	public override fun create(context: Context): Unit {
@@ -12,7 +12,7 @@ public class PariKtInitializer : Initializer<Unit> {
 		check(cacheDirectory.exists() || cacheDirectory.mkdirs()) {
 			"Unable to create the app cache directory at '${cacheDirectory.absolutePath}'."
 		}
-		PariKt.initWithTemporaryDirectory(4_000_000L, cacheDirectory.absolutePath)
+		AndroidEnvironment.temporaryDirectory = cacheDirectory.absolutePath
 	}
 
 	public override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()

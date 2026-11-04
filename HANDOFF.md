@@ -8,6 +8,29 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Android explicit initialization is complete: Startup now records only the cache path, and
+JNI loading/engine initialization wait for the application's PariKt.init(). The shared Compose
+demo already calls init through ConsoleSession. Proof apps/runtime checks now cover deferred
+startup, invalid/custom sizes, close and reinitialization. Existing Android consumers must add
+explicit init if they relied on eager Startup initialization; no context argument is required.
+
+NDK SDK/archive pins now live together in gradle/libs.versions.toml (ndk/ndkArchive), consumed by
+Gradle, PowerShell and Linux/WSL bootstrap. Update both catalog entries for an NDK upgrade.
+All private JNI entry points use native* names; internal adapters consistently expose init,
+eval, getSupportedCommands, close and getVersionCode. C exports and JNI reflection tests match.
+
+Final verification: both Android versions pass actual x86_64 API36.1 deferred startup, explicit
+init with 8,000,000 bytes, invalid sizes, reinit and JNI boundary checks. Log order proves JNI
+loading follows the app's init marker. The Compose demo displays Ready / 2 + 2 = 4. All 14
+Android production cases and both selected-only ABI payloads pass at build/android-tests/
+3de42b05cb1a. Both NDK engines rebuild through normal fingerprints, reusing canonical sources.
+Root backend tests/Android assembly pass 161 tasks (160 executed) then strict cache reuse;
+standalone 2.19.0 passes 66 tasks (65 executed). JVM and Linux/Windows Native identity checks
+pass for default/scoped providers. Four harness checks pass under PowerShell 7 and 5.1.
+Logs: build/android-explicit-init/{final-platform-*,final-consumer-219,identities,packaging-final,
+runtime-final,demo-runtime-final,harness*}.log. Proof/demo apps were removed, the owned emulator
+stopped and its isolated data removed. ARM64/API21 runtime coverage remains unverified.
+
 The new [contributor guide](docs/CONTRIBUTOR_GUIDE.md) explains the module/source-set map, backend
 call/build paths, version routing/generated providers, cache layers and verification scripts.
 Documentation references and commands were checked against the current source; no runtime code

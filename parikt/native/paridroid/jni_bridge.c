@@ -29,7 +29,7 @@
 #include "paridroid.h"
 
 jint
-Java_com_elianfabian_parikt_PariNative_pariVersionCode(JNIEnv *env, jclass cls) {
+Java_com_elianfabian_parikt_PariNative_nativeGetVersionCode(JNIEnv *env, jclass cls) {
     (void) env;
     (void) cls;
     return (jint) PARI_VERSION_CODE;
@@ -61,12 +61,12 @@ Java_com_elianfabian_parikt_PariNative_nativeSetTemporaryDirectory(JNIEnv *env, 
 }
 
 void
-Java_com_elianfabian_parikt_PariNative_paridroidClose(JNIEnv *env, jclass cls) {
+Java_com_elianfabian_parikt_PariNative_nativeClose(JNIEnv *env, jclass cls) {
     paridroid_close();
 }
 
 jstring
-Java_com_elianfabian_parikt_PariNative_eval(JNIEnv *env, jclass cls, jstring input) {
+Java_com_elianfabian_parikt_PariNative_nativeEval(JNIEnv *env, jclass cls, jstring input) {
     const char *cmd;
     char *output;
     jstring res;
@@ -93,7 +93,7 @@ Java_com_elianfabian_parikt_PariNative_eval(JNIEnv *env, jclass cls, jstring inp
 }
 
 jobjectArray
-Java_com_elianfabian_parikt_PariNative_getCommands(JNIEnv *env, jclass cls) {
+Java_com_elianfabian_parikt_PariNative_nativeGetSupportedCommands(JNIEnv *env, jclass cls) {
     /* returns the list of supported gp commands */
     const char **commands = NULL;
     int len, actual, i;

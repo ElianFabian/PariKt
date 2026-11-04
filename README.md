@@ -213,15 +213,23 @@ pwsh -File tests/build_configuration/verify_android_runtime.ps1 -ApkDirectory <r
 ```
 
 The runtime check requires a booted disposable device without the proof packages installed.
-It checks both selections through Startup and removes only its new proof installations.
+It checks deferred startup, explicit initialization/reinitialization and both selections, then
+removes only its new proof installations.
 Assembly and payload hashes are verified for arm64-v8a and x86_64; actual runtime coverage is
 x86_64 API 36.1. ARM64 runtime and API-21 runtime remain unverified.
 
 The common API lives in `parikt/src/commonMain/kotlin/com/elianfabian/parikt/PariKt.kt`. On Android,
-the bundled AndroidX Startup initializer obtains the host app's cache directory and initializes
-PARI/GP before `Application.onCreate()`. No Android initialization call or context passing is
-required. After startup, evaluate with `PariKt.eval("2 + 2")` and release native state with
-`PariKt.close()`. Startup uses the default PARI stack size of 4,000,000 bytes.
+the bundled AndroidX Startup initializer records the host app's cache directory. It does not
+load JNI libraries or initialize PARI. Call suspending `PariKt.init()` when your application is
+ready, optionally supplying its stack size (default: 4,000,000 bytes); the adapter automatically
+applies the recorded temporary directory before native initialization. No context argument is
+required. Then evaluate with `PariKt.eval("2 + 2")` and release native state with `PariKt.close()`.
+Keep the Startup manifest entry enabled for automatic path configuration. Existing Android
+callers that relied on eager initialization must add an explicit `init()` call. The Compose
+demo already does this in its application-owned initialization coroutine.
+
+The Android helper and verification scripts read the NDK SDK version from `gradle/libs.versions.toml`
+(`ndk`). Its matching Linux/WSL bootstrap archive label is `ndkArchive` in the same catalog.
 
 To try the Android target on an emulator, install Android SDK platform 36, open the project in
 Android Studio, select the `androidApp` run configuration, and run it on an API 21+ `arm64-v8a` or
@@ -420,9 +428,8 @@ try {
 
 The public `init()` is now suspending on every target, so it can load the web engine before
 initializing PARI. JVM callers must use a coroutine or a suspending `main()` (as in `terminalApp`).
-Android's Startup initializer retains its internal synchronous path; Android consumers do not
-need to call initialization explicitly. There is no separate public `initAsync()` or synchronous
-initialization method.
+Android callers also initialize explicitly; Startup only supplies the temporary-directory path.
+There is no separate public `initAsync()` or synchronous initialization method.
 
 `close()` is safe before initialization and on repeated calls; a closed engine can be initialized
 again. Stack sizes must be positive and fit the backend's native representation (a signed 32-bit

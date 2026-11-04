@@ -18,7 +18,8 @@ if (-not $AndroidSdk) {
     $AndroidSdk = $sdkLine.Substring(8).Replace('\:', ':').Replace('\\', '\')
 }
 $hostDirectory = if ($onWindows) { 'windows-x86_64' } elseif ($IsMacOS) { 'darwin-x86_64' } else { 'linux-x86_64' }
-$strip = Join-Path $AndroidSdk "ndk/28.2.13676358/toolchains/llvm/prebuilt/$hostDirectory/bin/llvm-strip$(if ($onWindows) { '.exe' })"
+$ndkVersion = Get-PariKtToolVersion -Repository $repositoryRoot -Name 'ndk'
+$strip = Join-Path $AndroidSdk "ndk/$ndkVersion/toolchains/llvm/prebuilt/$hostDirectory/bin/llvm-strip$(if ($onWindows) { '.exe' })"
 if (-not (Test-Path -LiteralPath $strip)) { throw "Missing pinned NDK strip tool: $strip" }
 $null = New-Item -ItemType Directory -Path $fixture, $logs -Force
 Copy-PariKtFixture -Source $source -Destination $fixture

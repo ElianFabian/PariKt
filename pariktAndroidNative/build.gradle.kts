@@ -15,6 +15,7 @@ if (scopedVersion != null) {
 } else if (rootProject.projectDir.canonicalFile != sourceDirectory) {
 	layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("parikt/modules/pariktAndroidNative"))
 }
+val ndkVersion = extensions.getByType<VersionCatalogsExtension>().named("pariktLibs").findVersion("ndk").get().requiredVersion
 val nativeAbis = providers.gradleProperty("nativeAbis")
 	.map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
 	.getOrElse(listOf("arm64-v8a", "x86_64"))
@@ -129,7 +130,7 @@ extensions.getByName("android").withGroovyBuilder {
     setProperty("namespace", "com.elianfabian.parikt.nativebridge" +
         if (scopedVersion != null) ".v${pariVersion.replace('.', '_').replace('-', '_')}" else "")
     setProperty("compileSdk", 36)
-    setProperty("ndkVersion", "28.2.13676358")
+    setProperty("ndkVersion", ndkVersion)
     setProperty("enableKotlin", false)
     getProperty("defaultConfig").withGroovyBuilder {
         setProperty("minSdk", minAndroidApi)
