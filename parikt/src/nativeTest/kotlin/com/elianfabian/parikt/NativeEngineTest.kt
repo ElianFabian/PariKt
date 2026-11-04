@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
 import kotlin.random.Random
 
 class NativeEngineTest {
+    @Test fun boundaryContracts() = runBlocking { EngineBoundaryChecks.all() }
 	@Test fun engineLifecycleAndEvaluation() = runBlocking {
 		assertFailsWith<IllegalStateException> { PariKt.eval("2+2") }
 		assertFailsWith<IllegalArgumentException> { PariKt.init(0) }

@@ -12,12 +12,13 @@ public object PariKt {
 	 * Load the platform engine and initialize PARI with the given stack size.
 	 * Web targets suspend while loading their engine. Android normally initializes via Startup.
 	 * Calls after initialization have no effect.
-	 * @param pariSize Stack size in bytes (default: 4,000,000)
+	 * @param pariSize Positive stack size in bytes (default: 4,000,000).
 	 * Web targets require a positive value that fits a signed 32-bit integer. Successful
 	 * initialization still requires enough stack space and available memory.
 	 */
 	public suspend fun init(pariSize: Long = 4_000_000L) {
 		if (_initialized) return
+		require(pariSize > 0) { "PARI stack size must be positive." }
 		PariNative.prepareLibraries()
 		initialize(pariSize, null)
 	}
@@ -29,6 +30,7 @@ public object PariKt {
 
 	private fun initialize(pariSize: Long, temporaryDirectory: String?) {
 		if (_initialized) return
+		require(pariSize > 0) { "PARI stack size must be positive." }
 		PariNative.loadLibraries()
 		if (temporaryDirectory != null) {
 			check(PariNative.setTemporaryDirectory(temporaryDirectory)) {
@@ -43,6 +45,7 @@ public object PariKt {
 	 * Evaluate a GP command and return the result as a string.
 	 * @param cmd GP command to evaluate
 	 * @return Result of the evaluation
+	 * GP quit() returns a recoverable error; use [close] to release the engine.
 	 * @throws IllegalStateException if engine not initialized
 	 */
 	public fun eval(cmd: String): String {
@@ -62,8 +65,10 @@ public object PariKt {
 
 	/**
 	 * Close the PARI/GP engine and release resources.
+	 * Calling this before initialization or after an earlier close has no effect.
 	 */
 	public fun close() {
+		if (!_initialized) return
 		PariNative.paridroidClose()
 		_initialized = false
 	}

@@ -520,3 +520,29 @@ The participant set is filled during configuration and serialized as read-only t
 handlers. Cold Android preparation uses Gradle's tracked process provider. No custom plugin,
 global cache enablement, target/ABI change or Android minSdk change was introduced. Host/IDE and
 publication limits remain as recorded above. Final web regression passes all 14 cases plus portable locks (build/wp/8f7e32404d8c/logs). No temporary selection files remain.
+
+## Project review follow-up (2026-11-04)
+
+Review at 6e81a26: PROJECT_REVIEW.md. All six correctness fixes are implemented and verified.
+
+- [x] [P1] Use actual PARI hash-table bounds in JNI command enumeration (2.15.0 crash; 2.19.0 incomplete results).
+- [x] [P1] Prevent GP quit callbacks from freeing PARI during an active evaluation.
+- [x] [P1] Make repeated/uninitialized close safe across the common API and JNI backend.
+- [x] [P2] Validate JNI stack-size bounds before entering native initialization.
+- [x] [P2] Restrict JVM launcher/test wiring to actual PariKt participants.
+- [x] [P2] Guard empty commands in the shared C wrapper.
+- [x] Add cross-backend public API and JVM subprocess regression coverage for these boundaries.
+- [ ] Consolidate duplicated default/scoped provider and PowerShell harness setup after correctness fixes.
+Shared C owns empty-input/close/quit safety and actual table bounds; JNI dynamically sizes its
+command list and checks native-long bounds. Header detection supports both PARI releases in JVM
+and Android builds. Common tests share boundary scenarios; JVM adds six subprocess tests for each
+configured version and defensive direct-JNI checks.
+
+Verification: both 2.15.0 and 2.19.0 pass JVM, Linux/Windows Native and JS/Wasm Node boundary tests.
+All 25 strict configuration-cache cases (including unrelated JavaExec/Test store/reuse) and the
+platform cache graph pass at build/configuration-cache-tests/78797ba4ac73/logs. Production version
+suites pass ten Native, fourteen web plus portable locks, and fourteen Android cases. Every Android
+split has exactly one selected engine; both x86_64 APKs pass Startup/evaluation and JNI boundary
+checks on API36.1. Logs are under build/project-review/fix-*. Both examples folders, every existing
+target, canonical source reuse and Android minSdk21 are preserved. Remaining structural cleanup is
+separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these checks.

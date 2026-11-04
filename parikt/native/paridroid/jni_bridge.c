@@ -22,6 +22,7 @@
  */
 
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <jni.h>
 #include <pari/paricfg.h>
@@ -36,7 +37,13 @@ Java_com_elianfabian_parikt_PariNative_pariVersionCode(JNIEnv *env, jclass cls) 
 
 void
 Java_com_elianfabian_parikt_PariNative_nativeInit(JNIEnv *env, jclass cls, jlong parisize) {
-    paridroid_init(parisize);
+    (void) cls;
+    if (parisize <= 0 || parisize > LONG_MAX) {
+        jclass error = (*env)->FindClass(env, "java/lang/IllegalArgumentException");
+        if (error) (*env)->ThrowNew(env, error, "PARI stack size must be positive and fit a native long.");
+        return;
+    }
+    paridroid_init((long) parisize);
 }
 
 jboolean
@@ -88,20 +95,46 @@ Java_com_elianfabian_parikt_PariNative_eval(JNIEnv *env, jclass cls, jstring inp
 jobjectArray
 Java_com_elianfabian_parikt_PariNative_getCommands(JNIEnv *env, jclass cls) {
     /* returns the list of supported gp commands */
-    const int size = 1000;
-    const char **commands;
-    int len, i;
-    jobjectArray res;
+    const char **commands = NULL;
+    int len, actual, i;
+    jobjectArray res = NULL;
+    jclass stringClass;
 
-    commands = (const char **) malloc(size * sizeof(char *));
-    paridroid_getcommands(&commands, size, &len);
+    (void) cls;
+    paridroid_getcommands(NULL, 0, &len);
+    if (len < 0) {
+        jclass error = (*env)->FindClass(env, "java/lang/IllegalStateException");
+        if (error) (*env)->ThrowNew(env, error, "Unable to enumerate PARI commands.");
+        return NULL;
+    }
+    if (len) {
+        commands = (const char **) malloc((size_t) len * sizeof(*commands));
+        if (!commands) {
+            jclass error = (*env)->FindClass(env, "java/lang/OutOfMemoryError");
+            if (error) (*env)->ThrowNew(env, error, "Unable to allocate the PARI command list.");
+            return NULL;
+        }
+        paridroid_getcommands(&commands, len, &actual);
+        if (actual != len) {
+            jclass error = (*env)->FindClass(env, "java/lang/IllegalStateException");
+            if (error) (*env)->ThrowNew(env, error, "PARI command list changed during enumeration.");
+            free(commands);
+            return NULL;
+        }
+    }
+    stringClass = (*env)->FindClass(env, "java/lang/String");
+    if (!stringClass) { free(commands); return NULL; }
     res = (*env)->NewObjectArray(env, (jsize) len,
-                                 (*env)->FindClass(env, "java/lang/String"),
+                                 stringClass,
                                  NULL);
+    (*env)->DeleteLocalRef(env, stringClass);
+    if (!res) { free(commands); return NULL; }
     for (i = 0; i < len; i++) {
         jstring s = (*env)->NewStringUTF(env, commands[i]);
+        if (!s) { free(commands); return NULL; }
         (*env)->SetObjectArrayElement(env, res, i, s);
         (*env)->DeleteLocalRef(env, s);
+        if ((*env)->ExceptionCheck(env)) { free(commands); return NULL; }
     }
     free(commands);
 

@@ -254,6 +254,8 @@ WRAPPER_DIR="$REPO_PARIKT/native/paridroid"
 BRIDGE="$WRAPPER_DIR/jni_bridge.c"
 PARI_INCLUDE="$STAGE/pari/include"
 PARI_LIB="$STAGE/pari/lib"
+WRAPPER_FLAGS=()
+if grep -q functions_hash_MASK "$PARI_INCLUDE/pari/paripriv.h"; then WRAPPER_FLAGS+=(-DPARIDROID_USE_HASH_MASK=1); fi
 mkdir -p "$OUT_DIR"
 
 if [ "$TARGET" = windows-x86_64 ]; then
@@ -267,7 +269,7 @@ if [ "$TARGET" = windows-x86_64 ]; then
   done
   [ -n "$PARI_DLL" ] || die "PARI did not install a Windows PARI DLL under $STAGE/pari"
   rm -f "$OUT_DIR/libpari-gmp.dll" "$OUT_DIR/libpari.dll" "$OUT_DIR/pari.dll"
-  "$CC" -shared -O2 -static-libgcc -D__USE_MINGW_ANSI_STDIO=1 \
+  "$CC" -shared -O2 -static-libgcc -D__USE_MINGW_ANSI_STDIO=1 "${WRAPPER_FLAGS[@]}" \
     -I"$JNI_INCLUDE" -I"$JNI_INCLUDE/win32" \
     -I"$PARI_INCLUDE" -I"$WRAPPER_DIR" \
     "$WRAPPER_DIR/paridroid.c" "$BRIDGE" \
@@ -280,7 +282,7 @@ else
   PARI_SO="$PARI_LIB/libpari.so"
   [ -n "$PARI_SO" ] || die "PARI did not install libpari.so in $PARI_LIB"
   cp -L "$PARI_SO" "$OUT_DIR/libpari.so"
-  "$CC" -shared -fPIC -O2 -std=gnu99 \
+  "$CC" -shared -fPIC -O2 -std=gnu99 "${WRAPPER_FLAGS[@]}" \
     -I"$JNI_INCLUDE" -I"$JNI_INCLUDE/linux" \
     -I"$PARI_INCLUDE" -I"$WRAPPER_DIR" \
     "$WRAPPER_DIR/paridroid.c" "$BRIDGE" \

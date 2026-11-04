@@ -30,7 +30,7 @@ int32_t parikt_native_is_owner_thread(void) {
 int32_t parikt_native_init(int64_t stack_bytes) {
     if (initialized) return parikt_native_is_owner_thread();
     if (stack_bytes <= 0 || (sizeof(long) < sizeof(int64_t) && stack_bytes > INT32_MAX)) return 0;
-    paridroid_init((long) stack_bytes);
+    if (!paridroid_init((long) stack_bytes)) return 0;
 #ifdef _WIN32
     owner = GetCurrentThreadId();
 #else
@@ -58,8 +58,6 @@ const char *parikt_native_default_tmpdir(void) {
 const char *parikt_native_eval(const char *input) {
     char *output = NULL;
     if (!initialized || !parikt_native_is_owner_thread() || !input) return NULL;
-    /* The existing wrapper reads the last byte; it cannot accept an empty string. */
-    if (!input[0]) return "";
     paridroid_eval(input, &output);
     return output;
 }
@@ -68,7 +66,7 @@ int32_t parikt_native_command_count(void) {
     const char **buffer = commands;
     if (!initialized || !parikt_native_is_owner_thread()) return -1;
     paridroid_getcommands(&buffer, 16384, &command_count);
-    return command_count == 16384 ? -1 : command_count;
+    return command_count >= 16384 ? -1 : command_count;
 }
 
 const char *parikt_native_command(int32_t index) {

@@ -11,6 +11,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class WebEngineTest {
+    @Test fun boundaryContracts() = runTest { EngineBoundaryChecks.all() }
 	@Test
 	fun engineLifecycleAndEvaluation() = runTest {
 		assertFailsWith<IllegalStateException> { PariKt.eval("2+2") }

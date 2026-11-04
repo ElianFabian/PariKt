@@ -373,6 +373,20 @@ kotlin {
 	}
 }
 
+// Exercise each configured JNI engine in isolated JVM test processes.
+gradle.projectsEvaluated {
+    @Suppress("UNCHECKED_CAST")
+    val engines = gradle.extensions.extraProperties["parikt.engines"] as Map<String, String>
+    tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
+        engines.forEach { (version, engine) ->
+            val native = rootProject.project(engine).tasks.named("buildJvmNativeDependencies")
+            dependsOn(native)
+            inputs.files(native.map { it.outputs.files })
+            systemProperty("parikt.boundary.engine.$version", native.get().outputs.files.singleFile.absolutePath)
+        }
+    }
+}
+
 // Reject competing implementations on every platform while preserving the project capability.
 configurations.matching { it.isCanBeConsumed }.configureEach {
 	outgoing.capability("${project.group.toString().ifBlank { rootProject.name }}:${project.name}:${project.version}")

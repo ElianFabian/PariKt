@@ -86,6 +86,10 @@ consumer.configurations.configureEach {
     }
 }
 gradle.projectsEvaluated {
+    @Suppress("UNCHECKED_CAST")
+    val participants = gradle.extensions.extraProperties["parikt.participants"] as Set<String>
+    // Preserve the provider's own JVM tests, without wiring unrelated consumer modules.
+    if (consumer.path !in participants && consumer.path !in engines.values) return@projectsEvaluated
     val hasJvm = consumer.configurations.any { platform(it) == "jvm" } ||
         (!androidProject() && consumer.plugins.hasPlugin("java"))
     if (!hasJvm) return@projectsEvaluated

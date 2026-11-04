@@ -414,6 +414,17 @@ Android's Startup initializer retains its internal synchronous path; Android con
 need to call initialization explicitly. There is no separate public `initAsync()` or synchronous
 initialization method.
 
+`close()` is safe before initialization and on repeated calls; a closed engine can be initialized
+again. Stack sizes must be positive and fit the backend's native representation (a signed 32-bit
+`long` for Windows JNI). GP `quit()` returns an evaluation error and leaves the engine available;
+use `PariKt.close()` to release it. Empty commands return an empty string.
+
+`:parikt:jvmTest` runs boundary regressions in isolated child processes for every configured
+JNI engine. Native and JS/Wasm tests share the public API cases: command enumeration beyond
+1,000 functions, recoverable quit, empty input, repeated close and invalid initialization sizes.
+The configuration-cache acceptance script also checks that unrelated JVM applications and tests
+retain their library paths and do not prepare PARI.
+
 The `:webApp` GP console runs with either compiler target. From PowerShell, run one at a time
 and open the local address printed by Gradle:
 

@@ -32,7 +32,7 @@ dependencyResolutionManagement { repositories { google(); mavenCentral() } }
 rootProject.name = "ConfigurationCacheConsumer"
 extra["pariktSourceDir"] = file(providers.gradleProperty("pariktSourceDir").get())
 apply(from = File(extra["pariktSourceDir"] as File, "gradle/parikt.settings.gradle.kts"))
-include(":appA", ":appB", ":sharedLogic")
+include(":appA", ":appB", ":sharedLogic", ":unrelated")
 '@
 $kotlinRoot = @'
 plugins {
@@ -41,6 +41,32 @@ plugins {
 }
 '@
 Write-Fixture 'build.gradle.kts' $kotlinRoot
+Write-Fixture 'unrelated/build.gradle.kts' @'
+plugins { java }
+dependencies { testImplementation("junit:junit:4.13.2") }
+tasks.test { systemProperty("java.library.path", "unrelated-sentinel") }
+tasks.register<JavaExec>("probe") {
+    mainClass.set("probe.Unrelated")
+    classpath(sourceSets.main.get().runtimeClasspath)
+    systemProperty("java.library.path", "unrelated-sentinel")
+}
+'@
+Write-Fixture 'unrelated/src/main/java/probe/Unrelated.java' @'
+package probe;
+public final class Unrelated {
+    public static void main(String[] args) {
+        if (!"unrelated-sentinel".equals(System.getProperty("java.library.path"))) throw new AssertionError("Native path replaced");
+        if (System.getProperty("parikt.expected.version") != null) throw new AssertionError("Unrelated module received an engine");
+        System.out.println("PASS unrelated JVM path and properties preserved");
+    }
+}
+'@
+Write-Fixture 'unrelated/src/test/java/probe/UnrelatedTest.java' @'
+package probe;
+public final class UnrelatedTest {
+    @org.junit.Test public void preservesTestProperties() { Unrelated.main(new String[0]); }
+}
+'@
 foreach ($app in @('appA', 'appB')) {
     [IO.File]::AppendAllText((Join-Path $fixture "$app/build.gradle.kts"), @'
 
@@ -80,6 +106,7 @@ function Invoke-CacheBuild([string]$Name, [string[]]$Expected, [switch]$Reuse, [
         if ($output.Contains($fragment, [StringComparison]::OrdinalIgnoreCase)) { throw "Unexpected '$fragment' in $log" }
     }
     if ($Failure -and ($output.Contains('[jvm-native]') -or $output.Contains('> Task :appA:run'))) { throw "Invalid graph reached engine preparation/runtime: $log" }
+    if ($Name.StartsWith('unrelated-') -and $output.Contains(':buildJvmNativeDependencies')) { throw "Unrelated tasks scheduled native preparation: $log" }
     Write-Host "PASS: $Name ($log)"
 }
 $pass19 = 'PASS sharedLogic PARI 2.19.0 arithmetic/factorization; one PariKt class resource'
@@ -104,6 +131,8 @@ try {
     Write-Fixture 'appB/parikt.properties' "pari.version=2.15.0`n"
     Invoke-CacheBuild 'root-added-two-versions' @($pass19, $pass15)
     Invoke-CacheBuild 'root-default-reuse' @($pass19, $pass15) -Reuse
+    Invoke-CacheBuild 'unrelated-root-default' @('PASS unrelated JVM path and properties preserved') -Tasks @(':unrelated:probe', ':unrelated:test')
+    Invoke-CacheBuild 'unrelated-root-default-reuse' @('PASS unrelated JVM path and properties preserved') -Tasks @(':unrelated:probe', ':unrelated:test') -Reuse
     Write-Fixture 'appA/parikt.properties' "pari.version=2.15.0`n"
     Invoke-CacheBuild 'local-added' @($pass15, ':appA = 2.15.0; explicit;')
     Write-Fixture 'appA/parikt.properties' "pari.version=2.19.0`n"

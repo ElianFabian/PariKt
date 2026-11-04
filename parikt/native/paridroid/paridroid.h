@@ -45,7 +45,7 @@
 #define LOGE(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
-void paridroid_init(long parisize);
+int paridroid_init(long parisize);
 
 int paridroid_set_tmpdir(const char *path);
 
@@ -53,6 +53,7 @@ void paridroid_eval(const char *in, char **out);
 
 void paridroid_close(void);
 
+/* len is the required count; NULL commands performs a counting-only pass. */
 void paridroid_getcommands(const char ***commands, int size, int *len);
 
 void paridroid_read(const int file, char **out);

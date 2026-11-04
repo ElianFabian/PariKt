@@ -50,6 +50,9 @@ changing lifecycle semantics.
 
 ## PariKt current state
 
+Latest checkpoint: all six review fixes are implemented and verified; see the final review-fixes
+section below for current tests and remaining structural cleanup. Earlier rollout results follow.
+
 Native production integration is committed as 44ecbb5; web integration is committed as c81cf14.
 Production Android integration is implemented and its 14-case acceptance passes:
 build/android-tests/019645ae5a8b/logs. Both ABI split APKs have selected-only native payloads,
@@ -1069,3 +1072,35 @@ PowerShell acceptance command. No custom plugin, target/minSdk change or global 
 
 
 Completion: all 23 strict configuration-cache cases pass, including cached no-default selector failures. Platform storage/reuse covers 184 tasks with zero problems. Android local override/default APK restoration, JVM UI tests, browser distributions, interactive terminal stdin and missing Native metadata recovery all pass. Documentation/checklist are updated; both examples folders, every existing target and minSdk21 are preserved. Configuration caching remains opt-in. The configuration-cache follow-up is complete in this checkpoint, with detailed validation recorded above. Additional host/IDE/runtime coverage and publication remain separate future work.
+
+## Review fixes verified (2026-11-04)
+
+All six findings in PROJECT_REVIEW.md are fixed. Shared C now uses PARI's actual command-table
+bounds, rejects GP quit through a recoverable error, guards empty input and repeated close, and
+releases its output buffer. JNI allocates command lists dynamically and validates stack sizes
+before narrowing to native long. Common Kotlin validates positive sizes and idempotent close.
+JVM runtime/test wiring is restricted to participants and engine-provider tests.
+
+Shared boundary scenarios cover enumeration beyond 1,000 entries, quit variants, empty input,
+invalid sizes and close/reinitialization. Six JVM tests run in bounded child processes for every
+configured engine, with extra direct-JNI defenses. Both 2.15.0 and 2.19.0 pass JVM, Windows/Linux
+Native and JS/Wasm Node tests. Root platform regression passes 156 tasks; the standalone 2.19.0
+consumer passes 66 tasks. Strict JVM configuration-cache storage/reuse passes.
+
+All 25 configuration-cache acceptance cases plus platform store/reuse pass:
+build/configuration-cache-tests/78797ba4ac73/logs. Two new cases run genuinely unrelated JavaExec
+and Test tasks under a root default; neither prepares PARI or overrides its library path.
+Production regressions pass ten Native cases (build/np/7d1a344c7258), fourteen web cases plus
+portable locks (build/wp/d3840c3e930b), fourteen Android cases (build/android-tests/450e5070bc04),
+and eleven real-application cases (build/application-version-tests/b154d2cfdb734cc48dd98fcec4cb9742).
+Both retained Android x86_64 split APKs pass Startup/version/evaluation plus enumeration beyond
+1,000 entries, empty input and nested-quit recovery on API36.1. Both ABIs package exactly one
+selected engine. The proof apps were uninstalled and the owned headless emulator stopped.
+Detailed logs: build/project-review/fix-*. Initial failed probes remain as historical evidence.
+
+Both examples folders, all targets, source-cache reuse and minSdk21 are preserved. No custom
+plugin or global configuration-cache enablement. Default/scoped provider and PowerShell harness
+deduplication remain separate structural cleanup; ARM64/API21 runtime, fresh hosts and IDE UI
+remain outside verified scope. Root verification must run serially: overlapping root builds hit
+NDK file locks and corrupted web incremental test caches; only affected generated caches were
+reset, then the serialized regression passed.

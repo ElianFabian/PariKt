@@ -20,6 +20,10 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := paridroid
 LOCAL_LDLIBS := -llog
 LOCAL_CFLAGS := -g -std=gnu99 -Wno-undefined-internal
+# GNU make's file reader works on Windows too, without requiring host grep/sh.
+ifneq ($(findstring functions_hash_MASK,$(file <$(NATIVE_DEPS_DIR)/$(TARGET_ARCH_ABI)/pari/include/pari/paripriv.h)),)
+LOCAL_CFLAGS += -DPARIDROID_USE_HASH_MASK=1
+endif
 LOCAL_LDFLAGS := -Wl,--no-warn-mismatch -Wl,--allow-shlib-undefined
 LOCAL_SRC_FILES := \
     ../../../native/paridroid/paridroid.c \

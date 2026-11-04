@@ -10,7 +10,7 @@ static int command_count;
 int parikt_web_init(int stack_bytes) {
     if (initialized) return 1;
     if (stack_bytes <= 0 || !paridroid_set_tmpdir("/tmp")) return 0;
-    paridroid_init(stack_bytes);
+    if (!paridroid_init(stack_bytes)) return 0;
     initialized = 1;
     return 1;
 }
@@ -18,8 +18,6 @@ int parikt_web_init(int stack_bytes) {
 const char *parikt_web_eval(const char *input) {
     char *output = NULL;
     if (!initialized || !input) return NULL;
-    /* The shared wrapper indexes the last input byte; never pass an empty string. */
-    if (!input[0]) return "";
     paridroid_eval(input, &output);
     return output;
 }
@@ -29,7 +27,7 @@ int parikt_web_command_count(void) {
     if (!initialized) return -1;
     paridroid_getcommands(&buffer, 16384, &command_count);
     /* Report capacity exhaustion instead of silently presenting a truncated list. */
-    return command_count == 16384 ? -1 : command_count;
+    return command_count >= 16384 ? -1 : command_count;
 }
 
 const char *parikt_web_command(int index) {

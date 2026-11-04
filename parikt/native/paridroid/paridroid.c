@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <pari/pari.h>
 #include <pari/paripriv.h>
 
@@ -35,21 +36,12 @@
 #else
 #define PARIDROID_ADD_HIST(z, t, r) pari_add_hist(z, t, r)
 #endif
-#ifdef PARIKT_STATIC_PARI
-/* Static web linking uses PARI's own symbols, whose names changed across releases. */
+/* Use PARI's actual table, including when dynamically linked. Builders detect
+ * the symbol declared by this release's private header; never replace its globals. */
 #ifdef PARIDROID_USE_HASH_MASK
 #define PARIDROID_FUNCTION_BUCKETS (functions_hash_MASK + 1)
 #else
 #define PARIDROID_FUNCTION_BUCKETS functions_tblsz
-#endif
-#else
-#ifdef PARIDROID_USE_HASH_MASK
-const long functions_hash_MASK = 4095;
-#define functions_tblsz functions_hash_MASK
-#else
-const long functions_tblsz = 4095;
-#endif
-#define PARIDROID_FUNCTION_BUCKETS (functions_tblsz + 1)
 #endif
 
 #include <setjmp.h>
@@ -67,6 +59,7 @@ void gp_err_recover(long numerr) {
 static char *droidStr;
 
 static pari_stack s_droidStr;
+static int initialized;
 
 static void
 droidOutC(char c) {
@@ -87,16 +80,19 @@ static PariOUT droidOut = {droidOutC, droidOutS, droidOutF};
 
 void
 paridroid_quit(long exitcode) {
-    LOGW("Call to paridroid_quit: exit code = %ld", exitcode);
-    paridroid_close();
+    (void) exitcode;
+    /* Closing here would return into GP with its stack/history already freed. */
+    pari_err(e_MISC, "quit() is unavailable in the embedded engine; use PariKt.close()");
 }
 
-void
+int
 paridroid_init(long parisize) {
     static entree functions_gp[] = {
         {"quit", 0, (void *) paridroid_quit, 11, "vD0,L,", "quit({status = 0}): quit, return to the system with exit status 'status'."},
         {NULL,   0, NULL,                    0, NULL, NULL}};
 
+    if (initialized) return 1;
+    if (parisize <= 0) return 0;
     pari_init(parisize, 0);
     pari_add_module(functions_gp);
     cb_pari_err_recover = gp_err_recover;
@@ -104,6 +100,8 @@ paridroid_init(long parisize) {
 
     pariOut = &droidOut; /* destinaton of pari_printf */
     pariErr = &droidOut;
+    initialized = 1;
+    return 1;
 }
 
 int
@@ -168,6 +166,13 @@ command_postpare(char **out, GEN z, int print, pari_timer T, pari_timer Tw)
 void
 paridroid_eval(const char *in, char **out) {
     pari_timer T, Tw;
+    if (!out) return;
+    *out = NULL;
+    if (!initialized || !in) return;
+    if (!in[0]) {
+        *out = "";
+        return;
+    }
     command_prepare(&T, &Tw);
 
     if (setjmp(env) != 0) {
@@ -210,10 +215,11 @@ paridroid_getcommands(const char ***commands, int size, int *len) {
     entree *ep;
 
     *len = 0;
-    if (!functions_hash) return;
+    if (!initialized || !functions_hash) return;
 
     if (setjmp(env) != 0) {
         LOGE("Error caught in paridroid_getcommands");
+        *len = -1;
         return;
     }
 
@@ -228,16 +234,21 @@ paridroid_getcommands(const char ***commands, int size, int *len) {
                     continue;
             }
             if (ep->menu < 13) {
-                if (*len < size) {
+                if (commands && *commands && *len < size) {
                     (*commands)[*len] = ep->name;
-                    (*len)++;
-                } else
-                    LOGE ("Array too small in paridroid_getcommands\n");
+                }
+                /* Return the required size even for a counting-only call. */
+                if (*len == INT_MAX) { *len = -1; return; }
+                (*len)++;
             }
         }
 }
 
 void
 paridroid_close() {
+    if (!initialized) return;
+    initialized = 0;
     pari_close();
+    pari_stack_delete(&s_droidStr);
+    droidStr = NULL;
 }
