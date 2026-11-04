@@ -171,8 +171,9 @@ Current maintenance status and archived rollout notes are linked from [HANDOFF.m
 `-Platforms` also checks the real JVM launchers, Android debug APK, Native links and identity,
 JS/Wasm tests and graph diagnostics. Standalone consumer execution, JVM tests, Compose browser
 distributions, interactive JVM/Windows Native launchers and missing Native metadata recovery also
-pass strict cache storage/reuse. Verified host: Windows x86_64 with WSL; IDE sync UI and other hosts
-retain their existing coverage limits.
+pass strict cache storage/reuse. Verified host: Windows x86_64 with WSL. Android Studio Rabbit 1
+(2026.2.1) also completes a manually triggered GUI sync/model import with prepared caches.
+Fresh-host setup, broader IDE run/debug workflows and other hosts retain their coverage limits.
 
 ## Android
 

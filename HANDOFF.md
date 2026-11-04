@@ -8,6 +8,14 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Android Studio GUI sync is now verified at eb94ea7 on Windows x86_64/WSL with prepared caches.
+Android Studio Rabbit 1 (2026.2.1) opened the repository; manually invoking Sync Project with
+Gradle Files completed successfully in 29.525 seconds, followed by IDE model import completion.
+The sync banner cleared and the Gradle project tree includes the default/scoped providers and
+application modules. No production code change was needed. Evidence: build/ide-verification/
+android-studio-sync.log. Android Studio remains open on the project. This verifies one existing
+checkout/cache setup, not fresh installation, variant switching, every editor, or run/debug UI.
+
 Android explicit initialization is complete: Startup now records only the cache path, and
 JNI loading/engine initialization wait for the application's PariKt.init(). The shared Compose
 demo already calls init through ConsoleSession. Proof apps/runtime checks now cover deferred
@@ -126,7 +134,9 @@ stopped. Logs: build/project-review/fix-*. Details: PROJECT_REVIEW.md and the ar
 
 ## Remaining environment coverage
 
-ARM64/API21 runtime, fresh-machine setup, Apple/other build hosts and IDE sync UI remain unverified.
+ARM64/API21 runtime, fresh-machine setup and Apple/other build hosts remain unverified. Basic
+Android Studio GUI sync passes as recorded above; broader IDE run/debug/variant workflows remain
+outside that verified scope.
 The available API21 emulator is x86, outside the supported native ABI list. SDK compilation and an
 API36.1 x86_64 run do not prove those cases. Publication is outside the completed source integration.
 Browser pages were previously executed; this structural checkpoint verifies their rebuilt

@@ -1,5 +1,17 @@
 # Project defaults and module-specific PARI versions
 
+## Additional environment verification
+
+- [x] Open eb94ea7 in Android Studio and trigger Gradle sync through the GUI.
+  Rabbit 1 (2026.2.1), Windows x86_64/WSL, prepared caches: sync succeeds in 29.525 seconds and
+  IDE model import completes. Default/scoped providers and application modules appear in the
+  Gradle tree. Evidence: build/ide-verification/android-studio-sync.log. No code fix required.
+- [ ] ARM64/API21 runtime, fresh-machine setup and other build hosts.
+- [ ] Broader IDE variant switching and run/debug workflows.
+
+Earlier rollout sections below retain their historical verification limits; this result extends
+only basic GUI sync coverage for the current existing-checkout environment.
+
 ## Android explicit initialization follow-up
 
 - [x] Separate Startup cache-path configuration from JNI loading and explicit PariKt.init().
