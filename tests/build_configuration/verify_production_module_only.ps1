@@ -90,16 +90,23 @@ Write-Fixture 'kmpLibrary/src/commonMain/kotlin/probe/Probe.kt' 'package probe; 
 Write-Fixture 'kmpLibrary/src/jvmMain/java/probe/JavaProbe.java' 'package probe; public final class JavaProbe { public static Object engine() { return com.elianfabian.parikt.PariKt.INSTANCE; } }'
 function Invoke-ProductionCheck([string]$Name, [string[]]$Tasks, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Absent = @()) {
     $log = Join-Path $logs "$Name.log"
+    $startInfo = [Diagnostics.ProcessStartInfo]::new()
+    $startInfo.WorkingDirectory = $repositoryRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
     if ($onWindows) {
-        $env:PARIKT_ONLY_WRAPPER = $wrapper
-        $env:PARIKT_ONLY_FIXTURE = $fixture
-        $env:PARIKT_ONLY_SOURCE = $repositoryRoot
-        $env:PARIKT_ONLY_LOG = $log
-        & $env:ComSpec /d /v:off /s /c ('""%PARIKT_ONLY_WRAPPER%" -p "%PARIKT_ONLY_FIXTURE%" "-PpariktSourceDir=%PARIKT_ONLY_SOURCE%" --no-parallel --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' > "%PARIKT_ONLY_LOG%" 2>&1"')
+        $startInfo.FileName = $env:ComSpec
+        foreach ($item in @{ WRAPPER = $wrapper; FIXTURE = $fixture; SOURCE = $repositoryRoot; LOG = $log }.GetEnumerator()) {
+            $startInfo.EnvironmentVariables["PARIKT_ONLY_$($item.Key)"] = $item.Value
+        }
+        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_ONLY_WRAPPER%" -p "%PARIKT_ONLY_FIXTURE%" "-PpariktSourceDir=%PARIKT_ONLY_SOURCE%" --no-parallel --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' > "%PARIKT_ONLY_LOG%" 2>&1"'
     } else {
-        & bash -c 'log=$1; shift; exec bash "$@" >"$log" 2>&1' -- $log $wrapper -p $fixture "-PpariktSourceDir=$repositoryRoot" --no-parallel --console=plain --warning-mode=all @Tasks
+        $startInfo.FileName = 'bash'
+        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--no-parallel', '--console=plain', '--warning-mode=all') + $Tasks)) { $startInfo.ArgumentList.Add($argument) }
     }
-    $code = $LASTEXITCODE
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try { $null = $process.Start(); $process.WaitForExit(); $code = $process.ExitCode } finally { $process.Dispose() }
     $output = [IO.File]::ReadAllText($log)
     if (($code -ne 0) -ne $Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
     foreach ($fragment in $Expected) {

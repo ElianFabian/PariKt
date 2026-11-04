@@ -16,6 +16,9 @@ if (scopedVersion != null) {
 val nativeAbis = providers.gradleProperty("nativeAbis")
 	.map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
 	.getOrElse(listOf("arm64-v8a", "x86_64"))
+require(nativeAbis.isNotEmpty() && nativeAbis.all { it in setOf("arm64-v8a", "x86_64") }) {
+    "Only arm64-v8a/x86_64 Android engines are implemented."
+}
 val minAndroidApi = 21
 val nativeDepsDir = File(nativeCacheDirectory, "android-$pariVersion")
 val legacyNativeDepsDirs = listOf(
@@ -142,7 +145,7 @@ android {
 	}
 }
 
-if (scopedVersion != null) configurations.matching { it.isCanBeConsumed }.configureEach {
+configurations.matching { it.isCanBeConsumed }.configureEach {
     outgoing.capability("${project.group}:${project.name}:${project.version}")
     outgoing.capability("com.elianfabian.parikt:android-native-engine:$pariVersion")
 }
@@ -150,7 +153,25 @@ if (scopedVersion != null) configurations.matching { it.isCanBeConsumed }.config
 // Configure ndkVersion before resolving sdkComponents.ndkDirectory on fresh checkouts.
 // Android Studio requests the native model during sync, before Gradle tasks run.
 migrateLegacyNativeDependencies()
-buildNativeDependenciesDuringConfiguration()
+gradle.projectsEvaluated {
+    // CLI builds prepare only versions selected by real Android consumers. During IDE
+    // sync any helper's native model can be requested, so prepare every configured helper.
+    @Suppress("UNCHECKED_CAST")
+    val selections = gradle.extensions.extraProperties.properties["parikt.selections"] as? Map<String, Triple<String, String, Boolean>>
+    @Suppress("UNCHECKED_CAST")
+    val participants = gradle.extensions.extraProperties.properties["parikt.participants"] as? Set<String>
+    val androidConsumers = rootProject.allprojects.filter { candidate ->
+        candidate.path in (selections?.keys ?: emptySet()) &&
+            (participants == null || candidate.path in participants) &&
+            listOf("com.android.application", "com.android.library", "com.android.kotlin.multiplatform.library")
+                .any(candidate.plugins::hasPlugin)
+    }
+    val modelRequested = gradle.startParameter.taskNames.isEmpty() ||
+        providers.gradleProperty("android.injected.invoked.from.ide").orNull == "true"
+    if (selections == null || modelRequested || androidConsumers.any { selections[it.path]?.first == pariVersion }) {
+        buildNativeDependenciesDuringConfiguration()
+    }
+}
 
 tasks.configureEach {
 	if (name.startsWith("configureNdkBuild") ||

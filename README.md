@@ -17,7 +17,7 @@ for a missing file, no custom Gradle plugin, and no PariKt release for each PARI
 The previous `pariVersion` Gradle property is rejected with migration instructions.
 This repository's own file selects PARI only for its demos/tests. External consumers must provide
 their own selection files; the settings script never falls back to the checkout's demo selection.
-JVM, Native and web builds can omit the root file when every participating module selects a version locally,
+Builds on all supported targets can omit the root file when every participating module selects a version locally,
 as described below.
 
 Source integration is currently the supported consumer installation. In your settings, after
@@ -85,15 +85,14 @@ The key includes the source revision, bridge/JNI inputs, compiler identity and b
 The Linux JVM's configured optional-data path is an output-dependent build option, so different
 data paths use different entries. Consumer outputs are staged copies; matching modules share a
 source component and native task. Force rebuilds replace the matching cache entry, and other
-consumers refresh their staged output on their next builder invocation. Web/Android
-module routing remains gated by the module-version plan.
+consumers refresh their staged output on their next builder invocation. Android, Native and web retain their existing per-version target caches while sharing source acquisition.
 
 Generated AARs, klibs, executables and web bundles contain the consumer-selected engine.
 They cannot change PARI after compilation. Binary-only Maven installation is not implemented;
 an ordinary Maven dependency plus a properties file alone cannot run these source-build steps.
 See `PARI_VERSION_PLAN.md` for the implementation checklist and cache identity discussion.
 
-JVM, Native and JS/Wasm application modules can override the root default with a `parikt.properties` in their
+JVM, Native, Android and JS/Wasm application modules can override the root default with a `parikt.properties` in their
 own project directory. `terminalApp` inherits this repository's 2.15.0 default; `desktopApp`
 selects 2.19.0. Both use `consoleUi`, which compiles against the default and imposes no explicit
 engine requirement. A library with its own file does impose a requirement: a conflicting app
@@ -102,7 +101,7 @@ Use `pariktSelections` to inspect effective versions and origins.
 
 Each application routes direct and transitive JVM dependencies to one source provider per
 distinct version, and its JavaExec/test tasks use that provider's native output. Matching
-selections reuse the provider and compatible engine cache. Production JVM/Native/web builds support
+selections reuse the provider and compatible engine cache. Production builds on all supported platforms support
 **module-only configuration**: omit the root file and put `parikt.properties` in every module
 that directly or transitively uses PariKt, including shared libraries. Unrelated modules need
 no selection. Supported KMP libraries include common metadata routing.
@@ -114,9 +113,7 @@ file remains an error even if all modules have local files.
 
 Without a root default, `:parikt` and `:pariktAndroidNative` are empty selectors. Invoke the
 application's task; default-engine tasks such as `:parikt:jvmJar` fail with instructions to
-provide a root default, even if all local files agree. No Android model/bootstrap is configured
-in this mode. Modules with Android/web targets still require the root default until their
-production routing is integrated; their isolated compatibility proofs are complete.
+provide a root default, even if all local files agree. Module-only JVM/Native/web builds sharing only Kotlin plugins configure no Android model or bootstrap. Module-only Android builds share AGP/KGP in the root as shown above; their internal providers/helpers use each module's explicit selection.
 
 Verify the existing applications without opening a window:
 
@@ -155,6 +152,28 @@ needs network access, Git, curl, xz, make, m4, patchelf, and (on Windows) a work
 installation. Set `nativeRunner=local` on Linux/macOS, or `nativeRunner=wsl` on Windows to override
 the default runner. The Android build currently uses AGP 9.4.1 with Gradle 9.6.0 and Kotlin 2.4.21.
 The Android app uses AGP's built-in Kotlin support.
+
+Android applications also support module-local overrides and module-only configuration. One
+source provider/native helper is shared by all apps selecting the same version. Helpers have
+separate build/CXX directories per version and preserve AndroidX Startup and minSdk 21.
+CLI configuration prepares native dependencies only for participating Android selections.
+IDE model requests conservatively prepare all configured helpers after project configuration;
+cold sync may build dependencies before a conflicting graph is resolved. Android Studio's sync
+UI itself remains unverified in this rollout; both ABIs' NDK models configure/build successfully.
+
+Production acceptance and optional runtime checks:
+
+```powershell
+pwsh -File tests/build_configuration/verify_android_module_versions.ps1 -Production
+# Use the retained apks directory printed under build/android-tests/<run>/:
+pwsh -File tests/build_configuration/verify_android_runtime.ps1 -ApkDirectory <run>/apks -DeviceSerial <serial> -AndroidSdk <sdk>
+.\gradlew.bat :androidApp:verifyPariAndroidGraph
+```
+
+The runtime check requires a booted disposable device without the proof packages installed.
+It checks both selections through Startup and removes only its new proof installations.
+Assembly and payload hashes are verified for arm64-v8a and x86_64; actual runtime coverage is
+x86_64 API 36.1. ARM64 runtime and API-21 runtime remain unverified.
 
 The common API lives in `parikt/src/commonMain/kotlin/com/elianfabian/parikt/PariKt.kt`. On Android,
 the bundled AndroidX Startup initializer obtains the host app's cache directory and initializes
@@ -263,7 +282,7 @@ both orders, same-version reuse, rootless shared/independent chains, strict requ
 higher/lower provider requests and restored defaults. The harness seeds prepared 2.15.0/2.19.0
 C artifacts/stamps into disposable consumer-owned caches; builders validate them normally.
 Root-default source installation retains its existing Android SDK prerequisites. Production
-Android overrides remain the next integration step.
+Android and web support the same scoped selection contract.
 
 In Android Studio, sync Gradle after changing the build script, then run the native main
 configuration (`runDebugExecutableMingwX64`). Generated debug/release run tasks forward console

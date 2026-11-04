@@ -1,6 +1,6 @@
 # Project defaults and module-specific PARI versions
 
-Production JVM, Native and JS/Wasm support scoped versions and module-only configuration. Native checkpoint: 44ecbb5. Production web acceptance passes all 14 cases plus portable locks and actual execution of all four browser pages (build/wp/b2d3df3c69e8). Android production helpers/routing/models and final all-platform acceptance remain open. Shared source acquisition and complete JVM engine caching are verified. Both examples folders and all existing targets are preserved.
+Production JVM, Native, Android and JS/Wasm support scoped versions and module-only configuration. Native checkpoint: 44ecbb5. Production web acceptance passes all 14 cases plus portable locks and actual execution of all four browser pages (build/wp/b2d3df3c69e8). Production Android acceptance passes 14 cases, both ABI split payloads and actual x86_64 Startup/runtime checks. The implementation checklist is complete within the verified host/runtime scope below. Shared source acquisition and complete JVM engine caching are verified. Both examples folders and all existing targets are preserved.
 
 ## Configuration contract
 
@@ -75,7 +75,7 @@ for the same missing source/engine have one producer and waiting consumers reuse
 | Invalid or empty module override | error identifying that file |
 | App selects 2.15.0; dependency explicitly requires 2.19.0 | dependency-conflict error |
 
-## Findings from the current project
+## Initial project findings before implementation
 
 - gradle/parikt.settings.gradle.kts sets one gradle.extra["parikt.version"] and includes one
   :parikt and :pariktAndroidNative. Their build files and output paths assume those singletons.
@@ -136,11 +136,11 @@ logs use the build/platform-native-* prefix; no temporary module override remain
   explicit-request conflict checks and exactly-one-archive validation at final links.
 - [x] Integrate version-scoped web imports/packages, metadata-only staging and selected
   payload/bundle task wiring; verify Node/browser outputs and npm dependency pruning.
-- [ ] Integrate scoped Android helpers/source providers/CXX paths, Startup and ABI packaging,
+- [x] Integrate scoped Android helpers/source providers/CXX paths, Startup and ABI packaging,
   with explicit module-only support and documented model-bootstrap timing.
-- [ ] Exercise production root-default and module-only consumers across all supported platforms,
+- [x] Exercise production root-default and module-only consumers across all supported platforms,
   including both task orders, same-version reuse, strict conflicts and restored builds.
-- [ ] Complete integrated regressions and documentation; preserve both examples folders, all
+- [x] Complete integrated regressions and documentation; preserve both examples folders, all
   existing targets and Android minSdk 21. Record unverified IDE/host/runtime limits separately.
 
 ### Production module-only rollout
@@ -181,7 +181,7 @@ All 24 scoped selection/discovery checks also pass (build/module-only-selection-
 
 This stage was proven in the experimental JVM selection layer. Production now shares its strict
 parser/discovery and supports JVM routing and module-only JVM configuration without a root default.
-Native production routing/module-only support is now verified too. Android remains gated.
+Native production routing/module-only support is now verified too. Android production routing/module-only support now passes too.
 
 - [x] Discover declared consumer project directories after includes are known; exclude generated
   engine/helper projects. Preserve existing settings-script placement where possible.
@@ -195,10 +195,10 @@ Native production routing/module-only support is now verified too. Android remai
 
 ### 3. Isolate outputs and enforce one engine per application
 
-- [ ] Parameterize shared source paths, helper dependencies, build directories and CXX/model paths.
+- [x] Parameterize shared source paths, helper dependencies, build directories and CXX/model paths.
   Remove fixed singleton output locations from generated source components.
   Production JVM/Native have scoped providers, stable klib identities and explicit request checks;
-  Android source/helper/output integration remains open.
+  Android source/helpers/CXX models are isolated per version and verified in production.
 - [x] Preserve target/version/source/toolchain fingerprints and work-cache locks. Share compatible
   dependency caches, without sharing incompatible mutable compilation outputs.
 - [x] Unify PARI source acquisition across backend work caches using a canonical immutable source
@@ -208,13 +208,13 @@ Native production routing/module-only support is now verified too. Android remai
   Also verify concurrent same-version requests and force-rebuild reuse by all matching consumers.
   Verified in the JVM fixture and independent Windows JVM workspaces; other platform routing
   and complete global compiled-engine caches remain outside this completed cache proof.
-- [ ] Scope force/output-directory overrides; reject ambiguous paths shared by different engines.
+- [x] Scope force/output-directory overrides; reject ambiguous paths shared by different engines.
   JVM global directory overrides are rejected with multiple selections; force rebuilds use the
-  selected provider/cache. Other target scoping remains open.
-- [ ] Validate explicit transitive requirements and reject duplicate providers before final linking,
+  selected provider/cache. Native/web/Android force flags and output paths are version-scoped through their selected providers; there is no shared cross-version output directory.
+- [x] Validate explicit transitive requirements and reject duplicate providers before final linking,
   packaging or launch. Diagnostics must identify the dependency chain and configuration files.
-  Production JVM/Native requirements and competing providers are verified; Android remains open.
-- [ ] Account for Android model bootstrap timing: do not promise conflict detection before all
+  Production requirements and competing source/helper providers are verified on all supported platforms.
+- [x] Account for Android model bootstrap timing: do not promise conflict detection before all
   downloads until proven. Avoid preparing unused engines where requested models permit it.
 
 ### 4. Finish JVM launchers and tests
@@ -249,7 +249,7 @@ It uses short build/native-tests/<id>/f paths for Windows GNU ld.gold, direct lo
 safe fixture cleanup. Cache/reuse/restoration cases perform no source fetch or Native engine
 compilation. Windows PowerShell 5.1 and standalone Linux-host Gradle execution are unverified.
 Production Native integration now preserves these proof requirements and passes its separate
-ten-case installer suite, including module-only configurations. Android integration remains open.
+ten-case installer suite, including module-only configurations. Android production integration now passes its 14-case suite.
 
 - [x] Extend the fixture to mingwX64 and linuxX64. Inspect Kotlin/interop klib identities rather
   than assuming different Gradle project names produce interchangeable native dependencies.
@@ -260,7 +260,7 @@ ten-case installer suite, including module-only configurations. Android integrat
 - [x] If embedded archives prevent compatible substitution, resolve the design gate before
   enabling Native overrides; evaluate version-neutral bindings with app-selected final linking.
   Compatible source/interop identities allow one selected embedded archive in the proof; no
-  separate C ABI is needed for these two versions. Production integration remains gated above.
+  separate C ABI is needed for these two versions. Production integration passes the separate installer acceptance suites above.
 
 ### 6. Isolate JS/Wasm engine imports and assets
 
@@ -309,8 +309,7 @@ be isolated. Multiple versions inside one application are a separate, unplanned 
 
 ### 7. Support Android application overrides
 
-Complete as an isolated compatibility proof behind -PandroidProof; production Android overrides
-remain gated on step 3 integration. Eight PowerShell 7 cases pass:
+The isolated compatibility proof behind -PandroidProof is preserved. Production Android integration now passes its separate 14-case suite and actual x86_64 Startup/runtime checks. The original eight isolated PowerShell 7 cases pass:
 build/android-tests/0eb0443f458e/logs. They cover both task orders, shared Kotlin reuse, byte-identical
 classes/module metadata, same-version reuse, override removal/restoration, explicit requirements,
 duplicate engines/helpers and restored builds. Conflicts fail actual assembly before packaging.
@@ -342,9 +341,9 @@ All 24 configuration/discovery regression cases also pass; both examples folders
   invalid overrides, nested paths, custom projectDir and explicit transitive conflicts.
 - [x] Preserve existing configuration checks, adapting the missing-root case to the new rules.
   Demonstrate simultaneous selections in the fixture, not just sequential global-file changes.
-- [ ] Run existing Android, Compose, JVM, Native and JS/Wasm checks. Root-only consumers retain
+- [x] Run existing Android, Compose, JVM, Native and JS/Wasm checks. Root-only consumers retain
   their existing dependency declarations and behavior; matching selections reuse caches.
-- [ ] Document setup, strict library requirements, shared-library behavior, diagnostics, source
+- [x] Document setup, strict library requirements, shared-library behavior, diagnostics, source
   installation limits and actual verified hosts. Update HANDOFF.md after each implementation step.
 
 ## Step 1 proof results (2026-11-03)
@@ -418,9 +417,8 @@ the single reused component, and launches both with successful version/arithmeti
 assertions. The shared library's explicit requirement agrees with both applications. Its native
 cache is reused; :parikt convenience tasks still require a root default, as tested separately.
 Runtime logs remain under build/module-version-tests; copied fixtures are removed.
-Production output isolation/routing, other JVM launchers, configuration-cache support and the
-Native/web/Android isolated proofs are complete; production Native integration also passes above.
-Production Android routing remains open. No custom Gradle plugin was added.
+Production output isolation/routing, JVM launchers and Native/web/Android compatibility proofs are complete. Configuration-cache compatibility is not claimed by these acceptance runs.
+Production Android routing is implemented and verified. No custom Gradle plugin was added.
 
 ## Step 3 cache implementation and verification
 
@@ -461,8 +459,7 @@ launcher (2.15.0) restore compatible JVM engines and pass actual evaluation. The
 build/cache-reuse-independent-consumer-final.log and build/cache-reuse-terminal-final.log.
 
 Global compiled-engine caching is implemented for JVM; the other backends retain their existing
-target/stage caches while sharing source acquisition. Production module routing and Native/web/
-Android multi-application output identity still need their planned proofs. Apple hosts, clean-
+target/stage caches while sharing source acquisition. Production module routing and multi-application output identity now pass the corresponding installer suites on all supported platforms. Apple hosts, clean-
 machine setup, Linux JVM cross-output reuse and emulator execution were not verified here.
 
 ## Boundaries
@@ -479,7 +476,15 @@ machine setup, Linux JVM cross-output reuse and emulator execution were not veri
 - [Gradle capabilities](https://docs.gradle.org/current/userguide/component_capabilities.html)
 - [Kotlin/Native embedded static libraries](https://kotlinlang.org/docs/native-definition-file.html)
 
-These APIs inform the proposed experiments; the project-specific KMP identity and packaging
-requirements above still need to be proven against this repository's pinned toolchain.
+These APIs underlie the completed compatibility proofs and production acceptance suites above, verified against the pinned repository toolchain.
 
-Web checkpoint final regression: all 11 real-application cases pass (build/application-version-tests/90cdaa0a092c42c08d8cf34d0de6c597). No temporary property overrides remain. Android production integration is next.
+
+## Production Android integration results (2026-11-04)
+
+All 14 cases pass: build/android-tests/019645ae5a8b/logs. Source classes/Kotlin metadata match across default/scoped providers. Every arm64-v8a/x86_64 split contains one selected PARI/GMP/JNI/runtime set; PARI/GMP hashes match stripped canonical caches. Both task orders, same-version reuse, override removal, explicit shared/source/helper conflicts, rootless shared/independent chains, missing selections, default-task errors and root-default restoration pass. Final rootless APKs are retained in that run's apks directory.
+
+Both retained x86_64 apps actually pass Startup/version/arithmetic/factorization/error recovery on API36.1 (build/platform-android-runtime-production-final.log). The owned emulator used a separate fresh data image after the existing partition lacked install space. Only new proof apps were installed/uninstalled; existing apps were preserved. Real Compose Android 2.19.0 override assembly and debug/release graphs pass, and its property/binaries are restored to 2.15.0. Final all-target regression: 175 tasks, 55 executed/120 up to date (build/platform-android-all-targets-final.log). All 11 real-application and 13 module-only JVM cases pass, as do five property diagnostics and 24 discovery checks.
+
+Settings register helper build-file placeholders before project evaluation, then generate Android templates only when the root shares AGP. This retains Kotlin-only rootless builds without AGP/SDK requirements. Helpers reference canonical sources, consumer-owned native caches and distinct CXX/build paths; selected provider manifests preserve Startup/minSdk21. Public selectors never infer a missing root default. CLI bootstrap filters real participating Android selections; IDE requests conservatively prepare all helper models after project configuration. Cold model setup may precede conflict resolution. Android Studio sync UI, ARM64/API21 runtime, Apple/clean-machine/Linux-host coverage and publication remain outside verified scope.
+
+Final web regression after Android integration also passes all 14 cases and portable-lockfile checks: build/wp/50ce7e896860/logs. Temporary fixtures, properties and the owned emulator data image are cleaned up. Both examples folders, existing targets and Android minSdk21 are preserved. No custom Gradle plugin was introduced. The remaining limits above concern additional host/IDE/runtime coverage, not unfinished items in this implementation checklist.

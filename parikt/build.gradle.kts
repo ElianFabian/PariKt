@@ -287,6 +287,7 @@ kotlin {
 			selectBuildTypeFrom.set(listOf("debug", "release"))
 		}
 		compilerOptions {
+			moduleName.set("parikt")
 			jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 		}
 	}

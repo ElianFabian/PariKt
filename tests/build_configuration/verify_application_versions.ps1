@@ -72,7 +72,7 @@ try {
     Remove-Item -LiteralPath $sharedFile
     Invoke-ApplicationCheck 'ambiguous-global-output' @('help', '-PjvmNativeDir=build/ambiguous-jvm-output') @('ambiguous with multiple PARI versions') $true
     [IO.File]::WriteAllText($sharedFile, "pari.version=2.19.0`n", $utf8)
-    Invoke-ApplicationCheck 'non-jvm-override-gate' @('pariktSelections') @('Production module overrides currently support JVM, Native and web targets', ':consoleUi', $sharedFile) $true
+    Invoke-ApplicationCheck 'cross-platform-shared-conflict' @(':androidApp:verifyPariAndroidGraph') @('PARI requirement conflict', '2.15.0', '2.19.0', $sharedFile) $true
     [IO.File]::WriteAllText($sharedFile, '', $utf8)
     Invoke-ApplicationCheck 'invalid-local-file' @('help') @('Invalid or missing pari.version', ':consoleUi', $sharedFile) $true
     Remove-Item -LiteralPath $sharedFile

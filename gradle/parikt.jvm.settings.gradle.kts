@@ -36,6 +36,24 @@ gradle.settingsEvaluated {
     }
     gradle.extensions.extraProperties["parikt.jvm.engines"] = engines
     gradle.extensions.extraProperties["parikt.engines"] = engines
+    val helpers = engines.mapValues { (_, engine) ->
+        if (engine == ":parikt") ":pariktAndroidNative" else engine.substringBeforeLast(':') + ":androidNative"
+    }
+    gradle.extensions.extraProperties["parikt.android.helpers"] = helpers
+    helpers.values.filter { it != ":pariktAndroidNative" }.forEach { path ->
+        include(path)
+        project(path).projectDir = File(settingsDir, "build/parikt/android-helper-projects/${path.substringBeforeLast(':').removePrefix(":")}").apply {
+            mkdirs()
+            // Gradle chooses an empty script source if the file is absent at registration.
+            File(this, "build.gradle.kts").takeUnless { it.exists() }?.writeText("// Scoped Android helper; configured before project evaluation.\n")
+        }
+    }
+    // Inspect the root's established plugin classpath only when a child starts evaluation.
+    // This keeps module-only JVM/Native/web builds free of an Android plugin prerequisite.
+    fun androidAvailable(root: Project): Boolean = root.buildscript.configurations.findByName("classpath")
+        ?.incoming?.resolutionResult?.allComponents?.any {
+            it.moduleVersion?.group == "com.android.tools.build" && it.moduleVersion?.name == "gradle"
+        } == true || root.buildscript.classLoader.getResource("com/android/build/gradle/LibraryPlugin.class") != null
     gradle.beforeProject {
         val selected = if (path == ":parikt") defaultVersion?.let {
             Triple(it, File(settingsDir, "parikt.properties").absolutePath, false)
@@ -43,6 +61,28 @@ gradle.settingsEvaluated {
         engines.entries.find { it.value == path && path != ":parikt" }?.let {
             extensions.extraProperties["parikt.checkout"] = checkout
             extensions.extraProperties["parikt.engineVersion"] = it.key
+            if (androidAvailable(rootProject)) {
+                val script = File(projectDir, "build.gradle.kts")
+                val template = File(checkout, "gradle/parikt.android-engine.gradle.kts").readText()
+                val (imports, body) = template.lines().partition { it.startsWith("import ") }
+                var content = script.readText()
+                content = content.replace("plugins { id(\"org.jetbrains.kotlin.multiplatform\") }",
+                    "plugins { id(\"org.jetbrains.kotlin.multiplatform\"); id(\"com.android.kotlin.multiplatform.library\") }")
+                val headerEnd = content.indexOf('\n') + 1
+                content = content.substring(0, headerEnd) + imports.filter { it !in content.lines() }.joinToString("\n") + "\n" + content.substring(headerEnd) +
+                    "\nrun {\n" + body.joinToString("\n") + "\n}\n"
+                if (script.readText() != content) script.writeText(content)
+                val manifest = File(projectDir, "src/androidMain/AndroidManifest.xml").apply { parentFile.mkdirs() }
+                val xml = File(checkout, "parikt/src/androidMain/AndroidManifest.xml").readText()
+                if (!manifest.exists() || manifest.readText() != xml) manifest.writeText(xml)
+            }
+        }
+        helpers.entries.find { it.value == path && path != ":pariktAndroidNative" }?.let {
+            extensions.extraProperties["parikt.engineVersion"] = it.key
+            val content = if (androidAvailable(rootProject)) File(checkout, "pariktAndroidNative/build.gradle.kts").readText()
+                else "// Android helper is inactive: the consuming root does not load AGP.\n"
+            val script = File(projectDir, "build.gradle.kts")
+            if (!script.exists() || script.readText() != content) script.writeText(content)
         }
         if (selected != null) {
             extensions.extraProperties["parikt.jvm.selection"] = selected
@@ -86,6 +126,9 @@ gradle.settingsEvaluated {
             if (plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") && path !in engines.values) {
                 apply(from = File(checkout, "gradle/parikt.native.gradle.kts"))
                 apply(from = File(checkout, "gradle/parikt.web.gradle.kts"))
+            }
+            if (listOf("com.android.application", "com.android.library", "com.android.kotlin.multiplatform.library").any(plugins::hasPlugin) && path !in engines.values) {
+                apply(from = File(checkout, "gradle/parikt.android.gradle.kts"))
             }
         }
     }

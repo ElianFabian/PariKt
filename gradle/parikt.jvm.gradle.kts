@@ -13,8 +13,9 @@ val selection = extra["parikt.jvm.selection"] as Triple<String, String, Boolean>
 val selections = gradle.extensions.extraProperties["parikt.selections"] as Map<String, Triple<String, String, Boolean>>
 @Suppress("UNCHECKED_CAST")
 val engines = gradle.extensions.extraProperties["parikt.jvm.engines"] as Map<String, String>
+@Suppress("UNCHECKED_CAST")
+val helpers = gradle.extensions.extraProperties["parikt.android.helpers"] as Map<String, String>
 val enginePath = engines.getValue(selection.first)
-val defaultVersion = gradle.extensions.extraProperties.properties["parikt.version"] as? String
 fun platform(configuration: Configuration): String? = configuration.attributes.keySet()
     .find { it.name == "org.jetbrains.kotlin.platform.type" }
     ?.let { configuration.attributes.getAttribute(it)?.toString() }
@@ -32,12 +33,8 @@ fun jvmConfiguration(configuration: Configuration): Boolean {
     return (plainJvm || environment == "standard-jvm") && usage in setOf("java-api", "java-runtime")
 }
 fun routedConfiguration(configuration: Configuration): Boolean = jvmConfiguration(configuration) ||
-    platform(configuration) in setOf("common", "native", "js", "wasm")
-if (defaultVersion == null && androidProject()) {
-    throw GradleException("Module-only PARI configuration currently supports JVM, Native and web targets: ${consumer.path} selects ${selection.first} " +
-        "in ${selection.second}, but also has non-JVM targets. Set pari.version in ${consumer.rootProject.file("parikt.properties")} " +
-        "until production Android routing is enabled.")
-}
+    platform(configuration) in setOf("common", "native", "js", "wasm", "androidJvm") ||
+    (androidProject() && configuration.attributes.getAttribute(org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE)?.name in setOf("java-api", "java-runtime"))
 consumer.configurations.configureEach {
     val configuration = this
     resolutionStrategy.dependencySubstitution {
@@ -51,6 +48,15 @@ consumer.configurations.configureEach {
             }
             if (reference?.projectPath == ":parikt" && enginePath != ":parikt" && routedConfiguration(configuration)) {
                 useTarget(target, "PARI ${selection.first} selected by ${selection.second}")
+            }
+            val helper = helpers.getValue(selection.first)
+            if (reference != null && routedConfiguration(configuration)) {
+                if (reference.projectPath != ":pariktAndroidNative" && reference.projectPath in helpers.values && reference.projectPath != helper) {
+                    throw GradleException("PARI Android helper conflict in ${consumer.path}:${configuration.name}: explicit helper ${reference.projectPath} conflicts with selected $helper (${selection.first}, ${selection.second}); dependency declared in ${consumer.buildFile}")
+                }
+                if (reference.projectPath == ":pariktAndroidNative" && helper != ":pariktAndroidNative") {
+                    useTarget(project(helper), "Android PARI ${selection.first} selected by ${selection.second}")
+                }
             }
         }
     }
@@ -80,11 +86,6 @@ consumer.configurations.configureEach {
     }
 }
 gradle.projectsEvaluated {
-    val unsupported = androidProject()
-    if (selection.first != defaultVersion && unsupported) {
-        throw GradleException("Production module overrides currently support JVM, Native and web targets: ${consumer.path} selects ${selection.first} in ${selection.second}, " +
-            "but also has Android targets. Keep its root default $defaultVersion until production Android routing is enabled.")
-    }
     val hasJvm = consumer.configurations.any { platform(it) == "jvm" } ||
         (!androidProject() && consumer.plugins.hasPlugin("java"))
     if (!hasJvm) return@projectsEvaluated

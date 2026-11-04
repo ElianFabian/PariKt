@@ -6,7 +6,7 @@ overrides and module-only JVM/Native configuration too. The disposable productio
 `pwsh -File tests/build_configuration/verify_production_module_only.ps1` uses the real production
 settings script with this fixture's Kotlin sources; it does not use this fixture's engine scaffold.
 Native routing here remains an opt-in linking proof; the production installer now also supports
-Native overrides. Production web/Android overrides remain gated. Existing targets and minSdk 21 persist.
+Native, web and Android overrides through the production acceptance harnesses. Existing targets and minSdk 21 persist.
 
 From the repository root, using its JDK/Gradle/native build prerequisites:
 
@@ -92,7 +92,7 @@ with PowerShell 7: unused payloads, both orders/cache reuse, same-version reuse,
 removal/restoration, strict requirements, duplicate rejection and restored bundles. All four
 browser pages also actually load and report their selected versions and arithmetic/factorization/
 error-recovery success. Each distribution includes index.html and can be served over HTTP.
-Production web overrides remain gated; this is an isolated compatibility proof.
+This remains an isolated compatibility proof; production web overrides also pass their separate installer acceptance suite.
 
 ## Opt-in Android proof
 
@@ -129,7 +129,7 @@ the existing emulator had limited storage; unrelated apps were preserved. Instal
 split with adb install -r, launch <applicationId>/proof.AndroidMainActivity and inspect the
 PariKtProof logcat tag. Application IDs are com.elianfabian.parikt.proof.a and .b.
 NDK models configure/build successfully for both ABIs and versions; the Android Studio sync UI
-was not automated. Production Android overrides remain gated pending common integration.
+was not automated. Production Android overrides also pass their separate installer/runtime acceptance suite.
 
 ## Default JVM fixture details
 
@@ -213,6 +213,8 @@ The test requires a previously prepared JVM compiler/GMP source cache and perfor
 Consumer library paths stay in their own staged output directories. Linux JVM optional-data
 paths are part of engine identity; different configured paths are separate build options.
 
-Configuration-cache support and production web/Android routing remain in the plan.
+Production routing is now implemented across JVM, Native, JS/Wasm and Android. The production acceptance harnesses use the actual installer and retain this folder as a focused compatibility proof.
 The isolated compatibility proofs above establish their recorded scope; production integration
 must preserve those identities, package boundaries and cache behavior.
+
+For the real installer, run verify_native_module_versions.ps1 -Production, verify_web_module_versions.ps1 -Production and verify_android_module_versions.ps1 -Production from tests/build_configuration. They cover module-only/shared/independent chains in addition to the isolated cases. Production Android retains final split APKs under each ignored run's apks directory for verify_android_runtime.ps1. Root defaults and module-local properties use the same contract on all targets.

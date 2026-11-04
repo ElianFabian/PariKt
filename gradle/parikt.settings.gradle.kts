@@ -50,7 +50,7 @@ if (selectedVersion != null) {
         }
     }
 }
-// JVM/Native/web consumers can select scoped providers. Android overrides stay gated.
+// Each participating consumer can select a scoped provider for all its targets.
 apply(from = File(sourceDirectory, "gradle/parikt.jvm.settings.gradle.kts"))
 if (selectedVersion != null) logger.lifecycle("[PariKt] Consumer selected PARI $selectedVersion (${configurationFile.asFile})")
-else logger.lifecycle("[PariKt] No root PARI default; participating JVM/Native/web modules must select pari.version locally.")
+else logger.lifecycle("[PariKt] No root PARI default; participating modules must select pari.version locally.")

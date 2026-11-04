@@ -56,3 +56,5 @@ PowerShell 5.1); the work-cache locking check is
 After a successful JVM build, `python tests/build_configuration/verify_bridge_cache.py` verifies
 that changing JNI source rebuilds at the same PARI version, restores the exact source afterward,
 and checks that the next unchanged build reuses the cache.
+
+This example also supports app/parikt.properties overrides and module-only configuration: remove this build's root properties file and put the selection in app/parikt.properties. Every other participating module would also need its own selection. The generated assertion reads the app's scoped selection. After changing web selections, run kotlinUpgradePackageLock and kotlinWasmUpgradePackageLock. Public default-engine tasks require the root file even when module selections agree. Both examples folders are intentionally preserved: this one demonstrates installation, while module-versions provides focused multi-application proofs.
