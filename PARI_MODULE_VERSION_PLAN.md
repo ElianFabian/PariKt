@@ -535,6 +535,9 @@ Review at 6e81a26: PROJECT_REVIEW.md. All six correctness fixes are implemented 
 - [x] Consolidate duplicated default/scoped provider and PowerShell harness setup after correctness fixes.
 
 Completed plan: STRUCTURAL_CLEANUP_PLAN.md (baseline 920cd84).
+Contributor onboarding is documented in docs/CONTRIBUTOR_GUIDE.md: project/target implementation,
+PARI/cache integration and test-script usage, prerequisites, side effects and interpretation.
+Local links/script coverage and all ten documented preparation task paths were verified.
 The canonical engine definition now lives in parikt/build.gradle.kts for both default/scoped
 providers; separate platform provider templates are removed. PowerShell harness extraction is
 verified across nine suites. All production version/cache, backend, discovery, module-only and

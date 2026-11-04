@@ -8,6 +8,14 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+The new [contributor guide](docs/CONTRIBUTOR_GUIDE.md) explains the module/source-set map, backend
+call/build paths, version routing/generated providers, cache layers and verification scripts.
+Documentation references and commands were checked against the current source; no runtime code
+changed for this guide. README links it as the entry point for new contributors.
+All local documentation links and script inventory references pass checks. The guide's ten
+engine-preparation task paths resolve in a Gradle dry run (build/documentation-checks/
+preparation-task-paths.log). The README's obsolete mandatory-Android statement is corrected.
+
 The six correctness fixes are committed in 920cd84. Structural cleanup is complete according
 to [STRUCTURAL_CLEANUP_PLAN.md](STRUCTURAL_CLEANUP_PLAN.md). Default and scoped providers now use
 one canonical parikt/build.gradle.kts; settings copies that build definition into scoped project

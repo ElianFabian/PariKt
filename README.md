@@ -3,6 +3,9 @@
 PariKt is a Kotlin Multiplatform library that exposes the PARI/GP engine through a small common
 Kotlin API.
 
+New to the repository? Read the [contributor guide](docs/CONTRIBUTOR_GUIDE.md) for the project
+layout, each target's implementation, PARI builds/caches, and a verification-script reference.
+
 ## Choose PARI independently of PariKt
 
 Set the engine version in the **consuming project's** root `parikt.properties`:
@@ -41,10 +44,10 @@ plugins {
 
 Your Kotlin module can then declare `implementation(project(":parikt"))`. If your root build
 already declares these plugins, keep one declaration using the same versions. The current build
-baseline is Gradle 9.6.0, Kotlin 2.4.21 and AGP 9.4.1. Android SDK/NDK and the host prerequisites
-below are still required: the source library currently configures all implemented targets,
-including its Android native model, when a root default configures the full source library.
-Module-only JVM/Native/web builds configure scoped providers and need the Kotlin plugin classpath:
+baseline is Gradle 9.6.0, Kotlin 2.4.21 and AGP 9.4.1. Sharing AGP enables the Android target/model
+and requires the Android SDK/NDK and host prerequisites below. Kotlin-only roots can omit AGP;
+default and scoped providers then configure the non-Android targets. JVM/Native/web consumers
+need the Kotlin plugin classpath:
 
 ```kotlin
 plugins {
