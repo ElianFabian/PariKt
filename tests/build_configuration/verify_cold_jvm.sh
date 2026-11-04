@@ -30,6 +30,23 @@ export KONAN_DATA_DIR="$cold_root/konan"
 export JAVA_HOME
 JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")
 unset PARIKT_SOURCE_REMOTE
+# The acquisition helper intentionally searches legacy caches even when its new
+# store is empty. Hide only git -C lookups outside this probe's root so the real
+# upstream fetch runs, while leaving production cache migration unchanged.
+export PARIKT_COLD_REAL_GIT
+PARIKT_COLD_REAL_GIT=$(command -v git)
+export PARIKT_COLD_ROOT="$cold_root"
+mkdir -p "$cold_root/bin"
+cat > "$cold_root/bin/git" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = -C ]; then
+  case "${2:-}" in "$PARIKT_COLD_ROOT"/*) ;; *) exit 1;; esac
+fi
+exec "$PARIKT_COLD_REAL_GIT" "$@"
+SH
+chmod +x "$cold_root/bin/git"
+export PATH="$cold_root/bin:$PATH"
 fixture="$cold_root/consumer"
 if [ -z "${5:-}" ]; then
 mkdir -p "$fixture/app/src/main/kotlin/probe"

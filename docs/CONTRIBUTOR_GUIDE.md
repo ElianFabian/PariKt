@@ -310,6 +310,12 @@ installer; omitting it on the three platform suites tests the older compatibilit
 | `verify_consumer.py` | Full standalone consumer on 2.15.0 and 2.19.0: JVM, Native, Node adapters and Android helper assembly. Temporarily changes `examples/consumer/parikt.properties` and restores it. Can download/build engines. Run with `python tests/build_configuration/verify_consumer.py`. |
 | `verify_bridge_cache.py` | JNI source edit changes the compiled-engine fingerprint, restoration restores it, and unchanged reuse follows. Requires an already built standalone JVM consumer. Temporarily appends a C comment and restores exact bytes; run without other edits/builds touching that source. |
 
+The cold JVM verifier hides legacy `git -C` source-cache lookups outside its isolated root;
+the production source helper normally imports those Git objects to avoid duplicate downloads.
+Upstream fetches still use real Git. Without this test-only filtering, an empty new acquisition
+store would not prove a fresh source download. Current end-to-end cold verification remains
+incomplete because of the WSL download failure recorded in the handoff.
+
 For example, after preparation, run these sequentially:
 
 ```powershell

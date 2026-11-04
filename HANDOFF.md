@@ -14,7 +14,8 @@ source, compiled-engine, native-work and Konan caches. Installed JDK/C tools rem
 -GradleExecutable can reuse an installed Gradle distribution; default wrapper provisioning was
 stopped during slow download and is unverified. No ARM64 device was connected.
 
-The real run acquired uncached plugins/dependencies and PARI sources, compiled the Kotlin app,
+The real run acquired uncached plugins/dependencies, imported legacy cached PARI Git objects,
+compiled the Kotlin app,
 and passed compile/runtime graph selection checks. Native preparation then failed downloading
 GMP from gmplib.org (curl 56 / OpenSSL unexpected EOF), before C compilation/application execution.
 GNU mirror probes also timed out in WSL, including IPv4/HTTP1.1, while the same GNU archive
@@ -27,11 +28,17 @@ The initial /tmp cache root disappeared on WSL shutdown after failure, preventin
 runs use fresh durable ~/.cache/parikt-verification/cold-jvm.* directories and retain their path
 in linux-root.txt. ResumeLogDirectory preserves original cold evidence and checks the same release;
 supply the same GradleExecutable. Maven Central is prioritized and recommended commonization is
-enabled in the fixture. Existing caches and examples are untouched; no verification is running.
+enabled in the fixture. A verification-only Git wrapper rejects legacy source lookups outside
+the isolated root, while upstream fetches still use real Git. The first attempt did not isolate
+legacy seeding; the tightened source-acquisition path still needs a successful real run.
+Existing caches and examples are untouched; no real verification is running.
 Offline fake-tool tests pass initial/retry failure, acquisition-evidence preservation, resumed
 warm-generation and mismatched-version/tool assertions; logs are explicitly labelled
-OFFLINE_HARNESS_ONLY (build/cold-jvm/0f02cf899acf; build/cold-jvm-harness). These validate
-harness flow, not native/runtime behavior. Bash/PowerShell syntax and documentation checks pass.
+OFFLINE_HARNESS_ONLY (build/cold-jvm/9fa8e7fafc5f; build/cold-jvm-harness). A real-Git local-remote
+test also proves that the wrapper fetches the test tag instead of importing the global legacy
+tag, rejects outside-root lookups and delegates file hashing unchanged (source-isolation.log).
+These validate harness flow/isolation, not native/runtime behavior. Bash/PowerShell syntax and
+documentation checks pass.
 Next: retry the real cold verifier with working WSL/Linux downloads; leave its checklist unchecked.
 
 Android Studio GUI sync is now verified at eb94ea7 on Windows x86_64/WSL with prepared caches.
