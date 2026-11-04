@@ -175,6 +175,18 @@ pass strict cache storage/reuse. Verified host: Windows x86_64 with WSL. Android
 (2026.2.1) also completes a manually triggered GUI sync/model import with prepared caches.
 Fresh-host setup, broader IDE run/debug workflows and other hosts retain their coverage limits.
 
+To exercise the Linux JVM bootstrap with isolated empty caches (WSL on Windows), run
+`pwsh -File tests/build_configuration/verify_cold_jvm.ps1`. It uses installed host build tools,
+downloads Gradle/dependencies/sources, builds and runs a consumer, then verifies warm cache reuse.
+It preserves existing caches and retains its new temporary root for diagnosis. This is a focused
+cold-cache check, not a complete fresh-machine installation proof.
+`-GradleExecutable <path-to-bin/gradle>` uses an installed distribution while retaining empty
+dependency/native caches. With that option, `-ResumeLogDirectory <previous-run>` continues a
+failed run and preserves the original evidence. Linux state is kept in a new durable directory
+under `~/.cache/parikt-verification`; logs are under `build/cold-jvm/`.
+The first real run compiled the Kotlin consumer and passed graph checks, but GMP acquisition
+failed with a WSL TLS EOF. Runtime/warm reuse remain unverified; see the handoff for diagnostics.
+
 ## Android
 
 The Android target uses the Android-KMP library plugin. JNI and the Android NDK build live in the

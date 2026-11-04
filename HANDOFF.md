@@ -8,6 +8,32 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Cold-cache Linux JVM verification was attempted and is incomplete because of WSL downloads.
+verify_cold_jvm.ps1/.sh creates an independent Kotlin-only consumer with empty dependency, PARI
+source, compiled-engine, native-work and Konan caches. Installed JDK/C tools remain prerequisites.
+-GradleExecutable can reuse an installed Gradle distribution; default wrapper provisioning was
+stopped during slow download and is unverified. No ARM64 device was connected.
+
+The real run acquired uncached plugins/dependencies and PARI sources, compiled the Kotlin app,
+and passed compile/runtime graph selection checks. Native preparation then failed downloading
+GMP from gmplib.org (curl 56 / OpenSSL unexpected EOF), before C compilation/application execution.
+GNU mirror probes also timed out in WSL, including IPv4/HTTP1.1, while the same GNU archive
+successfully downloaded and passed tar validation on Windows. The production URL is unchanged:
+switching mirrors did not establish a fix for this environment. Full cold runtime/warm reuse are
+not verified. Evidence: build/cold-jvm/23c9ec2861f8/{cold,environment,worker}.log and
+build/cold-jvm-harness/gnu-{download,archive-check}.log.
+
+The initial /tmp cache root disappeared on WSL shutdown after failure, preventing resume. New
+runs use fresh durable ~/.cache/parikt-verification/cold-jvm.* directories and retain their path
+in linux-root.txt. ResumeLogDirectory preserves original cold evidence and checks the same release;
+supply the same GradleExecutable. Maven Central is prioritized and recommended commonization is
+enabled in the fixture. Existing caches and examples are untouched; no verification is running.
+Offline fake-tool tests pass initial/retry failure, acquisition-evidence preservation, resumed
+warm-generation and mismatched-version/tool assertions; logs are explicitly labelled
+OFFLINE_HARNESS_ONLY (build/cold-jvm/0f02cf899acf; build/cold-jvm-harness). These validate
+harness flow, not native/runtime behavior. Bash/PowerShell syntax and documentation checks pass.
+Next: retry the real cold verifier with working WSL/Linux downloads; leave its checklist unchecked.
+
 Android Studio GUI sync is now verified at eb94ea7 on Windows x86_64/WSL with prepared caches.
 Android Studio Rabbit 1 (2026.2.1) opened the repository; manually invoking Sync Project with
 Gradle Files completed successfully in 29.525 seconds, followed by IDE model import completion.

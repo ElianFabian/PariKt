@@ -2,6 +2,15 @@
 
 ## Additional environment verification
 
+- [ ] Cold Linux JVM consumer download/build/runtime with empty caches, followed by warm reuse.
+  Attempted via verify_cold_jvm.ps1/.sh with installed Gradle/JDK/C tools. Empty-cache plugin
+  acquisition, Kotlin compilation and JVM graph checks pass, but GMP acquisition fails with
+  WSL curl 56 / TLS EOF. GNU mirror probes also time out in WSL while Windows downloads succeed;
+  production downloader is unchanged. Runtime and warm reuse remain unverified. Wrapper-download
+  mode was stopped for slow transfer and remains unverified. Logs: build/cold-jvm/23c9ec2861f8.
+  Verifier state now survives WSL restarts in ~/.cache/parikt-verification. Offline simulated
+  failure/resume/generation checks pass (build/cold-jvm-harness); these are not runtime evidence.
+
 - [x] Open eb94ea7 in Android Studio and trigger Gradle sync through the GUI.
   Rabbit 1 (2026.2.1), Windows x86_64/WSL, prepared caches: sync succeeds in 29.525 seconds and
   IDE model import completes. Default/scoped providers and application modules appear in the
