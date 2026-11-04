@@ -2,6 +2,7 @@
 # Test the production settings script rather than the experimental provider scaffold.
 # Requires prepared 2.15.0/2.19.0 JVM engines: every case also checks compatible cache reuse.
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'harness.ps1')
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $source = Join-Path $repositoryRoot 'examples/module-versions'
 $scratch = Join-Path $repositoryRoot 'build/production-module-only'
@@ -90,31 +91,9 @@ Write-Fixture 'kmpLibrary/src/commonMain/kotlin/probe/Probe.kt' 'package probe; 
 Write-Fixture 'kmpLibrary/src/jvmMain/java/probe/JavaProbe.java' 'package probe; public final class JavaProbe { public static Object engine() { return com.elianfabian.parikt.PariKt.INSTANCE; } }'
 function Invoke-ProductionCheck([string]$Name, [string[]]$Tasks, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Absent = @()) {
     $log = Join-Path $logs "$Name.log"
-    $startInfo = [Diagnostics.ProcessStartInfo]::new()
-    $startInfo.WorkingDirectory = $repositoryRoot
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    if ($onWindows) {
-        $startInfo.FileName = $env:ComSpec
-        foreach ($item in @{ WRAPPER = $wrapper; FIXTURE = $fixture; SOURCE = $repositoryRoot; LOG = $log }.GetEnumerator()) {
-            $startInfo.EnvironmentVariables["PARIKT_ONLY_$($item.Key)"] = $item.Value
-        }
-        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_ONLY_WRAPPER%" -p "%PARIKT_ONLY_FIXTURE%" "-PpariktSourceDir=%PARIKT_ONLY_SOURCE%" --no-parallel --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' > "%PARIKT_ONLY_LOG%" 2>&1"'
-    } else {
-        $startInfo.FileName = 'bash'
-        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--no-parallel', '--console=plain', '--warning-mode=all') + $Tasks)) { $startInfo.ArgumentList.Add($argument) }
-    }
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    try { $null = $process.Start(); $process.WaitForExit(); $code = $process.ExitCode } finally { $process.Dispose() }
-    $output = [IO.File]::ReadAllText($log)
-    if (($code -ne 0) -ne $Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
-    foreach ($fragment in $Expected) {
-        if (-not $output.Contains($fragment)) { throw "Missing '$fragment' for $Name. See $log`n$output" }
-    }
-    foreach ($fragment in ($Absent + @('has been deprecated', '[pari-source] fetching', 'configuring PARI', 'building static GMP'))) {
-        if ($output.Contains($fragment)) { throw "Unexpected '$fragment' for $Name. See $log" }
-    }
+    $result = Invoke-PariKtGradle -Repository $repositoryRoot -Wrapper $wrapper -Log $log -Arguments (@('-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--no-parallel', '--console=plain', '--warning-mode=all') + $Tasks)
+    $output = $result.Output
+    Assert-PariKtOutput -Result $result -Log $log -Failure $Failure -Expected $Expected -Absent ($Absent + @('has been deprecated'))
     if ($Failure -and ($output.Contains('[jvm-native]') -or $output.Contains('[pari-source]'))) { throw "Negative case reached native preparation: $log" }
     Write-Host "PASS: $Name ($log)"
 }
@@ -155,8 +134,5 @@ try {
     Remove-Item -LiteralPath (Join-Path $fixture 'parikt.properties')
     Invoke-ProductionCheck 'restored-rootless-build' $independent @($pass19, $pass15, 'PASS production JVM identity: 2 providers', 'reusing compiled engine')
 } finally {
-    $resolved = [IO.Path]::GetFullPath($fixture)
-    $prefix = [IO.Path]::GetFullPath($scratch).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-    if (-not $resolved.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Refusing to delete outside $scratch`: $resolved" }
-    if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
+    Remove-PariKtFixture -Path $fixture -Parent $scratch
 }

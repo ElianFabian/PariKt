@@ -23,14 +23,9 @@ gradle.settingsEvaluated {
         File(parent.projectDir, parent.buildFileName).writeText("// Namespace for a scoped PARI source provider.\n")
         project(path).projectDir = File(parent.projectDir, "parikt").apply {
             mkdirs()
-            val base = providers.fileContents(layout.settingsDirectory.file(File(checkout, "gradle/parikt.jvm-engine.gradle.kts").absolutePath)).asText.get()
-            val extensions = listOf("native", "web", "android").map { platform ->
-                providers.fileContents(layout.settingsDirectory.file(File(checkout, "gradle/parikt.$platform-engine.gradle.kts").absolutePath)).asText.get()
-                    .lines().partition { it.startsWith("import ") }
-            }
-            val content = "@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class, org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)\n" +
-                extensions.flatMap { it.first }.distinct().joinToString("\n") + "\n" + base +
-                extensions.joinToString("\n") { "\nrun {\n" + it.second.joinToString("\n") + "\n}\n" }
+            // Compile one provider definition with the project's KGP classpath. Applied typed
+            // scripts would have a separate classloader; this is a build script, not a plugin.
+            val content = providers.fileContents(layout.settingsDirectory.file(File(checkout, "parikt/build.gradle.kts").absolutePath)).asText.get()
             val script = File(this, "build.gradle.kts")
             script.writeText(content)
             val manifest = File(this, "src/androidMain/AndroidManifest.xml").apply { parentFile.mkdirs() }

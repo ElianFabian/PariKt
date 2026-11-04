@@ -1,6 +1,7 @@
 # Scoped property/discovery checks, without invoking native builders.
 # PowerShell 7 and Windows PowerShell 5.1; use a disposable copied consumer build.
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'harness.ps1')
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $source = Join-Path $repositoryRoot 'examples/module-versions'
 $scratch = Join-Path $repositoryRoot 'build/module-selection-tests'
@@ -15,51 +16,15 @@ function Write-Fixture([string]$Relative, [string]$Content) {
 }
 function Invoke-Selection([string]$Name, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Tasks = @('pariktSelections'), [string[]]$Absent = @()) {
     $log = Join-Path $scratch ($Name + '.log')
-    $startInfo = [Diagnostics.ProcessStartInfo]::new()
-    $startInfo.WorkingDirectory = $repositoryRoot
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    if ($onWindows) {
-        $startInfo.FileName = $env:ComSpec
-        $startInfo.EnvironmentVariables['PARIKT_SELECTION_WRAPPER'] = $wrapper
-        $startInfo.EnvironmentVariables['PARIKT_SELECTION_FIXTURE'] = $fixture
-        $startInfo.EnvironmentVariables['PARIKT_SELECTION_SOURCE'] = $repositoryRoot
-        $startInfo.EnvironmentVariables['PARIKT_SELECTION_LOG'] = $log
-        # Task/option strings are fixed literals below. Quote path expansions.
-        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_SELECTION_WRAPPER%" -p "%PARIKT_SELECTION_FIXTURE%" "-PpariktSourceDir=%PARIKT_SELECTION_SOURCE%" --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' > "%PARIKT_SELECTION_LOG%" 2>&1"'
-    } else {
-        $startInfo.FileName = 'bash'
-        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--console=plain', '--warning-mode=all') + $Tasks)) {
-            $startInfo.ArgumentList.Add($argument)
-        }
-    }
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    try {
-        $null = $process.Start()
-        $process.WaitForExit()
-        $code = $process.ExitCode
-    } finally { $process.Dispose() }
-    $stream = [IO.File]::Open($log, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
-    $reader = [IO.StreamReader]::new($stream, $utf8, $true)
-    try { $output = $reader.ReadToEnd() } finally { $reader.Dispose() }
-    if (($code -ne 0) -ne $Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
-    foreach ($fragment in $Expected) {
-        if (-not $output.Contains($fragment)) { throw "Missing '$fragment' for $Name. See $log`n$output" }
-    }
-    foreach ($fragment in (@('[jvm-native]', '[android-native]', 'has been deprecated', 'compileKotlinJvm') + $Absent)) {
-        if ($output.Contains($fragment)) { throw "Unexpected '$fragment' for $Name. See $log`n$output" }
-    }
+    $result = Invoke-PariKtGradle -Repository $repositoryRoot -Wrapper $wrapper -Log $log -Arguments (@('-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--console=plain', '--warning-mode=all') + $Tasks)
+    $output = $result.Output
+    Assert-PariKtOutput -Result $result -Log $log -Failure $Failure -Expected $Expected -Absent (@('[jvm-native]', '[android-native]', 'has been deprecated', 'compileKotlinJvm') + $Absent)
     if ($output -match '(?m)^:parikt[^ ]* = ') { throw "Internal project leaked into selections. See $log" }
     Write-Host "PASS: $Name ($log)"
 }
 try {
     $null = New-Item -ItemType Directory -Path $fixture -Force
-    foreach ($file in (Get-ChildItem -LiteralPath $source -Recurse -File)) {
-        $relative = $file.FullName.Substring($source.Length).TrimStart('\', '/')
-        if ($relative -match '(^|[\\/])(build|\.gradle|\.kotlin)([\\/]|$)') { continue }
-        Write-Fixture $relative ([IO.File]::ReadAllText($file.FullName))
-    }
+    Copy-PariKtFixture -Source $source -Destination $fixture
     $settings = [IO.File]::ReadAllText((Join-Path $fixture 'settings.gradle.kts'))
     Invoke-Selection 'defaults-and-override' @(':appA = 2.19.0; inherited;', ':appB = 2.15.0; explicit;', ':sharedLogic = 2.19.0; inherited;', 'sharedLogic', 'parikt.properties; participating')
     $applyLine = 'apply(from = File(checkout, "gradle/parikt.selections.settings.gradle.kts"))'
@@ -132,8 +97,5 @@ project(":apps:plainApp").projectDir = file("custom/plain")
     Write-Fixture 'settings.gradle.kts' ($settings.Replace('include(":appA", ":appB", ":sharedLogic")', 'include(":unrelated")'))
     Invoke-Selection 'unrelated-only' @(': = unselected; no PariKt dependency', ':unrelated = unselected; no PariKt dependency')
 } finally {
-    $resolved = [IO.Path]::GetFullPath($fixture)
-    $prefix = [IO.Path]::GetFullPath($scratch).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-    if (-not $resolved.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Refusing to delete fixture outside $scratch`: $resolved" }
-    if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
+    Remove-PariKtFixture -Path $fixture -Parent $scratch
 }

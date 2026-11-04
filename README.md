@@ -158,6 +158,13 @@ missing/invalid selections, strict conflicts and restored module-only builds:
 pwsh -File tests/build_configuration/verify_configuration_cache.ps1 -Platforms
 ```
 
+Default and scoped engine providers use the same `parikt/build.gradle.kts` definition. Settings
+copies it into generated scoped projects and supplies the selected version; sources remain in
+the pinned checkout. Android configuration is enabled when the consuming root shares AGP.
+There is no custom Gradle plugin. Verification scripts share `tests/build_configuration/harness.ps1`
+for process/log handling and fixture operations; run `verify_harness.ps1` to check those helpers.
+Current maintenance status and archived rollout notes are linked from [HANDOFF.md](HANDOFF.md).
+
 `-Platforms` also checks the real JVM launchers, Android debug APK, Native links and identity,
 JS/Wasm tests and graph diagnostics. Standalone consumer execution, JVM tests, Compose browser
 distributions, interactive JVM/Windows Native launchers and missing Native metadata recovery also

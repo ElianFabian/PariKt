@@ -1,6 +1,7 @@
 # JVM proof and module-only runtime check. Never edit checked-in fixture files.
 # Compatible with PowerShell 7 and Windows PowerShell 5.1.
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'harness.ps1')
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $source = Join-Path $repositoryRoot 'examples/module-versions'
 $scratch = Join-Path $repositoryRoot 'build/module-version-tests'
@@ -12,52 +13,12 @@ $wrapper = Join-Path $repositoryRoot $(if ($onWindows) { 'gradlew.bat' } else { 
 $null = New-Item -ItemType Directory -Path $fixture -Force
 $null = New-Item -ItemType Directory -Path $runLogs -Force
 [IO.File]::WriteAllText((Join-Path $scratch 'latest-run.txt'), $runLogs, $utf8)
-foreach ($file in (Get-ChildItem -LiteralPath $source -Recurse -File)) {
-    $relative = $file.FullName.Substring($source.Length).TrimStart('\', '/')
-    if ($relative -match '(^|[\\/])(build|\.gradle|\.kotlin)([\\/]|$)') { continue }
-    $destination = Join-Path $fixture $relative
-    $null = New-Item -ItemType Directory -Path (Split-Path $destination) -Force
-    Copy-Item -LiteralPath $file.FullName -Destination $destination
-}
+Copy-PariKtFixture -Source $source -Destination $fixture
 function Invoke-Proof([string]$Name, [string[]]$Tasks, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Absent = @()) {
     $log = Join-Path $runLogs ($Name + '.log')
-    $startInfo = [Diagnostics.ProcessStartInfo]::new()
-    $startInfo.WorkingDirectory = $repositoryRoot
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    if ($onWindows) {
-        $startInfo.FileName = $env:ComSpec
-        $startInfo.EnvironmentVariables['PARIKT_PROOF_WRAPPER'] = $wrapper
-        $startInfo.EnvironmentVariables['PARIKT_PROOF_FIXTURE'] = $fixture
-        $startInfo.EnvironmentVariables['PARIKT_PROOF_SOURCE'] = $repositoryRoot
-        $startInfo.EnvironmentVariables['PARIKT_PROOF_LOG'] = $log
-        # Tasks are fixed test literals; paths use quoted environment expansions.
-        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_PROOF_WRAPPER%" -p "%PARIKT_PROOF_FIXTURE%" "-PpariktSourceDir=%PARIKT_PROOF_SOURCE%" --console=plain ' + ($Tasks -join ' ') + ' > "%PARIKT_PROOF_LOG%" 2>&1"'
-    } else {
-        $startInfo.FileName = 'bash'
-        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--console=plain') + $Tasks)) {
-            $startInfo.ArgumentList.Add($argument)
-        }
-    }
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    try {
-        $null = $process.Start()
-        $process.WaitForExit()
-        $code = $process.ExitCode
-    } finally { $process.Dispose() }
-    # Compiler daemons can retain inherited pipe handles after the Gradle client
-    # exits. Read a disk log instead of waiting for EOF on redirected pipes.
-    $stream = [IO.File]::Open($log, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
-    $reader = [IO.StreamReader]::new($stream, $utf8, $true)
-    try { $output = $reader.ReadToEnd() } finally { $reader.Dispose() }
-    if (($code -ne 0) -ne $Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
-    foreach ($fragment in $Expected) {
-        if (-not $output.Contains($fragment)) { throw "Missing '$fragment' for $Name. See $log`n$output" }
-    }
-    foreach ($fragment in $Absent) {
-        if ($output.Contains($fragment)) { throw "Unexpected '$fragment' for $Name. See $log`n$output" }
-    }
+    $result = Invoke-PariKtGradle -Repository $repositoryRoot -Wrapper $wrapper -Log $log -Arguments (@('-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '--console=plain') + $Tasks)
+    $output = $result.Output
+    Assert-PariKtOutput -Result $result -Log $log -Failure $Failure -Expected $Expected -Absent $Absent
     $script:lastProofOutput = $output
     if ($Failure -and $output.Contains('[jvm-native]')) { throw "Negative case $Name reached native setup. See $log" }
     Write-Host "PASS: $Name ($log)"
@@ -129,10 +90,5 @@ try {
         '> Task :appA:run', '> Task :appB:run', 'PASS sharedLogic PARI 2.15.0 arithmetic/factorization'
     )
 } finally {
-    $resolved = [IO.Path]::GetFullPath($fixture)
-    $prefix = [IO.Path]::GetFullPath($scratch).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-    if (-not $resolved.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
-        throw "Refusing to delete fixture outside $scratch`: $resolved"
-    }
-    Remove-Item -LiteralPath $resolved -Recurse -Force
+    Remove-PariKtFixture -Path $fixture -Parent $scratch
 }

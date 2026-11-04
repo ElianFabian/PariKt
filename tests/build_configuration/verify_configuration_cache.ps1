@@ -2,6 +2,7 @@
 # Real installer/cache acceptance. Uses prepared compatible JVM engines; never edits demo files.
 param([switch]$Platforms)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'harness.ps1')
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $scratch = Join-Path $repositoryRoot 'build/configuration-cache-tests'
 $runRoot = Join-Path $scratch ([Guid]::NewGuid().ToString('N').Substring(0, 12))
@@ -17,13 +18,7 @@ function Write-Fixture([string]$Path, [string]$Content) {
 }
 foreach ($module in @('appA', 'appB', 'sharedLogic')) {
     $source = Join-Path $repositoryRoot "examples/module-versions/$module"
-    foreach ($file in (Get-ChildItem -LiteralPath $source -Recurse -File)) {
-        $relative = $file.FullName.Substring($source.Length).TrimStart('\', '/')
-        if ($relative -match '(^|[\\/])(build|\.gradle|\.kotlin)([\\/]|$)') { continue }
-        $destination = Join-Path $fixture "$module/$relative"
-        $null = New-Item -ItemType Directory -Path (Split-Path $destination) -Force
-        Copy-Item -LiteralPath $file.FullName -Destination $destination
-    }
+    Copy-PariKtFixture -Source $source -Destination (Join-Path $fixture $module)
     Write-Fixture "$module/parikt.properties" "pari.version=2.19.0`n"
 }
 Write-Fixture 'settings.gradle.kts' @'
@@ -78,29 +73,10 @@ tasks.named<JavaExec>("run") { selected?.first?.let { args(it) } }
 $defaultTasks = @(':appA:run', ':appB:run', ':appA:verifyPariJvmGraph', ':appB:verifyPariJvmGraph', 'verifyPariJvmIdentity', 'pariktSelections')
 function Invoke-CacheBuild([string]$Name, [string[]]$Expected, [switch]$Reuse, [switch]$Failure, [string[]]$Tasks = $defaultTasks, [string]$Directory = $fixture) {
     $log = Join-Path $logs "$Name.log"
-    $start = [Diagnostics.ProcessStartInfo]::new()
-    $start.WorkingDirectory = $repositoryRoot
-    $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true
     $flags = @('--configuration-cache', '--configuration-cache-problems=fail', '--no-parallel', '--console=plain', '--warning-mode=all')
-    if ($IsWindows) {
-        $start.FileName = $env:ComSpec
-        foreach ($item in @{ WRAPPER=$wrapper; DIRECTORY=$Directory; SOURCE=$repositoryRoot; LOG=$log }.GetEnumerator()) {
-            $start.EnvironmentVariables["PARIKT_CC_$($item.Key)"] = $item.Value
-        }
-        $start.Arguments = '/d /v:off /s /c ""%PARIKT_CC_WRAPPER%" -p "%PARIKT_CC_DIRECTORY%" "-PpariktSourceDir=%PARIKT_CC_SOURCE%" ' + (($flags + $Tasks) -join ' ') + ' > "%PARIKT_CC_LOG%" 2>&1"'
-    } else {
-        $start.FileName = 'bash'
-        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '-p', $Directory, "-PpariktSourceDir=$repositoryRoot") + $flags + $Tasks)) { $start.ArgumentList.Add($argument) }
-    }
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $start
-    try { $null = $process.Start(); $process.WaitForExit(); $code = $process.ExitCode } finally { $process.Dispose() }
-    $stream = [IO.File]::Open($log, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
-    $reader = [IO.StreamReader]::new($stream)
-    try { $output = $reader.ReadToEnd() } finally { $reader.Dispose() }
-    if (($code -ne 0) -ne [bool]$Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
-    foreach ($fragment in $Expected) { if (-not $output.Contains($fragment)) { throw "Missing '$fragment' in $log`n$output" } }
+    $result = Invoke-PariKtGradle -Repository $repositoryRoot -Wrapper $wrapper -Log $log -Arguments (@('-p', $Directory, "-PpariktSourceDir=$repositoryRoot") + $flags + $Tasks)
+    $output = $result.Output
+    Assert-PariKtOutput -Result $result -Log $log -Failure ([bool]$Failure) -Expected $Expected
     if ($Reuse -and -not $output.Contains('Reusing configuration cache.')) { throw "No actual configuration-cache hit in $log`n$output" }
     foreach ($fragment in @('cannot serialize', 'configuration cache entry discarded', '[pari-source] fetching', 'configuring PARI', 'building static GMP', 'has been deprecated')) {
         if ($output.Contains($fragment, [StringComparison]::OrdinalIgnoreCase)) { throw "Unexpected '$fragment' in $log" }
@@ -161,8 +137,5 @@ try {
         Invoke-CacheBuild 'platform-reuse' @('BUILD SUCCESSFUL') -Tasks $tasks -Directory $repositoryRoot -Reuse
     }
 } finally {
-    $resolved = [IO.Path]::GetFullPath($fixture)
-    $prefix = [IO.Path]::GetFullPath($scratch).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-    if (-not $resolved.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe fixture cleanup: $resolved" }
-    if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
+    Remove-PariKtFixture -Path $fixture -Parent $scratch
 }

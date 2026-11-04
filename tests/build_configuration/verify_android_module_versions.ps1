@@ -1,6 +1,7 @@
 #requires -Version 7.0
 param([string]$AndroidSdk, [switch]$Production)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'harness.ps1')
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $source = Join-Path $repositoryRoot 'examples/module-versions'
 $scratch = Join-Path $repositoryRoot 'build/android-tests'
@@ -20,13 +21,7 @@ $hostDirectory = if ($onWindows) { 'windows-x86_64' } elseif ($IsMacOS) { 'darwi
 $strip = Join-Path $AndroidSdk "ndk/28.2.13676358/toolchains/llvm/prebuilt/$hostDirectory/bin/llvm-strip$(if ($onWindows) { '.exe' })"
 if (-not (Test-Path -LiteralPath $strip)) { throw "Missing pinned NDK strip tool: $strip" }
 $null = New-Item -ItemType Directory -Path $fixture, $logs -Force
-foreach ($file in (Get-ChildItem -LiteralPath $source -Recurse -File)) {
-    $relative = $file.FullName.Substring($source.Length).TrimStart('\', '/')
-    if ($relative -match '(^|[\\/])(build|\.gradle|\.kotlin)([\\/]|$)') { continue }
-    $destination = Join-Path $fixture $relative
-    $null = New-Item -ItemType Directory -Path (Split-Path $destination) -Force
-    Copy-Item -LiteralPath $file.FullName -Destination $destination
-}
+Copy-PariKtFixture -Source $source -Destination $fixture
 [IO.File]::WriteAllText((Join-Path $fixture 'local.properties'), "sdk.dir=$($AndroidSdk.Replace('\', '\\').Replace(':', '\:'))`n", $utf8)
 if ($Production) {
     foreach ($version in @('2.15.0', '2.19.0')) {
@@ -80,32 +75,9 @@ function Invoke-AndroidProof([string]$Name, [string[]]$Tasks, [string[]]$Expecte
     }
     $log = Join-Path $logs ($Name + '.log')
     # Direct file redirection avoids waiting for EOF on compiler-daemon inherited pipes.
-    $startInfo = [Diagnostics.ProcessStartInfo]::new()
-    $startInfo.WorkingDirectory = $repositoryRoot
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    if ($onWindows) {
-        $startInfo.FileName = $env:ComSpec
-        foreach ($item in @{ WRAPPER = $wrapper; FIXTURE = $fixture; SOURCE = $repositoryRoot; LOG = $log }.GetEnumerator()) {
-            $startInfo.EnvironmentVariables["PARIKT_ANDROID_$($item.Key)"] = $item.Value
-        }
-        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_ANDROID_WRAPPER%" -p "%PARIKT_ANDROID_FIXTURE%" "-PpariktSourceDir=%PARIKT_ANDROID_SOURCE%" -PandroidProof --no-parallel --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' > "%PARIKT_ANDROID_LOG%" 2>&1"'
-    } else {
-        $startInfo.FileName = 'bash'
-        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '-PandroidProof', '--no-parallel', '--console=plain', '--warning-mode=all') + $Tasks)) { $startInfo.ArgumentList.Add($argument) }
-    }
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    try { $null = $process.Start(); $process.WaitForExit(); $code = $process.ExitCode } finally { $process.Dispose() }
-    $output = [IO.File]::ReadAllText($log)
-    if (($code -ne 0) -ne $Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
-    foreach ($fragment in $Expected) {
-        if (-not $output.Contains($fragment)) { throw "Missing '$fragment' for $Name. See $log`n$output" }
-    }
-    foreach ($fragment in ($Absent + @('has been deprecated'))) {
-        if ($output.Contains($fragment)) { throw "Unexpected '$fragment' for $Name. See $log" }
-    }
-    if ($Any.Count -gt 0 -and -not @($Any | Where-Object { $output.Contains($_) }).Count) { throw "Missing diagnostic for $Name. See $log" }
+    $result = Invoke-PariKtGradle -Repository $repositoryRoot -Wrapper $wrapper -Log $log -Arguments (@('-p', $fixture, "-PpariktSourceDir=$repositoryRoot", '-PandroidProof', '--no-parallel', '--console=plain', '--warning-mode=all') + $Tasks)
+    $output = $result.Output
+    Assert-PariKtOutput -Result $result -Log $log -Failure $Failure -Expected $Expected -Absent ($Absent + @('has been deprecated')) -Any $Any
     Write-Host "PASS: $Name ($log)"
 }
 function Assert-SplitApks([string]$App, [string]$Version) {
@@ -211,8 +183,5 @@ try {
         Invoke-AndroidProof 'root-default-restored' $forward $versions $false $noBuild
     }
 } finally {
-    $resolved = [IO.Path]::GetFullPath($fixture)
-    $prefix = [IO.Path]::GetFullPath($scratch).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-    if (-not $resolved.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Refusing to delete outside $scratch`: $resolved" }
-    if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
+    Remove-PariKtFixture -Path $fixture -Parent $scratch
 }

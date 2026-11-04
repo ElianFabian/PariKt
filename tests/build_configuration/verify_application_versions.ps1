@@ -1,6 +1,7 @@
 # Acceptance checks using the real terminalApp/desktopApp/consoleUi modules.
 # Temporary property/build edits are restored byte-for-byte, including on failure.
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'harness.ps1')
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $onWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 $wrapper = Join-Path $repositoryRoot $(if ($onWindows) { 'gradlew.bat' } else { 'gradlew' })
@@ -18,35 +19,9 @@ $desktopBytes = [IO.File]::ReadAllBytes($desktopFile)
 $terminalBytes = [IO.File]::ReadAllBytes($terminalBuild)
 function Invoke-ApplicationCheck([string]$Name, [string[]]$Tasks, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Absent = @()) {
     $log = Join-Path $logs ($Name + '.log')
-    $startInfo = [Diagnostics.ProcessStartInfo]::new()
-    $startInfo.WorkingDirectory = $repositoryRoot
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    if ($onWindows) {
-        $startInfo.FileName = $env:ComSpec
-        $startInfo.EnvironmentVariables['PARIKT_APP_WRAPPER'] = $wrapper
-        $startInfo.EnvironmentVariables['PARIKT_APP_LOG'] = $log
-        $startInfo.Arguments = '/d /v:off /s /c ""%PARIKT_APP_WRAPPER%" --no-parallel --console=plain --warning-mode=all ' + ($Tasks -join ' ') + ' > "%PARIKT_APP_LOG%" 2>&1"'
-    } else {
-        $startInfo.FileName = 'bash'
-        foreach ($argument in (@('-c', 'log=$1; shift; exec bash "$@" >"$log" 2>&1', '--', $log, $wrapper, '--no-parallel', '--console=plain', '--warning-mode=all') + $Tasks)) {
-            $startInfo.ArgumentList.Add($argument)
-        }
-    }
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    try { $null = $process.Start(); $process.WaitForExit(); $code = $process.ExitCode }
-    finally { $process.Dispose() }
-    $stream = [IO.File]::Open($log, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
-    $reader = [IO.StreamReader]::new($stream, $utf8, $true)
-    try { $output = $reader.ReadToEnd() } finally { $reader.Dispose() }
-    if (($code -ne 0) -ne $Failure) { throw "Unexpected exit $code for $Name. See $log`n$output" }
-    foreach ($fragment in $Expected) {
-        if (-not $output.Contains($fragment)) { throw "Missing '$fragment' for $Name. See $log`n$output" }
-    }
-    foreach ($fragment in ($Absent + @('has been deprecated'))) {
-        if ($output.Contains($fragment)) { throw "Unexpected '$fragment' for $Name. See $log`n$output" }
-    }
+    $result = Invoke-PariKtGradle -Repository $repositoryRoot -Wrapper $wrapper -Log $log -Arguments (@('--no-parallel', '--console=plain', '--warning-mode=all') + $Tasks)
+    $output = $result.Output
+    Assert-PariKtOutput -Result $result -Log $log -Failure $Failure -Expected $Expected -Absent ($Absent + @('has been deprecated'))
     if ($Failure -and ($output.Contains('[jvm-native]') -or $output.Contains('[pari-source]'))) {
         throw "Negative case $Name reached native engine preparation. See $log"
     }

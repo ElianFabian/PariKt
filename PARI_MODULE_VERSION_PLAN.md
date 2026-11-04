@@ -532,7 +532,15 @@ Review at 6e81a26: PROJECT_REVIEW.md. All six correctness fixes are implemented 
 - [x] [P2] Restrict JVM launcher/test wiring to actual PariKt participants.
 - [x] [P2] Guard empty commands in the shared C wrapper.
 - [x] Add cross-backend public API and JVM subprocess regression coverage for these boundaries.
-- [ ] Consolidate duplicated default/scoped provider and PowerShell harness setup after correctness fixes.
+- [x] Consolidate duplicated default/scoped provider and PowerShell harness setup after correctness fixes.
+
+Completed plan: STRUCTURAL_CLEANUP_PLAN.md (baseline 920cd84).
+The canonical engine definition now lives in parikt/build.gradle.kts for both default/scoped
+providers; separate platform provider templates are removed. PowerShell harness extraction is
+verified across nine suites. All production version/cache, backend, discovery, module-only and
+independent JVM forced-build/reuse cases pass. The handoff is concise and previous rollout notes
+are archived. Detailed counts, logs and coverage limits are in STRUCTURAL_CLEANUP_PLAN.md.
+
 Shared C owns empty-input/close/quit safety and actual table bounds; JNI dynamically sizes its
 command list and checks native-long bounds. Header detection supports both PARI releases in JVM
 and Android builds. Common tests share boundary scenarios; JVM adds six subprocess tests for each

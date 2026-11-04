@@ -2,10 +2,12 @@
 
 import java.util.Properties
 import org.gradle.api.file.Directory
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
+import org.gradle.kotlin.dsl.withGroovyBuilder
 
 plugins {
 	id("org.jetbrains.kotlin.multiplatform")
-	id("com.android.kotlin.multiplatform.library")
 }
 
 // Apply tool configuration in the consuming build, using KGP already on this module's classpath.
@@ -50,12 +52,16 @@ if (!rootProject.extensions.extraProperties.has("parikt.web.toolsConfigured")) r
 	}
 }
 
-val pariVersion = gradle.extensions.extraProperties["parikt.version"] as String
+// Settings copies this same definition for scoped providers; only data differs.
+val defaultProvider = !extra.has("parikt.engineVersion")
+val pariVersion = (extra.properties["parikt.engineVersion"] ?: gradle.extensions.extraProperties["parikt.version"]) as String
+if (!defaultProvider) project.version = pariVersion
 // Match scoped providers independently of the consuming root's name.
 group = "com.elianfabian.parikt.engine"
 val nativeCacheDirectory = gradle.extensions.extraProperties["parikt.nativeDirectory"] as File
 val sourceDirectory = gradle.extensions.extraProperties["parikt.sourceDirectory"] as File
-if (rootProject.projectDir.canonicalFile != sourceDirectory) {
+val engineSources = layout.dir(providers.provider { File(sourceDirectory, "parikt") }).get()
+if (defaultProvider && rootProject.projectDir.canonicalFile != sourceDirectory) {
 	layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("parikt/modules/parikt"))
 }
 val isWindows = System.getProperty("os.name").startsWith("Windows")
@@ -64,7 +70,7 @@ val jvmHost = when {
 	System.getProperty("os.arch").lowercase() in setOf("amd64", "x86_64") && System.getProperty("os.name").startsWith("Linux") -> "linux-x86_64"
 	else -> "unsupported-${System.getProperty("os.name")}-${System.getProperty("os.arch")}".lowercase().replace(' ', '-')
 }
-val jvmNativeScript = layout.projectDirectory.file("native/build-jvm.sh").asFile
+val jvmNativeScript = engineSources.file("native/build-jvm.sh").asFile
 val jvmNativeDirectory = providers.gradleProperty("jvmNativeDir")
 	.map { rootProject.file(it) }
 	.orElse(File(nativeCacheDirectory, "jvm-$pariVersion/$jvmHost"))
@@ -85,11 +91,11 @@ val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencie
 	doNotTrackState("The native builder validates its own versioned cache.")
 	description = "Builds GMP/PARI and the JNI bridge for the $jvmHost JVM host."
 	inputs.file(jvmNativeScript)
-	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
-	inputs.file(layout.projectDirectory.file("native/pari-source.sh"))
-	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
-	inputs.file(layout.projectDirectory.file("native/paridroid/jni_bridge.c"))
-	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
+	inputs.file(engineSources.file("native/build-lock.sh"))
+	inputs.file(engineSources.file("native/pari-source.sh"))
+	inputs.file(engineSources.file("native/paridroid/paridroid.c"))
+	inputs.file(engineSources.file("native/paridroid/jni_bridge.c"))
+	inputs.file(engineSources.file("native/paridroid/paridroid.h"))
 	inputs.property("pariVersion", pariVersion)
 	inputs.property("host", jvmHost)
 	inputs.property("runner", jvmNativeRunner)
@@ -130,7 +136,7 @@ val webPackageId = "@parikt/engine-" + pariVersion.lowercase().replace('.', '-')
 val webNativeRunner = providers.gradleProperty("webNativeRunner")
 	.getOrElse(if (isWindows) "wsl" else "local")
 val webEmsdkDirectory = providers.gradleProperty("webEmsdkDir").orNull
-val webNativeScript = layout.projectDirectory.file("native/build-web.sh")
+val webNativeScript = engineSources.file("native/build-web.sh")
 
 fun webBuildCommand(smoke: Boolean): List<String> {
 	fun runnerPath(file: File): String = if (webNativeRunner == "wsl") file.toWslPath() else file.absolutePath
@@ -155,11 +161,11 @@ val buildWebNativeDependencies = tasks.register<Exec>("buildWebNativeDependencie
 	doNotTrackState("The native builder validates its own versioned cache.")
 	description = "Builds GMP/PARI $pariVersion and the web bridge with Emscripten."
 	inputs.file(webNativeScript)
-	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
-	inputs.file(layout.projectDirectory.file("native/pari-source.sh"))
-	inputs.dir(layout.projectDirectory.dir("native/web"))
-	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
-	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
+	inputs.file(engineSources.file("native/build-lock.sh"))
+	inputs.file(engineSources.file("native/pari-source.sh"))
+	inputs.dir(engineSources.dir("native/web"))
+	inputs.file(engineSources.file("native/paridroid/paridroid.c"))
+	inputs.file(engineSources.file("native/paridroid/paridroid.h"))
 	inputs.property("pariVersion", pariVersion)
 	inputs.property("runner", webNativeRunner)
 	inputs.property("emsdk", webEmsdkDirectory ?: "bootstrap")
@@ -175,7 +181,7 @@ tasks.register<Exec>("verifyWebNative") {
 }
 
 val prepareWebEngineMetadata = tasks.register("prepareWebEngineMetadata") {
-    val source = layout.projectDirectory.file("native/web/package.json")
+    val source = engineSources.file("native/web/package.json")
     inputs.file(source)
     inputs.property("packageId", webPackageId)
     outputs.file(webEnginePackageDirectory.map { it.file("package.json") })
@@ -200,7 +206,7 @@ val generatedWebBindings = layout.buildDirectory.dir("generated/web-bindings")
 val generateWebBindings = tasks.register<Sync>("generateWebBindings") {
     inputs.property("packageId", webPackageId)
     filteringCharset = "UTF-8"
-    from(layout.projectDirectory.dir("src/webMain/kotlin")) {
+    from(engineSources.dir("src/webMain/kotlin")) {
         val selectedPackage = webPackageId
         include("**/*.kt")
         filter { line: String -> line.replace("@JsModule(\"@parikt/engine\")", "@JsModule(\"$selectedPackage\")") }
@@ -221,12 +227,12 @@ fun registerKotlinNativeBuild(taskName: String, target: String, directory: Direc
 	doNotTrackState("The native builder validates its own versioned cache.")
 	description = "Builds static GMP/PARI and the C bridge for Kotlin/Native $target."
 	dependsOn(preparation)
-	inputs.file(layout.projectDirectory.file("native/build-kotlin-native.sh"))
-	inputs.file(layout.projectDirectory.file("native/build-lock.sh"))
-	inputs.file(layout.projectDirectory.file("native/pari-source.sh"))
-	inputs.dir(layout.projectDirectory.dir("native/kotlin-native"))
-	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.c"))
-	inputs.file(layout.projectDirectory.file("native/paridroid/paridroid.h"))
+	inputs.file(engineSources.file("native/build-kotlin-native.sh"))
+	inputs.file(engineSources.file("native/build-lock.sh"))
+	inputs.file(engineSources.file("native/pari-source.sh"))
+	inputs.dir(engineSources.dir("native/kotlin-native"))
+	inputs.file(engineSources.file("native/paridroid/paridroid.c"))
+	inputs.file(engineSources.file("native/paridroid/paridroid.h"))
 	inputs.property("pariVersion", pariVersion)
 	inputs.property("kotlinVersion", pariktLibs.versions.kotlin)
 	// Resolve konan.txt only during execution, after the distribution download task.
@@ -236,7 +242,7 @@ fun registerKotlinNativeBuild(taskName: String, target: String, directory: Direc
 	run {
 		fun nativePath(file: File) = if (isWindows) file.toWslPath() else file.absolutePath
 		commandLine((if (isWindows) listOf("wsl", "bash") else listOf("bash")) + listOf(
-			nativePath(layout.projectDirectory.file("native/build-kotlin-native.sh").asFile),
+			nativePath(engineSources.file("native/build-kotlin-native.sh").asFile),
 			"--pari-version", pariVersion, "--target", target, "--out", nativePath(directory.asFile),
 		) +
 			if (providers.gradleProperty("kotlinNativeForce").isPresent) listOf("--force") else emptyList())
@@ -273,19 +279,6 @@ kotlin {
 		freeCompilerArgs.add("-Xexpect-actual-classes")
 	}
 
-	android {
-		namespace = "com.elianfabian.parikt"
-		compileSdk = 36
-		minSdk = 21
-		localDependencySelection {
-			selectBuildTypeFrom.set(listOf("debug", "release"))
-		}
-		compilerOptions {
-			moduleName.set("parikt")
-			jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-		}
-	}
-
 	jvm("jvm") {
 		compilerOptions {
 			moduleName.set("parikt")
@@ -297,8 +290,8 @@ kotlin {
 		target.compilerOptions.moduleName.set("parikt")
 		val directory = if (target.name == "linuxX64") kotlinNativeDirectory else mingwNativeDirectory
 		target.compilations.getByName("main").cinterops.create("pari") {
-			definitionFile.set(layout.projectDirectory.file("src/nativeInterop/cinterop/pari.def"))
-			includeDirs(layout.projectDirectory.dir("native/kotlin-native"))
+			definitionFile.set(engineSources.file("src/nativeInterop/cinterop/pari.def"))
+			includeDirs(engineSources.dir("native/kotlin-native"))
 			extraOpts("-libraryPath", directory.dir("lib").asFile.absolutePath)
 		}
 	}
@@ -328,16 +321,14 @@ kotlin {
 	}
 
 	sourceSets {
+        // Scoped providers compile the same canonical sources, without copying source files.
+        listOf("commonMain", "jvmMain", "nativeMain", "jsMain", "wasmJsMain").forEach { name ->
+            named(name) { kotlin.srcDir(engineSources.dir("src/$name/kotlin")) }
+        }
 		named("commonTest") {
 			dependencies {
 				implementation(kotlin("test-common"))
 				implementation(kotlin("test-annotations-common"))
-			}
-		}
-		named("androidMain") {
-			dependencies {
-				implementation(pariktLibs.androidx.startup.runtime)
-				implementation(project(":pariktAndroidNative"))
 			}
 		}
 		named("jvmMain") {
@@ -373,8 +364,38 @@ kotlin {
 	}
 }
 
+@Suppress("UNCHECKED_CAST")
+val helpers = gradle.extensions.extraProperties["parikt.android.helpers"] as Map<String, String>
+// Keep this script stable before Gradle reads it. Android remains optional for
+// Kotlin-only roots; public model access avoids a compile-time AGP prerequisite.
+if (rootProject.buildscript.classLoader.getResource("com/android/build/gradle/LibraryPlugin.class") != null) {
+    pluginManager.apply("com.android.kotlin.multiplatform.library")
+    configure<KotlinMultiplatformExtension> {
+        (this as ExtensionAware).extensions.getByName("android").withGroovyBuilder {
+            setProperty("namespace", "com.elianfabian.parikt")
+            setProperty("compileSdk", 36)
+            setProperty("minSdk", 21)
+            (getProperty("compilerOptions") as KotlinJvmCompilerOptions).apply {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                moduleName.set("parikt")
+            }
+            getProperty("localDependencySelection").withGroovyBuilder {
+                @Suppress("UNCHECKED_CAST")
+                (getProperty("selectBuildTypeFrom") as org.gradle.api.provider.ListProperty<String>).set(listOf("debug", "release"))
+            }
+        }
+        sourceSets.named("androidMain") {
+            kotlin.srcDir(File(sourceDirectory, "parikt/src/androidMain/kotlin"))
+            dependencies {
+                implementation(pariktLibs.androidx.startup.runtime)
+                implementation(project(helpers.getValue(pariVersion)))
+            }
+        }
+    }
+}
+
 // Exercise each configured JNI engine in isolated JVM test processes.
-gradle.projectsEvaluated {
+if (defaultProvider) gradle.projectsEvaluated {
     @Suppress("UNCHECKED_CAST")
     val engines = gradle.extensions.extraProperties["parikt.engines"] as Map<String, String>
     tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {

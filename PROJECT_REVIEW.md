@@ -167,3 +167,19 @@ Shared contract coverage and core safety checks reduce the demonstrated lifecycl
 and PowerShell harness deduplication remain separate cleanup. Both examples folders and all
 targets remain; Android minSdk stays 21. ARM64/API21 runtime, other hosts and IDE UI remain
 unverified in this checkpoint. These checks do not establish absence of further defects.
+
+## Structural cleanup after 920cd84
+
+Default and scoped engines now share the canonical parikt/build.gradle.kts definition, copied
+into scoped project directories during settings with version data. Four separate platform engine
+templates are removed. Canonical sources, consumer-owned caches, identities, optional Android
+support, targets and minSdk21 are preserved. Nine PowerShell suites share process/log/assertion
+and fixture helpers while retaining their specialized checks and file restoration. Cross-backend
+contract coverage was already consolidated in the correctness checkpoint. Historical handoff
+notes are archived in docs/HANDOFF_HISTORY.md; HANDOFF.md is the current-state entry point.
+
+Production/version/cache and backend checks pass, along with all 11 independent JVM proof cases,
+including forced-build/shared-engine/source reuse. The structural cleanup checklist is complete.
+See STRUCTURAL_CLEANUP_PLAN.md for the exact checklist and final verification results. Remaining
+device/host/IDE coverage is explicitly separate. Windows non-ANSI launcher argument fidelity is
+not claimed; spaces and shell characters are tested under PowerShell 7 and Windows PowerShell 5.1.
