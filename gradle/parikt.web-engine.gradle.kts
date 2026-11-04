@@ -47,7 +47,7 @@ val nativeBuild = tasks.register<Exec>("buildWebNativeDependencies") {
     inputs.property("runner", runner)
     inputs.property("emsdk", emsdk ?: "bootstrap")
     outputs.dir(nativeOutput)
-    doFirst {
+    run {
         check(runner in setOf("wsl", "local")) { "Unknown webNativeRunner '$runner'; use local or wsl." }
         commandLine((if (runner == "wsl") listOf("wsl", "bash") else listOf("bash")) + listOf(
             File(checkout, "parikt/native/build-web.sh").runnerPath(), "--pari-version", version,
@@ -61,10 +61,12 @@ val metadata = tasks.register("prepareWebEngineMetadata") {
     inputs.file(source)
     inputs.property("packageId", packageId)
     outputs.file(staged.map { it.file("package.json") })
+    val outputFile = staged.get().file("package.json").asFile
+    val selectedPackage = packageId
     doLast {
-        staged.get().file("package.json").asFile.apply {
+        outputFile.apply {
             parentFile.mkdirs()
-            writeText(source.readText().replace("\"@parikt/engine\"", "\"$packageId\""))
+            writeText(source.readText().replace("\"@parikt/engine\"", "\"$selectedPackage\""))
         }
     }
 }
@@ -78,8 +80,9 @@ val generateBindings = tasks.register<Sync>("generateWebBindings") {
     inputs.property("packageId", packageId)
     filteringCharset = "UTF-8"
     from(File(checkout, "parikt/src/webMain/kotlin")) {
+        val selectedPackage = packageId
         include("**/*.kt")
-        filter { line: String -> line.replace("@JsModule(\"@parikt/engine\")", "@JsModule(\"$packageId\")") }
+        filter { line: String -> line.replace("@JsModule(\"@parikt/engine\")", "@JsModule(\"$selectedPackage\")") }
     }
     into(generated)
 }

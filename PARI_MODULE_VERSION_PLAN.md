@@ -417,7 +417,7 @@ the single reused component, and launches both with successful version/arithmeti
 assertions. The shared library's explicit requirement agrees with both applications. Its native
 cache is reused; :parikt convenience tasks still require a root default, as tested separately.
 Runtime logs remain under build/module-version-tests; copied fixtures are removed.
-Production output isolation/routing, JVM launchers and Native/web/Android compatibility proofs are complete. Configuration-cache compatibility is not claimed by these acceptance runs.
+Production output isolation/routing, JVM launchers and Native/web/Android compatibility proofs are complete. Configuration-cache compatibility is covered by the separate follow-up acceptance below.
 Production Android routing is implemented and verified. No custom Gradle plugin was added.
 
 ## Step 3 cache implementation and verification
@@ -485,6 +485,38 @@ All 14 cases pass: build/android-tests/019645ae5a8b/logs. Source classes/Kotlin 
 
 Both retained x86_64 apps actually pass Startup/version/arithmetic/factorization/error recovery on API36.1 (build/platform-android-runtime-production-final.log). The owned emulator used a separate fresh data image after the existing partition lacked install space. Only new proof apps were installed/uninstalled; existing apps were preserved. Real Compose Android 2.19.0 override assembly and debug/release graphs pass, and its property/binaries are restored to 2.15.0. Final all-target regression: 175 tasks, 55 executed/120 up to date (build/platform-android-all-targets-final.log). All 11 real-application and 13 module-only JVM cases pass, as do five property diagnostics and 24 discovery checks.
 
-Settings register helper build-file placeholders before project evaluation, then generate Android templates only when the root shares AGP. This retains Kotlin-only rootless builds without AGP/SDK requirements. Helpers reference canonical sources, consumer-owned native caches and distinct CXX/build paths; selected provider manifests preserve Startup/minSdk21. Public selectors never infer a missing root default. CLI bootstrap filters real participating Android selections; IDE requests conservatively prepare all helper models after project configuration. Cold model setup may precede conflict resolution. Android Studio sync UI, ARM64/API21 runtime, Apple/clean-machine/Linux-host coverage and publication remain outside verified scope.
+Settings now emit stable complete provider/helper scripts; optional Android setup runs inside them when the root shares AGP (see the configuration-cache follow-up). This retains Kotlin-only rootless builds without AGP/SDK requirements. Helpers reference canonical sources, consumer-owned native caches and distinct CXX/build paths; selected provider manifests preserve Startup/minSdk21. Public selectors never infer a missing root default. CLI bootstrap filters real participating Android selections; IDE requests conservatively prepare all helper models after project configuration. Cold model setup may precede conflict resolution. Android Studio sync UI, ARM64/API21 runtime, Apple/clean-machine/Linux-host coverage and publication remain outside verified scope.
 
 Final web regression after Android integration also passes all 14 cases and portable-lockfile checks: build/wp/50ce7e896860/logs. Temporary fixtures, properties and the owned emulator data image are cleaned up. Both examples folders, existing targets and Android minSdk21 are preserved. No custom Gradle plugin was introduced. The remaining limits above concern additional host/IDE/runtime coverage, not unfinished items in this implementation checklist.
+
+## Configuration-cache compatibility follow-up
+
+- [x] Make JVM engine commands and launcher/test library paths serializable; verify strict store/reuse.
+- [x] Make Native/web/Android builder actions and generated outputs cache compatible without a custom plugin.
+- [x] Make graph/identity/selection diagnostics use serializable inputs rather than live project models.
+- [x] Add PowerShell acceptance for cache reuse, root/local additions/edits/removal, rootless builds and conflicts.
+- [x] Verify platform builds and cache reuse, preserve shared source/engine caches, examples and minSdk21.
+- [x] Update consumer documentation and handoff with verified scope and any upstream limitations.
+Configuration-cache acceptance: all 23 cases pass under strict failure mode, including fresh
+first-to-second-build reuse, Kotlin-only rootless setup, AGP-shared root/defaultless setup,
+root/local file additions/edits/removal, no-default selector failure/reuse, missing/invalid selections and explicit shared conflicts,
+then restored cached runs. Logs: build/configuration-cache-tests/403abc387ae7/logs. The platform
+store/reuse cases cover 184 tasks with zero problems: both JVM versions, class/Native identities,
+Android debug assembly/graphs, Linux/Windows Native links and JS/Wasm tests/graphs.
+
+Additional strict cache store/reuse passes actual standalone JVM/Windows Native/JS/Wasm runs,
+Linux execution, JVM UI/shared tests, both Compose browser distributions, interactive JVM/Windows
+Native CLI exit, and Android's local 2.19.0 override (restored afterward). Deleting the consumer's
+konan.txt before both storage and reuse proves KGP regenerates metadata before deferred Native
+arguments read it. Logs use build/configuration-cache-{consumer,native-metadata,terminal,native-cli,
+ui-tests-browser,android-override}-*.log. Existing Native ten-case and Android fourteen-case
+production regressions pass: build/np/fcd993683b91/logs and build/android-tests/763156329ed9/logs.
+
+Stable provider/helper scripts are generated completely during settings; optional Android models
+use public Gradle/AGP properties when the root shares AGP. This avoids modifying script inputs
+after Gradle reads them and preserves Kotlin-only module-only builds. Runtime actions retain paths,
+strings, file collections and a plain Native argument bean, with no live Project/Task references.
+The participant set is filled during configuration and serialized as read-only task data for npm
+handlers. Cold Android preparation uses Gradle's tracked process provider. No custom plugin,
+global cache enablement, target/ABI change or Android minSdk change was introduced. Host/IDE and
+publication limits remain as recorded above. Final web regression passes all 14 cases plus portable locks (build/wp/8f7e32404d8c/logs). No temporary selection files remain.

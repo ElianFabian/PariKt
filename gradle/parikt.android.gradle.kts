@@ -18,22 +18,30 @@ gradle.projectsEvaluated {
     }
     tasks.register("verifyPariAndroidGraph") {
         group = "verification"
+        val owner = consumer.path
+        val selectedEngine = engines.getValue(selection.first)
+        val selectedHelper = helpers.getValue(selection.first)
+        val selectedVersion = selection.first
+        val availableEngines = engines.values.toSet()
+        val availableHelpers = helpers.values.toSet()
+        val graphs = classpaths.associate { configuration ->
+            val projects = configuration.incoming.resolutionResult.allComponents.mapNotNull {
+                (it.id as? ProjectComponentIdentifier)?.projectPath
+            }
+            configuration.name to (projects.filter { it in availableEngines } to projects.filter { it in availableHelpers })
+        }
         doLast {
-            check(classpaths.isNotEmpty()) { "No Android main classpaths found in ${consumer.path}" }
-            classpaths.forEach { configuration ->
-                val projects = configuration.incoming.resolutionResult.allComponents.mapNotNull {
-                    (it.id as? ProjectComponentIdentifier)?.projectPath
+            check(graphs.isNotEmpty()) { "No Android main classpaths found in $owner" }
+            graphs.forEach { (name, graph) ->
+                val (providers, nativeHelpers) = graph
+                val runtime = name.endsWith("RuntimeClasspath")
+                check(providers.all { it == selectedEngine } && (!runtime || providers.size == 1)) {
+                    "Wrong Android engine in $owner:$name: $providers"
                 }
-                val providers = projects.filter { it in engines.values }
-                val nativeHelpers = projects.filter { it in helpers.values }
-                val runtime = configuration.name.endsWith("RuntimeClasspath")
-                check(providers.all { it == engines.getValue(selection.first) } && (!runtime || providers.size == 1)) {
-                    "Wrong Android engine in ${consumer.path}:${configuration.name}: $providers"
+                check(nativeHelpers.all { it == selectedHelper } && (!runtime || nativeHelpers.size == 1)) {
+                    "Wrong Android helper in $owner:$name: $nativeHelpers"
                 }
-                check(nativeHelpers.all { it == helpers.getValue(selection.first) } && (!runtime || nativeHelpers.size == 1)) {
-                    "Wrong Android helper in ${consumer.path}:${configuration.name}: $nativeHelpers"
-                }
-                logger.lifecycle("PASS ${consumer.path}:${configuration.name} Android PARI=${selection.first} engine=${engines.getValue(selection.first)} helper=${helpers.getValue(selection.first)}")
+                logger.lifecycle("PASS $owner:$name Android PARI=$selectedVersion engine=$selectedEngine helper=$selectedHelper")
             }
         }
     }

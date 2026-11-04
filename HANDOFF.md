@@ -66,8 +66,7 @@ real-application cases pass (build/application-version-tests/b871d973ea404ab9b17
 as do all 13 module-only JVM cases without AGP (build/production-module-only/7c655f90bd95/logs),
 five property diagnostics and 24 discovery checks. Final web production regression also passes all 14 cases plus portable locks (build/wp/50ce7e896860/logs).
 
-Android settings register helper build-file placeholders before evaluation, then add the typed
-Android provider/helper scripts only when the consuming root shares AGP. Kotlin-only rootless
+Android settings now emit stable complete scripts before evaluation; optional Android setup uses public model properties when the consuming root shares AGP. Kotlin-only rootless
 builds retain no Android prerequisite. Helpers use canonical sources, versioned consumer caches
 and distinct CXX/build paths. Startup/minSdk21 are preserved. Bootstrap runs after project
 configuration, filters participating Android selections for CLI tasks, and conservatively prepares
@@ -82,7 +81,7 @@ All 14 web acceptance cases and portable locks pass at build/wp/b2d3df3c69e8, an
 pages actually run. Real Compose browser override/default builds and standalone rootless JVM,
 Windows/Linux Native and both Node runtimes pass. Both examples folders are preserved.
 
-The module-version implementation checklist is complete in this Android checkpoint. Remaining limits are additional host/IDE/runtime coverage, configuration-cache compatibility and publication, outside this completed rollout. Both examples folders, all existing targets and minSdk21 are preserved. No temporary override or owned background service remains. See PARI_MODULE_VERSION_PLAN.md for the completed checklist and exact verification scope.
+The module-version implementation checklist is complete in this Android checkpoint. Remaining limits are additional host/IDE/runtime coverage and publication, outside this completed rollout. Both examples folders, all existing targets and minSdk21 are preserved. No temporary override or owned background service remains. See PARI_MODULE_VERSION_PLAN.md for the completed checklist and exact verification scope.
 
 Default/scoped providers now share group com.elianfabian.parikt.engine, stable :parikt leaf names
 and Native module name parikt. Scoped providers combine typed JVM/Native templates referencing
@@ -1043,3 +1042,30 @@ packages PARI/GMP/JNI libraries for arm64-v8a and x86_64. The migrated app also 
 x86_64, initialized through Startup, and displayed the passing `2 + 2` result. The API-21 AVD
 available on the machine is x86, outside the native ABI list. The unrelated
 multiple-Kotlin-plugin-load warning was subsequently resolved by sharing AGP and KGP at the root.
+
+Configuration-cache compatibility follow-up is implemented. Strict 23-case acceptance passes:
+build/configuration-cache-tests/403abc387ae7/logs. Fresh rootless builds reuse on the second run;
+root/local additions, edits, removal, strict conflicts, invalid selections and restoration pass.
+The real platform task graph (184 tasks) stores/reuses with zero problems, including JVM/Native
+identity, both JVM versions, Android debug APK, Native links and JS/Wasm tests/graph diagnostics.
+
+Generated provider/helper scripts now have final stable contents during settings. Optional Android
+setup uses public model properties inside those scripts rather than rewriting plugin blocks in
+beforeProject. Kotlin-only module-only roots still require no AGP/SDK. Commands and JNI paths are
+configured values; graph diagnostics snapshot paths/file collections. A plain script-defined
+CommandLineArgumentProvider reads KGP metadata only after its preparation task. PackageJson actions
+retain selected strings and the configuration-populated participant set, not live Projects.
+Cold Android preparation uses Gradle's tracked exec provider and preserves failure diagnostics.
+
+Actual strict cache store/reuse also passes standalone JVM/Windows Native/JS/Wasm programs and
+Linux execution, interactive JVM/Windows Native CLI exit, JVM UI/shared tests and both real Compose
+browser distributions. Missing consumer konan.txt is regenerated before both initial and reused
+Native commands. A real Android 2.19.0 module override stores/reuses; the temporary property is
+removed and default 2.15.0 APK restored. Logs: build/configuration-cache-*.log.
+Existing ten-case Native and fourteen-case Android production suites pass at
+build/np/fcd993683b91/logs and build/android-tests/763156329ed9/logs. Final fourteen-case web
+production regression plus portable locks pass at build/wp/8f7e32404d8c/logs. README documents opt-in usage and the new
+PowerShell acceptance command. No custom plugin, target/minSdk change or global cache enablement.
+
+
+Completion: all 23 strict configuration-cache cases pass, including cached no-default selector failures. Platform storage/reuse covers 184 tasks with zero problems. Android local override/default APK restoration, JVM UI tests, browser distributions, interactive terminal stdin and missing Native metadata recovery all pass. Documentation/checklist are updated; both examples folders, every existing target and minSdk21 are preserved. Configuration caching remains opt-in. The configuration-cache follow-up is complete in this checkpoint, with detailed validation recorded above. Additional host/IDE/runtime coverage and publication remain separate future work.

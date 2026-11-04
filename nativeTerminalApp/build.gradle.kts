@@ -25,9 +25,10 @@ tasks.register<Exec>("runMingwX64") {
 	group = "application"
 	description = "Runs the native Windows terminal."
 	dependsOn("linkDebugExecutableMingwX64")
+	val executable = layout.buildDirectory.file("bin/mingwX64/debugExecutable/nativeTerminalApp.exe").get().asFile
 	doFirst {
 		check(System.getProperty("os.name").startsWith("Windows")) { "Run this executable on Windows x86_64." }
-		commandLine(layout.buildDirectory.file("bin/mingwX64/debugExecutable/nativeTerminalApp.exe").get().asFile.absolutePath)
+		commandLine(executable.absolutePath)
 	}
 }
 
@@ -35,10 +36,8 @@ tasks.register<Exec>("runLinuxX64") {
 	group = "application"
 	description = "Runs the native Linux terminal, using WSL on Windows."
 	dependsOn("linkDebugExecutableLinuxX64")
-	doFirst {
-		val executable = layout.buildDirectory.file("bin/linuxX64/debugExecutable/nativeTerminalApp.kexe").get().asFile
-		commandLine(if (System.getProperty("os.name").startsWith("Windows")) {
+	val executable = layout.buildDirectory.file("bin/linuxX64/debugExecutable/nativeTerminalApp.kexe").get().asFile
+	commandLine(if (System.getProperty("os.name").startsWith("Windows")) {
 			listOf("wsl", "/mnt/${executable.absolutePath.substring(0, 1).lowercase()}${executable.absolutePath.substring(2).replace('\\', '/')}")
 		} else listOf(executable.absolutePath))
-	}
 }

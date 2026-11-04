@@ -132,6 +132,38 @@ The separate [module-version proofs](examples/module-versions/README.md) retain 
 JVM fixture and add opt-in Native, JS/Wasm and Android compatibility proofs. `examples/consumer` also remains
 the standalone installation example.
 
+## Gradle configuration cache
+
+Production source integration supports Gradle's configuration cache on the verified Windows/WSL
+toolchain. Enable it per command, or set `org.gradle.configuration-cache=true` in your build's
+`gradle.properties`:
+
+```powershell
+.\gradlew.bat :terminalApp:verifyPariEngine --configuration-cache
+.\gradlew.bat :androidApp:assembleDebug --configuration-cache
+```
+
+Repeat the same command to reuse the configured task graph. Root and module-local
+`parikt.properties` are tracked inputs: adding, editing or removing them updates selection and
+strict dependency checks. This cache is separate from shared PARI downloads and compiled-engine
+caches; native builders still validate their fingerprints and retain their concurrency locks.
+Generated provider/helper scripts have stable contents before Gradle evaluates them. No custom
+plugin is required. Configuration caching remains opt-in; the repository does not enable it globally.
+
+The PowerShell acceptance suite uses the production installer with shared Kotlin fixture sources,
+requires real cache hits with zero configuration-cache problems, and checks version-file changes,
+missing/invalid selections, strict conflicts and restored module-only builds:
+
+```powershell
+pwsh -File tests/build_configuration/verify_configuration_cache.ps1 -Platforms
+```
+
+`-Platforms` also checks the real JVM launchers, Android debug APK, Native links and identity,
+JS/Wasm tests and graph diagnostics. Standalone consumer execution, JVM tests, Compose browser
+distributions, interactive JVM/Windows Native launchers and missing Native metadata recovery also
+pass strict cache storage/reuse. Verified host: Windows x86_64 with WSL; IDE sync UI and other hosts
+retain their existing coverage limits.
+
 ## Android
 
 The Android target uses the Android-KMP library plugin. JNI and the Android NDK build live in the

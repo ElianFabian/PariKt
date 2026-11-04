@@ -8,6 +8,10 @@ apply(from = File(checkout, "gradle/parikt.properties.settings.gradle.kts"))
 val selectProperties = gradle.extensions.extraProperties["parikt.selectProperties"] as (String, File) -> Triple<String, String, Boolean>?
 val selections = linkedMapOf<String, Triple<String, String, Boolean>>()
 val directories = linkedMapOf<String, File>()
+// PackageJson handlers retain this data-only set; discovery fills it before KGP
+// resolves npm models. Task execution sees a frozen serialized snapshot.
+val participants = linkedSetOf<String>()
+gradle.extensions.extraProperties["parikt.participants"] = participants
 gradle.extensions.extraProperties["parikt.selections"] = selections
 gradle.settingsEvaluated {
     fun discover(descriptor: ProjectDescriptor) {
@@ -30,7 +34,6 @@ gradle.projectsEvaluated {
             configuration.dependencies.withType(ProjectDependency::class.java).map { it.path }
         }.toSet()
     }
-    val participants = mutableSetOf<String>()
     var changed: Boolean
     do {
         changed = false
@@ -40,7 +43,6 @@ gradle.projectsEvaluated {
             }
         }
     } while (changed)
-    gradle.extensions.extraProperties["parikt.participants"] = participants.toSet()
     participants.sorted().forEach { path ->
         if (path !in selections) {
             throw GradleException("Missing PariKt selection for $path (${File(directories.getValue(path), "parikt.properties")}). " +

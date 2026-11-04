@@ -39,9 +39,10 @@ tasks.register<Exec>("buildJvmNativeDependencies") {
     group = "native"
     doNotTrackState("The existing native builder validates version/source/toolchain stamps and owns the work lock.")
     outputs.dir(output)
-    doFirst {
-        check(System.getProperty("os.arch").lowercase() in setOf("amd64", "x86_64") &&
-            (windows || System.getProperty("os.name").startsWith("Linux"))) { "JVM engines require Windows/Linux x86_64." }
+    val supportedJvmHost = System.getProperty("os.arch").lowercase() in setOf("amd64", "x86_64") &&
+        (windows || System.getProperty("os.name").startsWith("Linux"))
+    doFirst { check(supportedJvmHost) { "JVM engines require Windows/Linux x86_64." } }
+    run {
         fun runnerPath(file: File) = if (runner == "wsl") file.wslPath() else file.absolutePath
         val prefix = when (runner) {
             "wsl" -> listOf("wsl") + (nativePath?.let { listOf("env", "PATH=$it:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin") } ?: emptyList()) + "bash"

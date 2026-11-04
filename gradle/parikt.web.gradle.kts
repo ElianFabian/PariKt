@@ -23,17 +23,25 @@ gradle.projectsEvaluated {
     }
     consumer.tasks.register("verifyPariWebGraph") {
         group = "verification"
+        val owner = consumer.path
+        val selectedEngine = engine
+        val selectedVersion = selection.first
+        val availableEngines = engines.values.toSet()
+        val graphs = names.associateWith { name ->
+            listOf("CompileClasspath", "RuntimeClasspath").associateWith { scope ->
+                consumer.configurations.getByName("$name$scope").incoming.resolutionResult.allComponents.mapNotNull {
+                    (it.id as? ProjectComponentIdentifier)?.projectPath
+                }.filter { it in availableEngines }
+            }
+        }
         doLast {
-            names.forEach { name ->
-                listOf("CompileClasspath", "RuntimeClasspath").forEach { scope ->
-                    val providers = consumer.configurations.getByName("$name$scope").incoming.resolutionResult.allComponents.mapNotNull {
-                        (it.id as? ProjectComponentIdentifier)?.projectPath
-                    }.filter { it in engines.values }
-                    check(providers.all { it == engine } && (scope != "RuntimeClasspath" || providers.size == 1)) {
-                        "${consumer.path}:$name$scope expected selected $engine (one at runtime), got $providers"
+            graphs.forEach { (name, scopes) ->
+                scopes.forEach { (scope, providers) ->
+                    check(providers.all { it == selectedEngine } && (scope != "RuntimeClasspath" || providers.size == 1)) {
+                        "$owner:$name$scope expected selected $selectedEngine (one at runtime), got $providers"
                     }
                 }
-                logger.lifecycle("PASS ${consumer.path}:$name web PARI=${selection.first} provider=$engine")
+                logger.lifecycle("PASS $owner:$name web PARI=$selectedVersion provider=$selectedEngine")
             }
         }
     }

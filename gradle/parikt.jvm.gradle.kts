@@ -89,16 +89,13 @@ gradle.projectsEvaluated {
     val hasJvm = consumer.configurations.any { platform(it) == "jvm" } ||
         (!androidProject() && consumer.plugins.hasPlugin("java"))
     if (!hasJvm) return@projectsEvaluated
-    val nativeTask = consumer.providers.provider {
-        consumer.rootProject.project(enginePath).tasks.named("buildJvmNativeDependencies").get()
-    }
+    val nativeTask = consumer.rootProject.project(enginePath).tasks.named("buildJvmNativeDependencies")
     val manualDirectory = consumer.providers.systemProperty("parikt.native.dir").orNull?.let(consumer.rootProject::file)
+    val nativeDirectory = manualDirectory ?: nativeTask.get().outputs.files.singleFile
     consumer.tasks.withType<JavaExec>().configureEach {
         dependsOn(nativeTask)
         systemProperty("parikt.expected.version", selection.first)
-        doFirst {
-            systemProperty("java.library.path", (manualDirectory ?: nativeTask.get().outputs.files.singleFile).absolutePath)
-        }
+        systemProperty("java.library.path", nativeDirectory.absolutePath)
     }
     consumer.tasks.withType<Test>().configureEach {
         if (!consumer.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || name.contains("jvm", ignoreCase = true)) {
@@ -106,9 +103,7 @@ gradle.projectsEvaluated {
             inputs.property("parikt.version", selection.first)
             inputs.files(nativeTask.map { it.outputs.files })
             systemProperty("parikt.expected.version", selection.first)
-            doFirst {
-                systemProperty("java.library.path", (manualDirectory ?: nativeTask.get().outputs.files.singleFile).absolutePath)
-            }
+            systemProperty("java.library.path", nativeDirectory.absolutePath)
         }
     }
     val names = if (consumer.plugins.hasPlugin("org.jetbrains.kotlin.multiplatform"))
@@ -116,30 +111,39 @@ gradle.projectsEvaluated {
     consumer.tasks.register("verifyPariJvmGraph") {
         group = "verification"
         dependsOn(names.map { consumer.configurations.getByName(it) })
+        val owner = consumer.path
+        val selectedEngine = enginePath
+        val selectedVersion = selection.first
+        val availableEngines = engines.values.toSet()
+        val graphs = names.associateWith { name ->
+            val configuration = consumer.configurations.getByName(name)
+            val result = configuration.incoming.resolutionResult
+            val providers = result.allComponents.mapNotNull { (it.id as? ProjectComponentIdentifier)?.projectPath }
+                .filter { it in availableEngines }
+            val edges = result.allDependencies.filterIsInstance<ResolvedDependencyResult>()
+                .filter { (it.selected.id as? ProjectComponentIdentifier)?.projectPath in availableEngines }
+                .map { "  ${it.from.id.displayName} -> ${it.requested.displayName} => ${it.selected.id.displayName}" }
+            Triple(providers, configuration.incoming.files, edges)
+        }
         doLast {
-            names.forEach { name ->
-                val configuration = consumer.configurations.getByName(name)
-                val providers = configuration.incoming.resolutionResult.allComponents.mapNotNull {
-                    (it.id as? ProjectComponentIdentifier)?.projectPath
-                }.filter { it in engines.values }
-                check(providers == listOf(enginePath)) { "${consumer.path}:$name expected one $enginePath provider, got $providers" }
+            graphs.forEach { (name, graph) ->
+                val (providers, files, edges) = graph
+                check(providers == listOf(selectedEngine)) { "$owner:$name expected one $selectedEngine provider, got $providers" }
                 val classes = mutableSetOf<String>()
                 var moduleCount = 0
-                configuration.files.filter { it.extension == "jar" }.forEach { file ->
+                files.files.filter { it.extension == "jar" }.forEach { file ->
                     JarFile(file).use { jar ->
                         jar.entries().asSequence().forEach { entry ->
                             if (entry.name.startsWith("com/elianfabian/parikt/") && entry.name.endsWith(".class")) {
-                                check(classes.add(entry.name)) { "Duplicate PariKt class ${entry.name} in ${consumer.path}:$name" }
+                                check(classes.add(entry.name)) { "Duplicate PariKt class ${entry.name} in $owner:$name" }
                             }
                             if (entry.name == "META-INF/parikt.kotlin_module") moduleCount++
                         }
                     }
                 }
                 check("com/elianfabian/parikt/PariKt.class" in classes && moduleCount == 1)
-                logger.lifecycle("PASS ${consumer.path}:$name PARI=${selection.first} provider=$enginePath classes=${classes.size} Kotlin module=parikt")
-                configuration.incoming.resolutionResult.allDependencies.filterIsInstance<ResolvedDependencyResult>()
-                    .filter { (it.selected.id as? ProjectComponentIdentifier)?.projectPath in engines.values }
-                    .forEach { logger.lifecycle("  ${it.from.id.displayName} -> ${it.requested.displayName} => ${it.selected.id.displayName}") }
+                logger.lifecycle("PASS $owner:$name PARI=$selectedVersion provider=$selectedEngine classes=${classes.size} Kotlin module=parikt")
+                edges.forEach { logger.lifecycle(it) }
             }
         }
     }

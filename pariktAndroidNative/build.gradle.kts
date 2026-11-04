@@ -1,6 +1,8 @@
-plugins {
-	id("com.android.library")
-}
+import org.gradle.kotlin.dsl.withGroovyBuilder
+
+// A stable Gradle-only script: Kotlin-only roots do not load Android plugins or models.
+if (rootProject.buildscript.classLoader.getResource("com/android/build/gradle/LibraryPlugin.class") != null) {
+pluginManager.apply("com.android.library")
 
 val scopedVersion = extra.properties["parikt.engineVersion"] as? String
 val pariVersion = scopedVersion ?: gradle.extensions.extraProperties["parikt.version"] as String
@@ -58,12 +60,20 @@ fun nativeBuildArguments(force: Boolean = false): List<String> =
 		"--abis", nativeAbis.joinToString(" ")
 	) + if (force) listOf("--force") else emptyList()
 
+fun configuredNdkDirectory(): File {
+	val components = extensions.getByName("androidComponents")
+	val sdk = components.withGroovyBuilder { getProperty("sdkComponents") }
+	@Suppress("UNCHECKED_CAST")
+	val directory = sdk.withGroovyBuilder { getProperty("ndkDirectory") } as org.gradle.api.provider.Provider<org.gradle.api.file.Directory>
+	return directory.get().asFile
+}
+
 fun nativeBuildCommand(force: Boolean = false): List<String> {
 	val commonArgs = nativeBuildArguments(force)
 	return when (nativeRunner) {
 		"local" -> listOf(
 			"bash", nativeScript.path,
-			"--ndk", androidComponents.sdkComponents.ndkDirectory.get().asFile.absolutePath,
+			"--ndk", configuredNdkDirectory().absolutePath,
 			"--out", nativeDepsDir.absolutePath,
 		) + commonArgs
 		"wsl" -> listOf(
@@ -79,13 +89,15 @@ fun buildNativeDependenciesDuringConfiguration() {
 
 	logger.lifecycle("[PariKt] Native libraries for PARI $pariVersion are missing. Building before Android Studio requests the NDK model...")
 	nativeDepsDir.mkdirs()
-	val process = ProcessBuilder(nativeBuildCommand())
-		.redirectErrorStream(true)
-		.start()
-
-	process.outputStream.close()
-	process.inputStream.bufferedReader().useLines { lines -> lines.forEach { println(it) } }
-	val exitCode = process.waitFor()
+	val preparation = providers.exec {
+		commandLine(nativeBuildCommand())
+		isIgnoreExitValue = true
+	}
+	val output = preparation.standardOutput.asText.get()
+	if (output.isNotBlank()) logger.lifecycle(output.trimEnd())
+	val errors = preparation.standardError.asText.get()
+	if (errors.isNotBlank()) logger.lifecycle(errors.trimEnd())
+	val exitCode = preparation.result.get().exitValue
 	if (exitCode != 0 || !hasValidNativeDependencies()) {
 		throw GradleException(
 			"Failed to prepare GMP/PARI native libraries for PARI $pariVersion " +
@@ -110,41 +122,37 @@ val buildNativeDependencies = tasks.register<Exec>("buildNativeDependencies") {
 	inputs.property("nativeRunner", nativeRunner)
 	outputs.dir(nativeDepsDir)
 
-	doFirst {
-		nativeDepsDir.mkdirs()
-		commandLine(nativeBuildCommand(forceNativeBuild))
-	}
+	commandLine(nativeBuildCommand(forceNativeBuild))
 }
 
-android {
-	namespace = "com.elianfabian.parikt.nativebridge" +
-        if (scopedVersion != null) ".v${pariVersion.replace('.', '_').replace('-', '_')}" else ""
-	compileSdk = 36
-	ndkVersion = "28.2.13676358"
-
-	// This module packages only the JNI/native libraries; Kotlin compilation is unnecessary.
-	enableKotlin = false
-
-	defaultConfig {
-		minSdk = minAndroidApi
-		ndk { abiFilters.addAll(nativeAbis) }
-		externalNativeBuild {
-			ndkBuild.arguments("NATIVE_DEPS_DIR=${nativeDepsDir.absolutePath.replace('\\', '/')}")
-		}
-	}
-
-	externalNativeBuild {
-		ndkBuild {
-			path = File(sourceDirectory, "parikt/src/androidMain/jni/Android.mk")
-			if (scopedVersion != null) {
-                buildStagingDirectory = layout.buildDirectory.dir("cxx").get().asFile
-            } else if (rootProject.projectDir.canonicalFile != sourceDirectory) {
-				buildStagingDirectory = rootProject.layout.buildDirectory.dir("parikt/cxx").get().asFile
-			}
-		}
-	}
+extensions.getByName("android").withGroovyBuilder {
+    setProperty("namespace", "com.elianfabian.parikt.nativebridge" +
+        if (scopedVersion != null) ".v${pariVersion.replace('.', '_').replace('-', '_')}" else "")
+    setProperty("compileSdk", 36)
+    setProperty("ndkVersion", "28.2.13676358")
+    setProperty("enableKotlin", false)
+    getProperty("defaultConfig").withGroovyBuilder {
+        setProperty("minSdk", minAndroidApi)
+        getProperty("ndk").withGroovyBuilder {
+            @Suppress("UNCHECKED_CAST")
+            (getProperty("abiFilters") as MutableSet<String>).addAll(nativeAbis)
+        }
+        getProperty("externalNativeBuild").withGroovyBuilder {
+            getProperty("ndkBuild").withGroovyBuilder {
+                @Suppress("UNCHECKED_CAST")
+                (getProperty("arguments") as MutableList<String>).add("NATIVE_DEPS_DIR=${nativeDepsDir.invariantSeparatorsPath}")
+            }
+        }
+    }
+    getProperty("externalNativeBuild").withGroovyBuilder {
+        getProperty("ndkBuild").withGroovyBuilder {
+            setProperty("path", File(sourceDirectory, "parikt/src/androidMain/jni/Android.mk"))
+            if (scopedVersion != null) setProperty("buildStagingDirectory", layout.buildDirectory.dir("cxx").get().asFile)
+            else if (rootProject.projectDir.canonicalFile != sourceDirectory)
+                setProperty("buildStagingDirectory", rootProject.layout.buildDirectory.dir("parikt/cxx").get().asFile)
+        }
+    }
 }
-
 configurations.matching { it.isCanBeConsumed }.configureEach {
     outgoing.capability("${project.group}:${project.name}:${project.version}")
     outgoing.capability("com.elianfabian.parikt:android-native-engine:$pariVersion")
@@ -181,4 +189,6 @@ tasks.configureEach {
 	) {
 		dependsOn(buildNativeDependencies)
 	}
+}
+
 }

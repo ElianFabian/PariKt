@@ -65,3 +65,5 @@ Checks are in `tests/build_configuration`; runtime/build logs are under ignored 
 Host coverage is Windows 11 x86_64 with WSL Linux x86_64. This change did not rerun the Android
 emulator: Android coverage here is APK/AAR assembly, retaining the previously tested runtime path
 and minSdk 21. Apple targets, clean-machine setup and Maven publication remain unverified/unimplemented.
+
+Configuration-cache follow-up: production task commands, JNI paths, generated bindings/metadata and graph/identity diagnostics now use serializable values/file collections. Stable generated scripts and tracked root/local properties permit cache hits without stale selections. Strict fresh-build/version-invalidation acceptance passes 23 cases; see PARI_MODULE_VERSION_PLAN.md for verification logs and scope. Configuration caching remains opt-in.

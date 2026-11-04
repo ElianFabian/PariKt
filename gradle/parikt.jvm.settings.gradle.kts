@@ -14,6 +14,7 @@ gradle.settingsEvaluated {
     if (engines.size > 1 && (providers.gradleProperty("jvmNativeDir").isPresent || providers.systemProperty("parikt.native.dir").isPresent)) {
         throw GradleException("A global jvmNativeDir/parikt.native.dir is ambiguous with multiple PARI versions. Remove it to use the selected engines' versioned output directories.")
     }
+
     engines.filterValues { it != ":parikt" }.forEach { (_, path) ->
         include(path)
         val parent = project(path.substringBeforeLast(':'))
@@ -23,7 +24,7 @@ gradle.settingsEvaluated {
         project(path).projectDir = File(parent.projectDir, "parikt").apply {
             mkdirs()
             val base = providers.fileContents(layout.settingsDirectory.file(File(checkout, "gradle/parikt.jvm-engine.gradle.kts").absolutePath)).asText.get()
-            val extensions = listOf("native", "web").map { platform ->
+            val extensions = listOf("native", "web", "android").map { platform ->
                 providers.fileContents(layout.settingsDirectory.file(File(checkout, "gradle/parikt.$platform-engine.gradle.kts").absolutePath)).asText.get()
                     .lines().partition { it.startsWith("import ") }
             }
@@ -31,7 +32,9 @@ gradle.settingsEvaluated {
                 extensions.flatMap { it.first }.distinct().joinToString("\n") + "\n" + base +
                 extensions.joinToString("\n") { "\nrun {\n" + it.second.joinToString("\n") + "\n}\n" }
             val script = File(this, "build.gradle.kts")
-            if (!script.exists() || script.readText() != content) script.writeText(content)
+            script.writeText(content)
+            val manifest = File(this, "src/androidMain/AndroidManifest.xml").apply { parentFile.mkdirs() }
+            manifest.writeText(File(checkout, "parikt/src/androidMain/AndroidManifest.xml").readText())
         }
     }
     gradle.extensions.extraProperties["parikt.jvm.engines"] = engines
@@ -44,16 +47,9 @@ gradle.settingsEvaluated {
         include(path)
         project(path).projectDir = File(settingsDir, "build/parikt/android-helper-projects/${path.substringBeforeLast(':').removePrefix(":")}").apply {
             mkdirs()
-            // Gradle chooses an empty script source if the file is absent at registration.
-            File(this, "build.gradle.kts").takeUnless { it.exists() }?.writeText("// Scoped Android helper; configured before project evaluation.\n")
+            File(this, "build.gradle.kts").writeText(File(checkout, "pariktAndroidNative/build.gradle.kts").readText())
         }
     }
-    // Inspect the root's established plugin classpath only when a child starts evaluation.
-    // This keeps module-only JVM/Native/web builds free of an Android plugin prerequisite.
-    fun androidAvailable(root: Project): Boolean = root.buildscript.configurations.findByName("classpath")
-        ?.incoming?.resolutionResult?.allComponents?.any {
-            it.moduleVersion?.group == "com.android.tools.build" && it.moduleVersion?.name == "gradle"
-        } == true || root.buildscript.classLoader.getResource("com/android/build/gradle/LibraryPlugin.class") != null
     gradle.beforeProject {
         val selected = if (path == ":parikt") defaultVersion?.let {
             Triple(it, File(settingsDir, "parikt.properties").absolutePath, false)
@@ -61,34 +57,24 @@ gradle.settingsEvaluated {
         engines.entries.find { it.value == path && path != ":parikt" }?.let {
             extensions.extraProperties["parikt.checkout"] = checkout
             extensions.extraProperties["parikt.engineVersion"] = it.key
-            if (androidAvailable(rootProject)) {
-                val script = File(projectDir, "build.gradle.kts")
-                val template = File(checkout, "gradle/parikt.android-engine.gradle.kts").readText()
-                val (imports, body) = template.lines().partition { it.startsWith("import ") }
-                var content = script.readText()
-                content = content.replace("plugins { id(\"org.jetbrains.kotlin.multiplatform\") }",
-                    "plugins { id(\"org.jetbrains.kotlin.multiplatform\"); id(\"com.android.kotlin.multiplatform.library\") }")
-                val headerEnd = content.indexOf('\n') + 1
-                content = content.substring(0, headerEnd) + imports.filter { it !in content.lines() }.joinToString("\n") + "\n" + content.substring(headerEnd) +
-                    "\nrun {\n" + body.joinToString("\n") + "\n}\n"
-                if (script.readText() != content) script.writeText(content)
-                val manifest = File(projectDir, "src/androidMain/AndroidManifest.xml").apply { parentFile.mkdirs() }
-                val xml = File(checkout, "parikt/src/androidMain/AndroidManifest.xml").readText()
-                if (!manifest.exists() || manifest.readText() != xml) manifest.writeText(xml)
-            }
+
         }
         helpers.entries.find { it.value == path && path != ":pariktAndroidNative" }?.let {
             extensions.extraProperties["parikt.engineVersion"] = it.key
-            val content = if (androidAvailable(rootProject)) File(checkout, "pariktAndroidNative/build.gradle.kts").readText()
-                else "// Android helper is inactive: the consuming root does not load AGP.\n"
-            val script = File(projectDir, "build.gradle.kts")
-            if (!script.exists() || script.readText() != content) script.writeText(content)
+
         }
         if (selected != null) {
             extensions.extraProperties["parikt.jvm.selection"] = selected
             extensions.extraProperties["parikt.selection"] = selected
             if (path !in engines.values) {
                 val consumer = this
+                // Package handlers survive in KGP task state. Freeze only serializable
+                // selection data into them; project discovery finishes before tasks execute.
+                @Suppress("UNCHECKED_CAST")
+                val participatingPaths = gradle.extensions.extraProperties["parikt.participants"] as Set<String>
+                val consumerPath = consumer.path
+                val selectedPackage = "@parikt/engine-" + selected.first.lowercase().replace('.', '-')
+                val packageLocation = "file:../../../parikt/web-engines/${selected.first}"
                 plugins.withId("org.jetbrains.kotlin.multiplatform") {
                     @Suppress("UNCHECKED_CAST")
                     val targets = consumer.extensions.getByName("kotlin").withGroovyBuilder { getProperty("targets") } as NamedDomainObjectCollection<Any>
@@ -100,14 +86,11 @@ gradle.settingsEvaluated {
                             compilations.configureEach {
                                 withGroovyBuilder {
                                     "packageJson"(Action<Any> {
-                                        @Suppress("UNCHECKED_CAST")
-                                        val participants = gradle.extensions.extraProperties.properties["parikt.participants"] as? Set<String> ?: emptySet()
-                                        if (consumer.path in participants) {
+                                        if (consumerPath in participatingPaths) {
                                             @Suppress("UNCHECKED_CAST")
                                             val dependencies = withGroovyBuilder { getProperty("dependencies") } as MutableMap<String, String>
-                                            val packageId = "@parikt/engine-" + selected.first.lowercase().replace('.', '-')
-                                            dependencies.keys.removeAll { it == "@parikt/engine" || (it.startsWith("@parikt/engine-") && it != packageId) }
-                                            dependencies[packageId] = "file:../../../parikt/web-engines/${selected.first}"
+                                            dependencies.keys.removeAll { it == "@parikt/engine" || (it.startsWith("@parikt/engine-") && it != selectedPackage) }
+                                            dependencies[selectedPackage] = packageLocation
                                         }
                                     })
                                 }
@@ -137,12 +120,13 @@ gradle.settingsEvaluated {
         buildRoot.tasks.register("verifyPariNativeIdentity") {
             group = "verification"
             dependsOn(engines.values.flatMap { listOf("$it:compileKotlinLinuxX64", "$it:compileKotlinMingwX64") })
+            val providers = engines.values.associateWith { path -> buildRoot.project(path).layout.buildDirectory.get().asFile }
             doLast {
-                check(engines.isNotEmpty()) { "No PARI providers selected." }
+                check(providers.isNotEmpty()) { "No PARI providers selected." }
                 listOf("linuxX64", "mingwX64").forEach { target ->
                     listOf("klib/parikt", "cinterop/parikt-cinterop-pari").forEach { relative ->
-                        val identities = engines.values.map { path ->
-                            val directory = buildRoot.project(path).layout.buildDirectory.dir("classes/kotlin/$target/main/$relative").get().asFile
+                        val identities = providers.map { (path, buildDirectory) ->
+                            val directory = File(buildDirectory, "classes/kotlin/$target/main/$relative")
                             val manifest = Properties().apply { File(directory, "default/manifest").inputStream().use { load(it) } }
                             val properties = listOf("unique_name", "depends", "native_targets", "interop", "package").associateWith { manifest.getProperty(it) }
                             val metadata = directory.walkTopDown().filter { it.isFile &&
@@ -163,10 +147,11 @@ gradle.settingsEvaluated {
         buildRoot.tasks.register("verifyPariJvmIdentity") {
             group = "verification"
             dependsOn(engines.values.map { "$it:jvmJar" })
+            val jars = engines.values.map { path -> buildRoot.project(path).tasks.named("jvmJar").get().outputs.files }
             doLast {
-                check(engines.isNotEmpty()) { "No JVM PARI providers selected. Set pari.version in a participating module's parikt.properties or the root file." }
-                val identities = engines.values.map { path ->
-                    val file = buildRoot.project(path).tasks.named("jvmJar").get().outputs.files.singleFile
+                check(jars.isNotEmpty()) { "No JVM PARI providers selected. Set pari.version in a participating module's parikt.properties or the root file." }
+                val identities = jars.map { files ->
+                    val file = files.singleFile
                     JarFile(file).use { jar ->
                         jar.entries().asSequence().filter { it.name.endsWith(".class") || it.name.endsWith(".kotlin_module") }
                             .associate { entry -> entry.name to jar.getInputStream(entry).use {

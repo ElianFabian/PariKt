@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import java.util.Properties
 
 // Combined with the ordinary generated engine script so KGP's APIs share its plugin classpath.
 val checkout = extra["parikt.checkout"] as File
@@ -10,13 +9,9 @@ fun File.runnerPath() = if (windows) "/mnt/${absolutePath.substring(0, 1).lowerc
 val konanData = providers.gradleProperty("konan.data.dir")
     .orElse(providers.environmentVariable("KONAN_DATA_DIR"))
     .map { rootProject.file(it) }.orElse(File(System.getProperty("user.home"), ".konan"))
-val konanHome = providers.provider { File(layout.buildDirectory.file("konan.txt").get().asFile.readText().trim()) }
-fun dependency(key: String) = konanHome.map { home ->
-    val configuration = Properties().apply { File(home, "konan/konan.properties").inputStream().use { load(it) } }
-    File(konanData.get(), "dependencies/${checkNotNull(configuration.getProperty(key))}")
-}
-val linuxToolchain = dependency("toolchainDependency.linux_x64")
-val windowsToolchain = dependency("toolchainDependency.mingw_x64")
+apply(from = File(checkout, "gradle/parikt.konan-arguments.gradle.kts"))
+@Suppress("UNCHECKED_CAST")
+val konanArguments = extra["parikt.konanArguments"] as (File, File, String, Boolean) -> org.gradle.process.CommandLineArgumentProvider
 configure<KotlinMultiplatformExtension> {
     listOf(linuxX64(), mingwX64()).forEach { target ->
         target.compilerOptions.moduleName.set("parikt")
@@ -37,14 +32,13 @@ configure<KotlinMultiplatformExtension> {
             inputs.property("konanDataDirectory", konanData.map { it.absolutePath })
             inputs.property("nativeHomeOverride", providers.gradleProperty("kotlin.native.home").orElse("managed"))
             outputs.dir(output)
-            doFirst {
-                val toolchain = if (target.name == "linuxX64") linuxToolchain.get() else windowsToolchain.get()
+            run {
                 commandLine((if (windows) listOf("wsl", "bash") else listOf("bash")) + listOf(
                     File(checkout, "parikt/native/build-kotlin-native.sh").runnerPath(),
-                    "--pari-version", version, "--target", host, "--out", output.runnerPath(),
-                    if (target.name == "linuxX64") "--toolchain-root" else "--platform-root", toolchain.runnerPath()
+                    "--pari-version", version, "--target", host, "--out", output.runnerPath()
                 ) + if (providers.gradleProperty("kotlinNativeForce").isPresent) listOf("--force") else emptyList())
             }
+            argumentProviders.add(konanArguments(layout.buildDirectory.file("konan.txt").get().asFile, konanData.get(), host, windows))
         }
         target.compilations.getByName("main").cinterops.create("pari") {
             definitionFile.set(File(checkout, "parikt/src/nativeInterop/cinterop/pari.def"))

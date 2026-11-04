@@ -97,10 +97,9 @@ val buildJvmNativeDependencies = tasks.register<Exec>("buildJvmNativeDependencie
 	inputs.dir(File(System.getProperty("java.home"), "include"))
 	outputs.dir(jvmNativeDirectory)
 
-	doFirst {
-		if (!jvmHost.startsWith("windows-") && !jvmHost.startsWith("linux-")) {
-			throw GradleException("Unsupported JVM native host '$jvmHost'. PariKt currently supports Windows/Linux x86_64.")
-		}
+	val supportedJvmHost = jvmHost.startsWith("windows-") || jvmHost.startsWith("linux-")
+	doFirst { check(supportedJvmHost) { "PariKt JVM engines currently support Windows/Linux x86_64." } }
+	run {
 		val outputDirectory = jvmNativeDirectory.get().absolutePath
 		val target = jvmHost
 		val buildArgs = listOf(
@@ -165,14 +164,14 @@ val buildWebNativeDependencies = tasks.register<Exec>("buildWebNativeDependencie
 	inputs.property("runner", webNativeRunner)
 	inputs.property("emsdk", webEmsdkDirectory ?: "bootstrap")
 	outputs.dir(webNativeDirectory)
-	doFirst { commandLine(webBuildCommand(smoke = false)) }
+	commandLine(webBuildCommand(smoke = false))
 }
 
 tasks.register<Exec>("verifyWebNative") {
 	group = "verification"
 	description = "Exercises the generated PARI web engine directly in Node.js."
 	dependsOn(buildWebNativeDependencies)
-	doFirst { commandLine(webBuildCommand(smoke = true)) }
+	commandLine(webBuildCommand(smoke = true))
 }
 
 val prepareWebEngineMetadata = tasks.register("prepareWebEngineMetadata") {
@@ -180,10 +179,12 @@ val prepareWebEngineMetadata = tasks.register("prepareWebEngineMetadata") {
     inputs.file(source)
     inputs.property("packageId", webPackageId)
     outputs.file(webEnginePackageDirectory.map { it.file("package.json") })
+    val outputFile = webEnginePackageDirectory.get().file("package.json").asFile
+    val selectedPackage = webPackageId
     doLast {
-        webEnginePackageDirectory.get().file("package.json").asFile.apply {
+        outputFile.apply {
             parentFile.mkdirs()
-            writeText(source.asFile.readText().replace("\"@parikt/engine\"", "\"$webPackageId\""))
+            writeText(source.asFile.readText().replace("\"@parikt/engine\"", "\"$selectedPackage\""))
         }
     }
 }
@@ -200,8 +201,9 @@ val generateWebBindings = tasks.register<Sync>("generateWebBindings") {
     inputs.property("packageId", webPackageId)
     filteringCharset = "UTF-8"
     from(layout.projectDirectory.dir("src/webMain/kotlin")) {
+        val selectedPackage = webPackageId
         include("**/*.kt")
-        filter { line: String -> line.replace("@JsModule(\"@parikt/engine\")", "@JsModule(\"$webPackageId\")") }
+        filter { line: String -> line.replace("@JsModule(\"@parikt/engine\")", "@JsModule(\"$selectedPackage\")") }
     }
     into(generatedWebBindings)
 }
@@ -211,21 +213,9 @@ val mingwNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirec
 val konanDataDirectory = providers.gradleProperty("konan.data.dir")
 	.orElse(providers.environmentVariable("KONAN_DATA_DIR"))
 	.map { rootProject.file(it) }.orElse(File(System.getProperty("user.home"), ".konan"))
-val konanHome = providers.provider {
-	// Use KGP's selected distribution, including its precedence rules for overrides.
-	File(layout.buildDirectory.file("konan.txt").get().asFile.readText().trim())
-}
-fun konanDependency(key: String) = konanHome.map { home ->
-	val configuration = Properties().apply {
-		File(home, "konan/konan.properties").inputStream().use { load(it) }
-	}
-	val dependency = checkNotNull(configuration.getProperty(key)) {
-		"Kotlin/Native distribution at $home does not define $key."
-	}
-	File(konanDataDirectory.get(), "dependencies/$dependency")
-}
-val linuxCtoolchain = konanDependency("toolchainDependency.linux_x64")
-val mingwPlatform = konanDependency("toolchainDependency.mingw_x64")
+apply(from = File(sourceDirectory, "gradle/parikt.konan-arguments.gradle.kts"))
+@Suppress("UNCHECKED_CAST")
+val konanArguments = extra["parikt.konanArguments"] as (File, File, String, Boolean) -> org.gradle.process.CommandLineArgumentProvider
 fun registerKotlinNativeBuild(taskName: String, target: String, directory: Directory, preparation: String) = tasks.register<Exec>(taskName) {
 	group = "native"
 	doNotTrackState("The native builder validates its own versioned cache.")
@@ -243,15 +233,15 @@ fun registerKotlinNativeBuild(taskName: String, target: String, directory: Direc
 	inputs.property("konanDataDirectory", konanDataDirectory.map { it.absolutePath })
 	inputs.property("nativeHomeOverride", providers.gradleProperty("kotlin.native.home").orElse("managed"))
 	outputs.dir(directory)
-	doFirst {
+	run {
 		fun nativePath(file: File) = if (isWindows) file.toWslPath() else file.absolutePath
 		commandLine((if (isWindows) listOf("wsl", "bash") else listOf("bash")) + listOf(
 			nativePath(layout.projectDirectory.file("native/build-kotlin-native.sh").asFile),
 			"--pari-version", pariVersion, "--target", target, "--out", nativePath(directory.asFile),
-		) + (if (target == "linux-x86_64") listOf("--toolchain-root", nativePath(linuxCtoolchain.get()))
-			else listOf("--platform-root", nativePath(mingwPlatform.get()))) +
+		) +
 			if (providers.gradleProperty("kotlinNativeForce").isPresent) listOf("--force") else emptyList())
 	}
+	argumentProviders.add(konanArguments(layout.buildDirectory.file("konan.txt").get().asFile, konanDataDirectory.get(), target, isWindows))
 }
 val buildLinuxX64NativeDependencies = registerKotlinNativeBuild(
 	"buildLinuxX64NativeDependencies", "linux-x86_64", kotlinNativeDirectory, "prepareLinuxX64CToolchain")
@@ -263,8 +253,12 @@ tasks.register("prepareLinuxX64CToolchain") {
 	group = "native"
 	description = "Prepares Kotlin/Native's managed Linux C compiler and sysroot."
 	dependsOn("downloadKotlinNativeDistribution")
+	val metadata = layout.buildDirectory.file("konan.txt").get().asFile
+	val dataDirectory = konanDataDirectory.get()
 	doLast {
-		val toolchain = linuxCtoolchain.get()
+		val home = File(metadata.readText().trim())
+		val configuration = Properties().apply { File(home, "konan/konan.properties").inputStream().use { load(it) } }
+		val toolchain = File(dataDirectory, "dependencies/${checkNotNull(configuration.getProperty("toolchainDependency.linux_x64"))}")
 		check(File(toolchain, "bin/x86_64-unknown-linux-gnu-gcc").isFile &&
 			File(toolchain, "x86_64-unknown-linux-gnu/sysroot/usr/include/stdio.h").isFile) {
 			"Kotlin/Native's Linux C compiler/sysroot is incomplete at $toolchain."
@@ -399,10 +393,8 @@ tasks.register<Exec>("verifyLinuxX64") {
 	group = "verification"
 	description = "Runs Kotlin/Native linuxX64 tests locally or through WSL on Windows."
 	dependsOn("linkDebugTestLinuxX64")
-	doFirst {
-		val executable = layout.buildDirectory.file("bin/linuxX64/debugTest/test.kexe").get().asFile
-		commandLine(if (isWindows) listOf("wsl", executable.toWslPath()) else listOf(executable.absolutePath))
-	}
+	val executable = layout.buildDirectory.file("bin/linuxX64/debugTest/test.kexe").get().asFile
+	commandLine(if (isWindows) listOf("wsl", executable.toWslPath()) else listOf(executable.absolutePath))
 }
 
 if (isWindows) tasks.named("check") { dependsOn("verifyLinuxX64") }
@@ -411,7 +403,8 @@ tasks.register("verifyMingwX64") {
 	group = "verification"
 	description = "Runs Kotlin/Native Windows tests on a Windows host."
 	dependsOn("mingwX64Test")
-	doFirst { check(isWindows) { "Windows native tests require a Windows x86_64 host." } }
+	val supportedHost = isWindows
+	doFirst { check(supportedHost) { "Windows native tests require a Windows x86_64 host." } }
 }
 
 // The local npm package must exist before KGP resolves or installs web dependencies.

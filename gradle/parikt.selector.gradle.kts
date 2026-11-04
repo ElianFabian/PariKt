@@ -8,8 +8,9 @@ listOf("buildJvmNativeDependencies", "jvmJar", "build", "assemble", "check",
     "compileKotlinLinuxX64", "compileKotlinMingwX64", "compileNativeMainKotlinMetadata",
     "commonizeCInterop", "verifyLinuxX64", "verifyMingwX64").forEach { taskName ->
     tasks.register(taskName) {
+        val propertiesFile = rootProperties
         doFirst {
-            throw GradleException("No root PARI default for $path. Set pari.version in $rootProperties " +
+            throw GradleException("No root PARI default for $path. Set pari.version in $propertiesFile " +
                 "or invoke the consuming application's task. Module overrides are not a default.")
         }
     }

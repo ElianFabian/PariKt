@@ -46,7 +46,9 @@ if (selectedVersion != null) {
             mkdirs()
             val content = File(sourceDirectory, "gradle/parikt.selector.gradle.kts").readText()
             val script = File(this, "build.gradle.kts")
-            if (!script.exists() || script.readText() != content) script.writeText(content)
+            // Generated outputs are not configuration inputs. Reading their initial
+            // absence would invalidate the first cache entry on the following build.
+            script.writeText(content)
         }
     }
 }

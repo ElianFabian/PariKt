@@ -8,10 +8,12 @@ val settingsSource = layout.buildDirectory.dir("generated/consumer-settings")
 val generateConsumerSettings = tasks.register("generateConsumerSettings") {
 	inputs.property("pariVersion", selectedVersion)
 	outputs.dir(settingsSource)
+	val output = settingsSource.get().file("ConsumerSettings.kt").asFile
+	val expectedVersion = selectedVersion
 	doLast {
-		settingsSource.get().file("ConsumerSettings.kt").asFile.apply {
+		output.apply {
 			parentFile.mkdirs()
-			writeText("package sample\ninternal const val expectedVersion = \"$selectedVersion\"\n")
+			writeText("package sample\ninternal const val expectedVersion = \"$expectedVersion\"\n")
 		}
 	}
 }
