@@ -395,11 +395,28 @@ The existing Compose desktop app continues to use JVM.
 
 ## Shared Compose demo
 
-`:consoleUi` shares the dark GP console between Android, desktop JVM, Kotlin/JS, and Kotlin/WasmJS.
-It shows the actual PARI version and runs `2 + 2` on startup. Choose an example or enter a GP
-expression, then press **Run command** or Enter (Shift+Enter inserts a new line). Previous
-commands can be clicked to reuse them. **Clear output** clears the visible history and retains
-the engine's variables.
+`:consoleUi` shares a PariDroid-style GP console between Android, desktop JVM, Kotlin/JS, and
+Kotlin/WasmJS, following the system's light/dark theme. It shows the actual PARI version and runs
+`2 + 2` on startup. Enter a GP expression and press **Run** or Enter; Shift+Enter inserts a new
+line. Suggestions complete the command token at the cursor; click a suggestion or press Tab.
+**Previous**/**Next** browse session command history and restore your unfinished draft. Results
+appear newest first; click a command to reuse it or remove individual result cards.
+
+The top-right menu contains examples, **Copy output**, **Clear output**, **Restart engine**,
+**Settings** and **Custom scripts**. Clearing output retains command history and PARI variables;
+restarting clears PARI variables and functions while retaining displayed results and scripts.
+Settings validate `parisize` (initial stack, default 4,000,000 bytes) and `parisizemax` (maximum
+stack, default 0, disabling automatic growth). A nonzero maximum must be at least the initial
+size; both sizes are limited to signed 32-bit values for compatibility across these backends.
+**Apply and restart** saves the settings and reinitializes the engine on its owning UI thread.
+
+Custom scripts can be created, renamed, edited and deleted. **Load** copies saved GP code into
+the command field; **Run** evaluates it in the current session. For example, save and run
+`sq(x)=x^2`, then enter `sq(12)` in the console. Scripts use GP syntax and the same evaluator as
+typed commands. Settings and scripts survive application restarts: Android uses private
+SharedPreferences, desktop uses `~/.parikt/console.preferences`, and web uses the current
+origin's localStorage. Storage failures appear in the UI. Command history and output are only
+kept for the current session.
 
 Run `androidApp` from Android Studio on an arm64-v8a or x86_64 device/emulator, or build its APK
 with `.\gradlew.bat :androidApp:assembleDebug`. Android minSdk remains 21. The shared UI uses

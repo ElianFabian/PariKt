@@ -18,6 +18,9 @@ kotlin {
 	jvm { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 	js { useEsModules(); browser() }
 	wasmJs { browser() }
+	applyDefaultHierarchyTemplate {
+		common { group("web") { withJs(); withWasmJs() } }
+	}
 	sourceSets {
 		commonMain.dependencies {
 			implementation(project(":parikt"))
@@ -34,5 +37,6 @@ kotlin {
 			implementation(kotlin("test"))
 			implementation(libs.kotlinx.coroutines.test)
 		}
+		named("webMain") { dependencies { implementation(libs.kotlinx.browser) } }
 	}
 }

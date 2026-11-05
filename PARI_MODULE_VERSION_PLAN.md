@@ -1,5 +1,24 @@
 # Project defaults and module-specific PARI versions
 
+## PariDroid-style sample follow-up
+
+- [x] Adapt the shared console to PariDroid's compact input/control bar and result cards.
+- [x] Add command history navigation and cursor-aware engine command completion.
+- [x] Add validated engine settings/restart and persistent custom script management on Android,
+  desktop JVM and web, retaining explicit init and the engine's single-thread requirement.
+- [x] Verify state/persistence behavior, shared-target compilation and actual sample interaction;
+  update onboarding and record exact coverage. Preserve all targets, examples and minSdk 21.
+
+Passed 2026-11-05: eight common state tests, one JVM file-store test and one real PARI 2.19.0
+desktop UI integration test; Android debug APK assembly and Kotlin/JS + WasmJS app compilation.
+The UI test covers history/completion, examples/clear, a saved function invoked from the console,
+and applying 8 MB initial / 16 MB maximum stack settings with a successful engine restart.
+Phone-size screenshots are in desktopApp/build/reports/sample-ui; combined verification log:
+build/sample-redesign/verify-final.log (101 tasks, 22 seconds). README and contributor guide now
+describe usage, persistence and checks. The redesigned UI has not yet been run on an Android
+device or in a browser; earlier device smoke results below predate this change. No core engine,
+version routing, example fixture or minimum SDK change was needed.
+
 ## Additional environment verification
 
 - [x] Cold Linux JVM consumer download/build/runtime with empty caches, followed by warm reuse.

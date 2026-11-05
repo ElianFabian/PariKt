@@ -8,6 +8,37 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+The PariDroid-style sample adaptation is implemented and verified on 2026-11-05. The user chose
+console layout/history/autocomplete plus settings and custom scripts, shared across Android,
+desktop JVM and both web targets. consoleUi now provides compact input/control buttons,
+newest-first removable result cards, cursor-aware suggestions, draft-preserving history,
+copy/clear output, examples, validated stack settings/restart, and script create/edit/rename/
+delete/load/run. System light/dark theme is used. The sibling paridroid-2026 repository was a
+read-only reference and has not been edited.
+
+Settings/scripts use a shared versioned, length-prefixed format with Android SharedPreferences,
+JVM ~/.parikt/console.preferences (temporary file + replace), and per-origin browser localStorage
+adapters. Load/save failures are visible; writes succeed before in-memory preferences change.
+History/output remain session-only. Settings restart PARI on its initialization UI thread,
+clearing variables/functions while retaining output/scripts. Saved-script Run evaluates before
+navigating away so disposal cannot cancel it. Scripts use the existing GP evaluator, so a saved
+definition such as sq(x)=x^2 can be run and then invoked from the console with sq(12).
+
+Verification: eight common state tests, one JVM file persistence test and one live PARI 2.19.0
+desktop Compose test pass. The integration test covers actual version/startup, factorization,
+history, clearing, completion, Pi, saved function execution and applying 8 MB initial / 16 MB
+maximum stack settings with successful restart. Test preferences are in memory, so developer
+data is untouched. Android debug APK assembly and JS/WasmJS app compilation pass in the same
+101-task build (22 seconds). Evidence: build/sample-redesign/verify-final.log and phone-size
+screenshots under desktopApp/build/reports/sample-ui/. README and docs/CONTRIBUTOR_GUIDE.md
+describe usage, architecture, persistence and checks. The existing Compose clipboard API emits
+a deprecation warning on the pinned 1.8.2 release; compilation succeeds.
+
+No Android-device or browser runtime check of the redesigned UI has been performed yet; device
+results below predate it. All existing targets, both examples, explicit initialization, engine
+thread confinement and Android minSdk 21 remain intact. Core engines and version-routing code
+were not changed. Checklist: the sample follow-up at the top of PARI_MODULE_VERSION_PLAN.md.
+
 Physical ARM64 demo smoke verification is user-confirmed: on 2026-11-05 the user reported that
 the Android app runs successfully on their physical Google Pixel 8. This extends coverage beyond
 the x86_64 emulator. The device's Android/API level, exact APK/PARI selection and individual

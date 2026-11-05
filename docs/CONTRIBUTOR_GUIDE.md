@@ -28,7 +28,7 @@ coverage limits, and [the module-version plan](../PARI_MODULE_VERSION_PLAN.md) f
 | `gradle/parikt.*.gradle.kts` | Source installation, selection discovery, dependency routing and graph verification. These are Gradle scripts, not a custom plugin. |
 | `terminalApp/` | JVM command-line application using PariKt. |
 | `nativeTerminalApp/` | Standalone Linux/Windows Kotlin/Native command-line application. |
-| `consoleUi/` | Shared Compose console UI/state used by the Android, desktop and web applications. |
+| `consoleUi/` | Shared Compose console, history/completion, engine settings, scripts and platform persistence adapters. |
 | `androidApp/`, `desktopApp/`, `webApp/` | Platform application entry points and packaging around the shared console. |
 | `examples/consumer/` | An independent consumer build showing how to install the pinned PariKt sources. |
 | `examples/module-versions/` | Compatibility fixtures: multiple applications, shared libraries and deliberately competing version requirements. Some fixtures retain an experimental provider scaffold. |
@@ -38,6 +38,36 @@ coverage limits, and [the module-version plan](../PARI_MODULE_VERSION_PLAN.md) f
 The two examples folders have different purposes. Use `consumer` to learn installation; use
 `module-versions` to understand and reproduce compatibility scenarios. Application demos exercise
 the real product modules, while disposable fixtures let tests change dependency graphs freely.
+
+### Shared sample application
+
+`consoleUi/commonMain` owns the sample behavior. `ConsoleApp.kt` renders the console and routes
+to the settings/scripts pages in `ConsolePages.kt`. `ConsoleState.kt` keeps cursor-aware command
+completion, session history, output, initialization and engine restart separate from rendering.
+`ConsoleSession.kt` adapts the public PariKt API; evaluation and restart stay on the UI thread
+that initialized PARI. Changing pages preserves that session. Running a saved script completes
+before leaving its page, so navigation cannot cancel the operation.
+
+`ConsolePreferences.kt` validates stack sizes and encodes settings/scripts as versioned,
+length-prefixed fields, preserving multiline Unicode GP code. Small platform `ConsoleStore`
+actuals persist that common format: Android SharedPreferences, a replaced file under the JVM
+user's `.parikt` directory, or browser localStorage shared by JS/Wasm on the same origin. History
+and output are not persisted. Saving must succeed before in-memory preferences change; load/save
+errors remain visible. Engine settings restart PARI, clearing its variables/functions.
+
+Run these checks after changing the shared sample:
+
+```powershell
+.\gradlew.bat :consoleUi:jvmTest :desktopApp:test :androidApp:assembleDebug :webApp:compileKotlinJs :webApp:compileKotlinWasmJs --no-parallel --console=plain
+```
+
+The state tests cover draft restoration, cursor completion, script persistence/renaming/deletion,
+invalid settings and storage failures. The JVM store test checks file replacement and reload.
+The desktop integration test uses the selected real PARI engine to exercise examples, completion,
+history, output clearing, saved function execution and settings/restart. It uses in-memory
+preferences to avoid modifying a developer's saved data, and captures phone-size screens under
+`desktopApp/build/reports/sample-ui/`. Android packaging and web compilation supplement these
+tests; they do not establish device/browser runtime coverage for a new UI change.
 
 ### Where Kotlin code lives
 
