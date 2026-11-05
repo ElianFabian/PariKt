@@ -371,6 +371,7 @@ Preserve all targets, both examples folders, Android minSdk 21, one selected eng
 application and explicit conflict rejection. Update the handoff and module checklist with actual
 results. Valid up-to-date test results are different from a forced rebuild; record which occurred.
 Device/runtime coverage is also distinct from successful assembly: ARM64/API21 runtime, fresh
-machines and IDE sync UI retain the limits recorded in the handoff. This source integration does
+machines and broader IDE workflows retain the limits recorded in the handoff. GUI sync and the
+API36.1 x86_64 demo run/Kotlin breakpoint/step/resume checks pass. This source integration does
 not currently provide a published binary distribution; its public Kotlin API uses one selected
 engine per application.

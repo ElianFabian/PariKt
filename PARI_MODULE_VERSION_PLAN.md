@@ -17,10 +17,19 @@
   IDE model import completes. Default/scoped providers and application modules appear in the
   Gradle tree. Evidence: build/ide-verification/android-studio-sync.log. No code fix required.
 - [ ] ARM64/API21 runtime, fresh-machine setup and other build hosts.
-- [ ] Broader IDE variant switching and run/debug workflows.
+- [x] Android Studio demo run and Kotlin breakpoint/step/resume workflow.
+  Passed 2026-11-05 at 1368be8 with PARI 2.15.0 and the user's API36.1 x86_64 emulator.
+  IDE build/install/launch, Ready/arithmetic/factorization, automatic Java/native attachment,
+  MainActivity.kt:11 breakpoint, F8 and F9 pass. Temporary line breakpoint removed and debug
+  sessions stopped. Initial emulator storage failure resolved after user cold boot/retry; no
+  production fix needed. Logs/observed steps: build/ide-runtime-verification.
+- [ ] Broader IDE variant switching and native C breakpoint/stepping workflows.
+  Active-variant choices did not open through automation, including after a successful GUI
+  resync (29.057 seconds); release -> debug was not observed. No project variant defect established.
+  No ARM64 device or supported API21 image is installed; those runtime limits remain separate.
 
 Earlier rollout sections below retain their historical verification limits; these results extend
-basic GUI sync and the scoped Linux JVM cold-cache coverage described above.
+GUI sync, scoped Android run/Kotlin debugging and Linux JVM cold-cache coverage described above.
 
 ## Android explicit initialization follow-up
 

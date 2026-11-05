@@ -8,6 +8,28 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Android Studio run/debug verification passed on 2026-11-05 at 1368be8, with the repository's
+PARI 2.15.0 demo on Pixel 8 Pro API36.1 x86_64 (emulator-5554). The IDE built assembleDebug,
+installed and launched MainActivity; the console displayed Ready / 2 + 2 = 4 and factorization.
+Automatic Java/native debugging attached (LLDB x86_64 plus the Java VM); a temporary Kotlin
+breakpoint at MainActivity.kt:11 was reached, the stack/variables were visible, F8 stepped and
+F9 resumed to Ready. The temporary line breakpoint was removed and both debug components stopped.
+This checks Kotlin debugging with the automatic native debugger attached, not native C breakpoint
+or stepping behavior. The user cold-booted/retried after an initial emulator installation failed
+with INSTALL_FAILED_INSUFFICIENT_STORAGE. Installation subsequently succeeded without a code fix.
+
+Build-variant switching remains incomplete: the panel lists the default and scoped helpers,
+but the app's active-variant selector did not expose choices through the automation. A fresh
+GUI Gradle sync passed in 29.057 seconds; no release -> debug switch was observed. Delayed failed
+extra IDE launcher dialogs also appeared (IDE .port lock-file access); those launcher processes
+have exited and the working project IDE remains open. Do not infer a project variant defect
+from this inconclusive UI attempt. Logs and observed-step notes: build/ide-runtime-verification/.
+No ARM64 device was connected; installed images are x86/x86_64 and the API21 image is x86, so
+direct ARM64/API21 runtime checks remain pending. The SDK command-line package manager is not
+installed; remote availability of other images was not established. The emulator-5580 process
+started for verification has exited; the user's emulator-5554 and its installed demo are retained.
+No production code, engine selections, targets, examples or Android minSdk changed.
+
 Cold-cache Linux JVM verification passed on 2026-11-05 using the verifier at 0e02eae.
 The default verify_cold_jvm.ps1 invocation downloaded Gradle 9.6.0 through the wrapper and used
 empty dependency, PARI source, compiled-engine, native-work and Konan caches. The isolated
@@ -161,8 +183,8 @@ stopped. Logs: build/project-review/fix-*. Details: PROJECT_REVIEW.md and the ar
 
 Linux JVM cold-cache bootstrap passes as recorded above. ARM64/API21 runtime, fresh OS setup
 including prerequisite installation, and Apple/other build hosts remain unverified. Basic
-Android Studio GUI sync passes as recorded above; broader IDE run/debug/variant workflows remain
-outside that verified scope.
+Android Studio GUI sync and scoped demo run/Kotlin debugging pass as recorded above. IDE variant
+switching and native C breakpoint/stepping workflows remain outside that verified scope.
 The available API21 emulator is x86, outside the supported native ABI list. SDK compilation and an
 API36.1 x86_64 run do not prove those cases. Publication is outside the completed source integration.
 Browser pages were previously executed; this structural checkpoint verifies their rebuilt
