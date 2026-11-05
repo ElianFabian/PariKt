@@ -1,15 +1,12 @@
-@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
-
 package com.elianfabian.parikt
 
 import kotlinx.coroutines.CancellationException
-import kotlin.js.Promise
 
-internal expect suspend fun awaitPariModule(loading: Promise<WebEngine>): WebEngine
+internal expect suspend fun awaitPariModule(loading: WebEngineLoading): WebEngine
 
 internal actual object PariNative {
 	private var module: WebEngine? = null
-	private var pending: Promise<WebEngine>? = null
+	private var pending: WebEngineLoading? = null
 
 	actual suspend fun prepareLibraries() {
 		if (module != null) return
@@ -43,11 +40,7 @@ internal actual object PariNative {
 
 	actual fun eval(cmd: String): String? = engine().eval(cmd)
 
-	@Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD") // JsString is already String on JS, but not Wasm.
-	actual fun getSupportedCommands(): Array<String>? {
-		val commands = engine().getSupportedCommands()
-		return Array(commands.length) { commands[it].toString() }
-	}
+	actual fun getSupportedCommands(): Array<String>? = engineCommands(engine())
 
 	actual fun close() { module?.close() }
 

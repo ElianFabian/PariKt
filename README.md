@@ -56,6 +56,55 @@ plugins {
 }
 ```
 
+### Kotlin consumer compatibility
+
+Source consumers compile PariKt with their own Kotlin compiler. The tested release points cover
+Kotlin 2.0 through 2.4; the repository's sample apps keep their pinned toolchain. These are the
+complete consumer-matrix combinations:
+
+| Kotlin | Gradle | Android Gradle plugin |
+| --- | --- | --- |
+| 2.0.0 | 8.5 | 8.3.2, with R8 8.5.10 override |
+| 2.0.21 | 8.8 | 8.5.2 |
+| 2.1.21 | 8.9 | 8.7.2 |
+| 2.2.21 | 8.11.1 | 8.10.1 |
+| 2.3.21 | 8.14 | 8.13.2 |
+| 2.4.21 | 9.6.0 | 9.4.1 |
+
+To use the imported plugin aliases with a different consumer toolchain, override their catalog
+versions in **your settings**, after applying `parikt.settings.gradle.kts`:
+
+```kotlin
+dependencyResolutionManagement.versionCatalogs.named("pariktLibs") {
+    version("kotlin", "2.3.21")
+    version("agp", "8.13.2") // Only needed when using Android plugin aliases.
+}
+```
+
+Use the matching Gradle wrapper in the consuming build. AGP 8 consumers load
+`com.android.library` and KGP in the parent classpath and omit the
+`android.kotlin.multiplatform.library` alias from the root plugin block above; PariKt uses
+`androidTarget` internally. AGP 9 uses the current Android KMP library plugin. For the oldest
+2.0.0 Android profile, the root build supplies the newer shrinker before its `plugins` block:
+
+```kotlin
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath("com.android.tools:r8:8.5.10") }
+}
+```
+
+All six profiles verify JVM, JS/Wasm Node and Windows/Linux Native consumers with PARI 2.15.0
+and 2.19.0, plus Android debug and R8-shrunk release builds. JVM checks include one implementation,
+strict configuration-cache reuse and conflicting explicit requirements. Android packages retain
+minSdk 21, Startup metadata and ARM64/x86_64 libraries. Kotlin 2.0.0 and 2.4.21 release APKs were
+also run on an API36.1 x86_64 emulator. Web boundary/lifecycle tests pass on all six compilers.
+
+The verified host is Windows with WSL for Linux execution. Other historical patches, future
+releases, older-compiler browser runtime and API21-device runtime are not individually verified.
+iOS backend implementation remains separate. See [the compatibility plan](KOTLIN_COMPATIBILITY_PLAN.md)
+for evidence and exact limits; this matrix does not change the existing sample-app pins.
+
 The standalone `examples/consumer` build demonstrates JVM, Native Windows/Linux and JS/Wasm
 Node consumers. Its `parikt.properties` is independent of this repository's demo selection.
 From this repository on Windows:
@@ -468,8 +517,8 @@ long calculations can pause the interface.
 
 Kotlin/JS and Kotlin/WasmJS share an Emscripten PARI engine and support browser and Node.js
 consumers. The engine uses the same `pari.version` setting as Android/JVM, static GMP 6.3.0,
-and Emscripten 4.0.21. The current Kotlin build/consumer test baseline is 2.4.21; compatibility
-with older Kotlin consumers has not been established. The Kotlin/JS target also needs WebAssembly
+and Emscripten 4.0.21. The repository's Kotlin baseline is 2.4.21; library consumers can use the
+tested Kotlin 2.0–2.4 combinations above. The Kotlin/JS target also needs WebAssembly
 at runtime because PARI itself is compiled to Wasm.
 
 Inside a coroutine or suspending function:

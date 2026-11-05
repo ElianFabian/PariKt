@@ -8,6 +8,43 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Kotlin 2.x source-consumer compatibility is implemented and verified on 2026-11-05. User scope:
+library consumers, keeping sample applications on the pinned 2.4.21/9.6.0/AGP9.4.1 toolchain.
+Exact matrix/implementation/checklist/commands: KOTLIN_COMPATIBILITY_PLAN.md. Tested Kotlin
+2.0.0, 2.0.21, 2.1.21, 2.2.21, 2.3.21 and 2.4.21 across JVM, JS/Wasm Node, Windows/Linux Native
+and Android debug/R8 release builds. No promise for every historical/future patch or iOS yet.
+
+Changes bridge Gradle 8/9 project dependency paths, optional old/new KGP web tooling and
+module-name APIs, and AGP 8 androidTarget versus AGP 9 KMP DSL. Actual KGP version controls
+interop opt-ins and Native inputs. Legacy Native reads its managed konanHome, delegates missing
+compiler installation to KGP's downloader, and links a tiny program to provision the target SDK;
+current KGP retains its download task. JS/Wasm external array/Promise types are platform actuals
+behind shared protocol/loading handles. Public PariKt API and shared loading/cancellation logic
+are retained. No custom plugin or metadata-check bypass; KProxyable was inspected read-only.
+
+Full matrix: build/kotlin-consumers/aa26c6fac8ca/results.json, all current rows pass. Each compiler
+runs applications sharing a library with PARI 2.15.0/2.19.0, verifies JVM single-class identity,
+strict cache reuse/conflicts, Native single-archive identity and Windows/WSL execution, web
+execution and Android graph/manifest/ABI payloads plus R8 shrinking. Initial missing Native
+2.0.0 installation failure is preserved in results-initial.json; resumed Native check passes
+and retains PreviousLog. Six-compiler JS/Wasm boundary/lifecycle matrix also passes (24 cases):
+fa10a229d220/results.json. Oldest rootless consumer: aa26c6fac8ca/2.0.0/rootless.log.
+
+Actual R8 release APK runtime passes for both engines under Kotlin 2.0.0 and 2.4.21 on API36.1
+x86_64. Test debug signing and workspace-owned AVD/data were used; emulator-5582 was stopped.
+User's AVD was untouched. Evidence: build/kotlin-consumers/android-runtime/*release-*.{xml,log}.
+Pinned regression passes: pinned-regression.log, 175 tasks/1m55s including shared UI/state tests,
+Android packaging, web compilation/runtime and both Native boundary suites. Oldest/newest web
+consumers/boundaries also pass after consolidating the module-name adapter. A manual temporary
+fixture graph change needed a fixture-only npm lock upgrade; production lock enforcement stays.
+
+README/contributor guide document consumer catalog overrides, exact Gradle/AGP profiles,
+oldest-profile R8 override and PowerShell runner/resume behavior. All targets, examples, engine
+routing/reuse and Android minSdk21 remain. Verified host: Windows/JBR21 plus WSL Linux; API21
+runtime, other hosts, old-compiler browser runtime and other patches are separate coverage.
+User's Mac for future iOS work: 2019 Intel i5 quad-core 1.4 GHz, 16 GB RAM, macOS15.7.5/Xcode26.3,
+free Apple account; not attached here. iOS engine/app integration remains to implement.
+
 Empty local source-tree cleanup on 2026-11-05: verified zero files (including hidden files) and
 removed empty parikt/src/{iosMain,main,linuxX64Main,linuxX64Test} directory trees bottom-up.
 No source files or Gradle declarations changed. Linux source sets remain configured and use

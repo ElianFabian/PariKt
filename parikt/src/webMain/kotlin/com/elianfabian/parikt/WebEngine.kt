@@ -1,21 +1,19 @@
-@file:OptIn(ExperimentalWasmJsInterop::class)
-
 package com.elianfabian.parikt
 
-import kotlin.js.JsAny
-import kotlin.js.JsArray
-import kotlin.js.JsString
-import kotlin.js.Promise
-
 @JsModule("@parikt/engine")
-private external fun createPari(): Promise<WebEngine>
+private external fun createPari(): WebEngineLoading
 
-internal fun loadPariModule(): Promise<WebEngine> = createPari()
+internal fun loadPariModule(): WebEngineLoading = createPari()
 
-internal external interface WebEngine : JsAny {
+// Opaque Promise handle keeps version-specific Wasm generic bounds out of shared sources.
+internal expect interface WebEngineLoading
+
+internal expect interface WebEngine {
 	fun init(stackBytes: Int)
 	fun eval(command: String): String
-	fun getSupportedCommands(): JsArray<JsString>
 	fun getVersionCode(): Int
 	fun close()
 }
+
+// JS and Wasm expose different array representations on earlier Kotlin 2.x versions.
+internal expect fun engineCommands(engine: WebEngine): Array<String>

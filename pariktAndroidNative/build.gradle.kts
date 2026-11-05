@@ -131,7 +131,7 @@ extensions.getByName("android").withGroovyBuilder {
         if (scopedVersion != null) ".v${pariVersion.replace('.', '_').replace('-', '_')}" else "")
     setProperty("compileSdk", 36)
     setProperty("ndkVersion", ndkVersion)
-    setProperty("enableKotlin", false)
+    if (hasProperty("enableKotlin")) setProperty("enableKotlin", false)
     getProperty("defaultConfig").withGroovyBuilder {
         setProperty("minSdk", minAndroidApi)
         getProperty("ndk").withGroovyBuilder {

@@ -1,5 +1,17 @@
 # Project defaults and module-specific PARI versions
 
+## Kotlin consumer compatibility follow-up
+
+- [x] Confirm library-consumer scope and audit toolchain coupling; create
+  KOTLIN_COMPATIBILITY_PLAN.md with exact matrix/coverage requirements.
+- [x] Implement and verify compatibility across representative stable Kotlin 2.x release lines,
+  preserving module versions, one-engine/conflict behavior, targets, examples and minSdk 21.
+  Kotlin 2.0.0/2.0.21/2.1.21/2.2.21/2.3.21/2.4.21 pass JVM/cache/conflicts, JS/Wasm Node,
+  Windows/Linux Native and Android debug/R8 release checks with both engines. Six-compiler
+  web boundary tests pass (24 cases); oldest/newest R8 APKs run on API36.1 x86_64. Pinned
+  regressions pass (175 tasks). Exact profiles, retry evidence and limits are recorded in
+  KOTLIN_COMPATIBILITY_PLAN.md; other patches/future releases/iOS are not implied.
+
 ## PariDroid-style sample follow-up
 
 - [x] Inspect and clean empty local source trees shown in Android Studio (2026-11-05).

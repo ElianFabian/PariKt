@@ -1,5 +1,12 @@
 import org.gradle.api.artifacts.ProjectDependency
 
+// getPath replaces getDependencyProject in newer Gradle versions. Resolve the public
+// accessor at configuration time so the same source installer also compiles on Gradle 8.8.
+fun ProjectDependency.pariktProjectPath(): String =
+    ProjectDependency::class.java.methods.firstOrNull { it.name == "getPath" && it.parameterCount == 0 }
+        ?.invoke(this) as? String
+        ?: (ProjectDependency::class.java.getMethod("getDependencyProject").invoke(this) as Project).path
+
 // Shared scoped-selection infrastructure. Apply before or after consumer
 // includes: the callback observes final projectDir mappings, not guessed paths.
 val checkout = extra["pariktSourceDir"] as File
@@ -31,7 +38,7 @@ gradle.projectsEvaluated {
     // scripts have run. No graph resolution, Kotlin compilation or native build.
     val edges = consumers.mapValues { (_, consumer) ->
         consumer.configurations.flatMap { configuration ->
-            configuration.dependencies.withType(ProjectDependency::class.java).map { it.path }
+            configuration.dependencies.withType(ProjectDependency::class.java).map { it.pariktProjectPath() }
         }.toSet()
     }
     var changed: Boolean

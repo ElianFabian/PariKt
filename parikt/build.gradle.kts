@@ -1,13 +1,45 @@
-@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class, org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
+// ExperimentalWasmDsl moved packages within Kotlin 2.0; avoid binding the installer to either name.
+@file:Suppress("OPT_IN_USAGE")
 
 import java.util.Properties
 import org.gradle.api.file.Directory
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
 import org.gradle.kotlin.dsl.withGroovyBuilder
+import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 
 plugins {
 	id("org.jetbrains.kotlin.multiplatform")
+}
+
+// Optional public tool extensions moved/appeared during Kotlin 2.x. Resolve only the
+// installed KGP's types, rather than making older consumers compile references to new classes.
+val kotlinPluginLoader = plugins.getPlugin("org.jetbrains.kotlin.multiplatform").javaClass.classLoader
+val consumerKotlinVersion = getKotlinPluginVersion()
+val modernJsInterop = consumerKotlinVersion.substringBefore('-').split('.').let { it[0].toInt() > 2 || it[1].toInt() >= 2 }
+fun Project.configureOptionalKotlinTool(pluginName: String, extensionName: String, configure: (Any) -> Unit) {
+    @Suppress("UNCHECKED_CAST")
+    val type = try { kotlinPluginLoader.loadClass(pluginName) as Class<Plugin<*>> }
+        catch (_: ClassNotFoundException) { return }
+    val owner = this
+    plugins.withType(type).configureEach {
+        configure(owner.extensions.getByType(kotlinPluginLoader.loadClass(extensionName)))
+    }
+}
+fun configureToolDownload(extension: Any) {
+    extension.withGroovyBuilder {
+        @Suppress("UNCHECKED_CAST")
+        (getProperty("downloadBaseUrl") as org.gradle.api.provider.Property<String>).set(null as String?)
+    }
+}
+fun configureBridgeModuleName(target: Any, name: String) {
+    target.withGroovyBuilder {
+        if (hasProperty("outputModuleName")) {
+            @Suppress("UNCHECKED_CAST")
+            (getProperty("outputModuleName") as org.gradle.api.provider.Property<String>).set(name)
+        } else setProperty("moduleName", name)
+    }
 }
 
 // Apply tool configuration in the consuming build, using KGP already on this module's classpath.
@@ -15,21 +47,12 @@ if (!rootProject.extensions.extraProperties.has("parikt.web.toolsConfigured")) r
     extra["parikt.web.toolsConfigured"] = true
 	// Node archives are declared in settings, respecting PREFER_SETTINGS repository policy.
 	allprojects {
-		plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin> {
-			extensions.configure<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec> {
-				downloadBaseUrl.set(null as String?)
-			}
-		}
-		plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin> {
-			extensions.configure<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec> {
-				downloadBaseUrl.set(null as String?)
-			}
-		}
-		plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin> {
-			extensions.configure<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec> {
-				downloadBaseUrl.set(null as String?)
-			}
-		}
+        configureOptionalKotlinTool("org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin",
+            "org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec", ::configureToolDownload)
+        configureOptionalKotlinTool("org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin",
+            "org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec", ::configureToolDownload)
+        configureOptionalKotlinTool("org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin",
+            "org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec", ::configureToolDownload)
 	}
 
 	// npm otherwise installs a second webpack for webpack-cli's peer dependency. Its plugins
@@ -44,12 +67,14 @@ if (!rootProject.extensions.extraProperties.has("parikt.web.toolsConfigured")) r
 		}
         tasks.named("rootPackageJson") { inputs.property("parikt.webpackVersion", webpackVersion) }
 	}
-	plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin> {
-		val webpackVersion = extensions.getByType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootExtension>().versions.webpack.version
-		extensions.configure<org.jetbrains.kotlin.gradle.targets.wasm.npm.WasmNpmExtension> {
-			override("webpack", webpackVersion)
-		}
-	}
+    configureOptionalKotlinTool("org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin",
+        "org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootExtension") { extension ->
+        val versions = extension.withGroovyBuilder { getProperty("versions") }
+        val webpack = versions.withGroovyBuilder { getProperty("webpack") }
+        val version = webpack.withGroovyBuilder { getProperty("version") } as String
+        extensions.getByType(kotlinPluginLoader.loadClass("org.jetbrains.kotlin.gradle.targets.wasm.npm.WasmNpmExtension"))
+            .withGroovyBuilder { "override"("webpack", version) }
+    }
 }
 
 // Settings copies this same definition for scoped providers; only data differs.
@@ -234,7 +259,7 @@ fun registerKotlinNativeBuild(taskName: String, target: String, directory: Direc
 	inputs.file(engineSources.file("native/paridroid/paridroid.c"))
 	inputs.file(engineSources.file("native/paridroid/paridroid.h"))
 	inputs.property("pariVersion", pariVersion)
-	inputs.property("kotlinVersion", pariktLibs.versions.kotlin)
+	inputs.property("kotlinVersion", consumerKotlinVersion)
 	// Resolve konan.txt only during execution, after the distribution download task.
 	inputs.property("konanDataDirectory", konanDataDirectory.map { it.absolutePath })
 	inputs.property("nativeHomeOverride", providers.gradleProperty("kotlin.native.home").orElse("managed"))
@@ -252,13 +277,13 @@ fun registerKotlinNativeBuild(taskName: String, target: String, directory: Direc
 val buildLinuxX64NativeDependencies = registerKotlinNativeBuild(
 	"buildLinuxX64NativeDependencies", "linux-x86_64", kotlinNativeDirectory, "prepareLinuxX64CToolchain")
 val buildMingwX64NativeDependencies = registerKotlinNativeBuild(
-	"buildMingwX64NativeDependencies", "windows-x86_64", mingwNativeDirectory, "downloadKotlinNativeDistribution")
+	"buildMingwX64NativeDependencies", "windows-x86_64", mingwNativeDirectory, "preparePariKonanDistribution")
 
 // KGP's distribution task prepares its managed target dependencies as well as the compiler.
 tasks.register("prepareLinuxX64CToolchain") {
 	group = "native"
 	description = "Prepares Kotlin/Native's managed Linux C compiler and sysroot."
-	dependsOn("downloadKotlinNativeDistribution")
+	dependsOn("preparePariKonanDistribution")
 	val metadata = layout.buildDirectory.file("konan.txt").get().asFile
 	val dataDirectory = konanDataDirectory.get()
 	doLast {
@@ -297,15 +322,17 @@ kotlin {
 	}
 
 	js {
+		if (modernJsInterop) compilerOptions.freeCompilerArgs.add("-opt-in=kotlin.js.ExperimentalWasmJsInterop")
 		useEsModules()
-        outputModuleName.set("parikt-bridge-${pariVersion.replace('.', '-')}-js")
+        configureBridgeModuleName(this, "parikt-bridge-${pariVersion.replace('.', '-')}-js")
         compilerOptions.moduleName.set("parikt")
 		browser { testTask { useKarma { useChromeHeadless() } } }
 		nodejs { testTask { useMocha { timeout = "120s" } } }
 	}
 
 	wasmJs {
-        outputModuleName.set("parikt-bridge-${pariVersion.replace('.', '-')}-wasm")
+		if (modernJsInterop) compilerOptions.freeCompilerArgs.add("-opt-in=kotlin.js.ExperimentalWasmJsInterop")
+        configureBridgeModuleName(this, "parikt-bridge-${pariVersion.replace('.', '-')}-wasm")
         compilerOptions.moduleName.set("parikt")
 		browser { testTask { useKarma { useChromeHeadless() } } }
 		nodejs()
@@ -364,24 +391,108 @@ kotlin {
 	}
 }
 
+// Older KGP versions provision the compiler through konanHome instead of exposing
+// downloadKotlinNativeDistribution. Keep that legacy path separate from current KGP.
+fun Project.legacyPariKonanHome(): String {
+    val home = tasks.named("cinteropPariMingwX64").get().withGroovyBuilder {
+        @Suppress("UNCHECKED_CAST")
+        (getProperty("konanHome") as org.gradle.api.provider.Provider<String>).get()
+    }
+    if (!File(home, "bin/konanc").isFile && !File(home, "bin/konanc.bat").isFile) {
+        // Old konanHome providers expose the location before installing the compiler.
+        // Delegate provisioning to that KGP's downloader, only when Native is requested.
+        val downloaderType = kotlinPluginLoader.loadClass("org.jetbrains.kotlin.gradle.utils.NativeCompilerDownloader")
+        val downloader = downloaderType.getConstructor(Project::class.java).newInstance(this)
+        downloaderType.getMethod("downloadIfNeeded").invoke(downloader)
+    }
+    check(File(home, "bin/konanc").isFile || File(home, "bin/konanc.bat").isFile) {
+        "Kotlin/Native compiler is missing at $home. Check kotlin.native.home and the compiler download."
+    }
+    return home
+}
+val managedKonanDownload = tasks.findByName("downloadKotlinNativeDistribution")
+tasks.register("preparePariKonanDistribution") {
+    if (managedKonanDownload != null) {
+        dependsOn(managedKonanDownload)
+    } else {
+        val home = project.legacyPariKonanHome()
+        val metadata = layout.buildDirectory.file("konan.txt").get().asFile
+        inputs.property("compilerHome", home)
+        outputs.file(metadata)
+        doLast { metadata.parentFile.mkdirs(); metadata.writeText(home) }
+    }
+}
+if (managedKonanDownload == null) {
+    // Linking a tiny program forces the installed compiler to provision the target's C SDK.
+    listOf("MingwX64" to "mingw_x64", "LinuxX64" to "linux_x64").forEach { (suffix, target) ->
+        val prepare = tasks.register<Exec>("prepareLegacy${suffix}Toolchain") {
+            dependsOn("preparePariKonanDistribution")
+            val home = project.legacyPariKonanHome()
+            val output = layout.buildDirectory.dir("legacy-konan/$target").get().asFile
+            val source = File(output, "Probe.kt")
+            inputs.property("compilerHome", home)
+            inputs.property("kotlinVersion", consumerKotlinVersion)
+            inputs.property("target", target)
+            outputs.dir(output)
+            environment("KONAN_DATA_DIR", konanDataDirectory.get().absolutePath)
+            commandLine((if (isWindows) listOf("cmd", "/d", "/c", "$home/bin/konanc.bat") else listOf("$home/bin/konanc")) +
+                listOf(source.absolutePath, "-target", target, "-produce", "program", "-o", File(output, "probe").absolutePath))
+            doFirst { output.mkdirs(); source.writeText("fun main() {}\n") }
+        }
+        if (suffix == "MingwX64") buildMingwX64NativeDependencies.configure { dependsOn(prepare) }
+        else tasks.named("prepareLinuxX64CToolchain") { dependsOn(prepare) }
+    }
+}
+
 @Suppress("UNCHECKED_CAST")
 val helpers = gradle.extensions.extraProperties["parikt.android.helpers"] as Map<String, String>
 // Keep this script stable before Gradle reads it. Android remains optional for
 // Kotlin-only roots; public model access avoids a compile-time AGP prerequisite.
 if (rootProject.buildscript.classLoader.getResource("com/android/build/gradle/LibraryPlugin.class") != null) {
-    pluginManager.apply("com.android.kotlin.multiplatform.library")
+    val androidPluginVersion = rootProject.buildscript.classLoader.loadClass("com.android.Version")
+        .getField("ANDROID_GRADLE_PLUGIN_VERSION").get(null).toString()
+    // AGP 8 exposed earlier experimental KMP DSLs; use its established androidTarget
+    // integration. AGP 9 uses the current Android KMP library plugin and android DSL.
+    val modernAndroid = androidPluginVersion.substringBefore('.').toInt() >= 9
+    pluginManager.apply(if (modernAndroid) "com.android.kotlin.multiplatform.library" else "com.android.library")
     configure<KotlinMultiplatformExtension> {
-        (this as ExtensionAware).extensions.getByName("android").withGroovyBuilder {
-            setProperty("namespace", "com.elianfabian.parikt")
-            setProperty("compileSdk", 36)
-            setProperty("minSdk", 21)
-            (getProperty("compilerOptions") as KotlinJvmCompilerOptions).apply {
-                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-                moduleName.set("parikt")
+        if (modernAndroid) {
+            (this as ExtensionAware).extensions.getByName("android").withGroovyBuilder {
+                setProperty("namespace", "com.elianfabian.parikt")
+                setProperty("compileSdk", 36)
+                setProperty("minSdk", 21)
+                (getProperty("compilerOptions") as KotlinJvmCompilerOptions).apply {
+                    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                    moduleName.set("parikt")
+                }
+                getProperty("localDependencySelection").withGroovyBuilder {
+                    @Suppress("UNCHECKED_CAST")
+                    (getProperty("selectBuildTypeFrom") as org.gradle.api.provider.ListProperty<String>).set(listOf("debug", "release"))
+                }
             }
-            getProperty("localDependencySelection").withGroovyBuilder {
-                @Suppress("UNCHECKED_CAST")
-                (getProperty("selectBuildTypeFrom") as org.gradle.api.provider.ListProperty<String>).set(listOf("debug", "release"))
+        } else {
+            checkNotNull(withGroovyBuilder { "androidTarget"() }).withGroovyBuilder {
+                (getProperty("compilerOptions") as KotlinJvmCompilerOptions).apply {
+                    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                    moduleName.set("parikt")
+                }
+                "publishLibraryVariants"("debug", "release")
+            }
+            project.extensions.getByName("android").withGroovyBuilder {
+                setProperty("namespace", "com.elianfabian.parikt")
+                setProperty("compileSdk", 36)
+                getProperty("defaultConfig").withGroovyBuilder { setProperty("minSdk", 21) }
+                getProperty("compileOptions").withGroovyBuilder {
+                    setProperty("sourceCompatibility", JavaVersion.VERSION_17)
+                    setProperty("targetCompatibility", JavaVersion.VERSION_17)
+                }
+                getProperty("sourceSets").withGroovyBuilder {
+                    checkNotNull("getByName"("main")).withGroovyBuilder {
+                        getProperty("manifest").withGroovyBuilder {
+                            "srcFile"(File(sourceDirectory, "parikt/src/androidMain/AndroidManifest.xml"))
+                        }
+                    }
+                }
             }
         }
         sourceSets.named("androidMain") {
