@@ -9,13 +9,12 @@ $logs = Join-Path $repositoryRoot ('build/application-version-tests/' + [Guid]::
 $utf8 = [Text.UTF8Encoding]::new($false)
 $null = New-Item -ItemType Directory -Path $logs -Force
 $desktopFile = Join-Path $repositoryRoot 'desktopApp/parikt.properties'
+$rootFile = Join-Path $repositoryRoot 'parikt.properties'
 $sharedFile = Join-Path $repositoryRoot 'consoleUi/parikt.properties'
 $terminalBuild = Join-Path $repositoryRoot 'terminalApp/build.gradle.kts'
 if (Test-Path -LiteralPath $sharedFile) { throw 'This acceptance suite expects consoleUi to inherit the root default. Preserve your local requirement and run from the documented demo configuration.' }
-if (-not ([IO.File]::ReadAllText((Join-Path $repositoryRoot 'parikt.properties')) -match '(?m)^pari\.version=2\.15\.0\s*$')) {
-    throw 'This acceptance suite expects the repository root default 2.15.0.'
-}
-$desktopBytes = [IO.File]::ReadAllBytes($desktopFile)
+$rootBytes = [IO.File]::ReadAllBytes($rootFile)
+$desktopBytes = if (Test-Path -LiteralPath $desktopFile) { [IO.File]::ReadAllBytes($desktopFile) } else { $null }
 $terminalBytes = [IO.File]::ReadAllBytes($terminalBuild)
 function Invoke-ApplicationCheck([string]$Name, [string[]]$Tasks, [string[]]$Expected, [bool]$Failure = $false, [string[]]$Absent = @()) {
     $log = Join-Path $logs ($Name + '.log')
@@ -29,6 +28,9 @@ function Invoke-ApplicationCheck([string]$Name, [string[]]$Tasks, [string[]]$Exp
     Write-Host "PASS: $Name ($log)"
 }
 try {
+    # Multiple versions are opt-in test setup, independent of the everyday demo default.
+    [IO.File]::WriteAllText($rootFile, "pari.version=2.15.0`n", $utf8)
+    [IO.File]::WriteAllText($desktopFile, "pari.version=2.19.0`n", $utf8)
     $bothVersions = @('PASS shared console engine PARI 2.15.0', 'PASS shared console engine PARI 2.19.0')
     $bothGraphs = @('PASS :terminalApp:runtimeClasspath PARI=2.15.0 provider=:parikt', 'PASS :desktopApp:runtimeClasspath PARI=2.19.0 provider=:pariktEngine_2_19_0')
     $noBuild = @('[pari-source] fetching', 'configuring PARI', 'building static GMP')
@@ -40,7 +42,7 @@ try {
     Invoke-ApplicationCheck 'same-version-reuse' @('verifyPariJvmIdentity', ':terminalApp:verifyPariEngine', ':desktopApp:verifyPariEngine', ':desktopApp:verifyPariJvmGraph', ':desktopApp:test') @('PASS production JVM identity: 1 providers', 'PASS :desktopApp:runtimeClasspath PARI=2.15.0 provider=:parikt', 'PASS shared console engine PARI 2.15.0') $false ($noBuild + @('pariktEngine_2_19_0'))
     Remove-Item -LiteralPath $desktopFile
     Invoke-ApplicationCheck 'override-removal' @('pariktSelections', ':desktopApp:verifyPariJvmGraph', ':desktopApp:verifyPariEngine') @(':desktopApp = 2.15.0; inherited;', 'PASS :desktopApp:runtimeClasspath PARI=2.15.0 provider=:parikt', 'PASS shared console engine PARI 2.15.0') $false $noBuild
-    [IO.File]::WriteAllBytes($desktopFile, $desktopBytes)
+    [IO.File]::WriteAllText($desktopFile, "pari.version=2.19.0`n", $utf8)
     Invoke-ApplicationCheck 'override-restored' @(':desktopApp:verifyPariEngine', ':desktopApp:verifyPariJvmGraph') @('PASS shared console engine PARI 2.19.0', 'PASS :desktopApp:runtimeClasspath PARI=2.19.0 provider=:pariktEngine_2_19_0', 'reusing compiled engine') $false $noBuild
     [IO.File]::WriteAllText($sharedFile, "pari.version=2.15.0`n", $utf8)
     Invoke-ApplicationCheck 'explicit-shared-conflict' @(':desktopApp:verifyPariJvmGraph') @('PARI requirement conflict', '2.19.0', '2.15.0', 'dependency path: :desktopApp -> :consoleUi', $desktopFile, $sharedFile) $true
@@ -56,7 +58,9 @@ try {
     [IO.File]::WriteAllBytes($terminalBuild, $terminalBytes)
     Invoke-ApplicationCheck 'restored-valid-build' @(':terminalApp:verifyPariEngine', ':desktopApp:verifyPariEngine', ':terminalApp:verifyPariJvmGraph', ':desktopApp:verifyPariJvmGraph') ($bothVersions + $bothGraphs) $false $noBuild
 } finally {
-    [IO.File]::WriteAllBytes($desktopFile, $desktopBytes)
+    [IO.File]::WriteAllBytes($rootFile, $rootBytes)
+    if ($null -ne $desktopBytes) { [IO.File]::WriteAllBytes($desktopFile, $desktopBytes) }
+    elseif (Test-Path -LiteralPath $desktopFile) { Remove-Item -LiteralPath $desktopFile }
     [IO.File]::WriteAllBytes($terminalBuild, $terminalBytes)
     if (Test-Path -LiteralPath $sharedFile) { Remove-Item -LiteralPath $sharedFile }
 }

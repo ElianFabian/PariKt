@@ -8,6 +8,18 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Everyday engine simplification (2026-11-05): root parikt.properties now selects PARI 2.19.0.
+Removed desktopApp/parikt.properties so all regular apps inherit one version. Multi-version
+examples and compatibility fixtures remain opt-in and retain their explicit test versions.
+verify_application_versions.ps1 now creates its 2.15.0-root/2.19.0-desktop setup temporarily
+and restores root bytes and the desktop file's original contents or absence in finally.
+README/contributor setup now describe the single regular engine. Verification passes: all regular
+participants inherit 2.19.0, both JVM apps execute arithmetic/factorization and share one provider
+(build/pari-219-default.log). All 11 application acceptance cases pass, including reuse/conflicts;
+root bytes and the absent desktop override are restored afterward. Logs:
+build/application-version-tests/796eadd43e6c41bb917ef4b326031153/. Existing caches are retained;
+this change does not delete previously built versions or restrict consumers' version selection.
+
 Kotlin 2.x source-consumer compatibility is implemented and verified on 2026-11-05. User scope:
 library consumers, keeping sample applications on the pinned 2.4.21/9.6.0/AGP9.4.1 toolchain.
 Exact matrix/implementation/checklist/commands: KOTLIN_COMPATIBILITY_PLAN.md. Tested Kotlin

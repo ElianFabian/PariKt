@@ -1,5 +1,15 @@
 # Project defaults and module-specific PARI versions
 
+## Everyday engine simplification
+
+- [x] Select PARI 2.19.0 in the root defaults and remove the redundant desktop override;
+  preserve multi-version behavior in opt-in fixtures and document the regular single engine.
+- [x] Verify regular applications share one 2.19.0 provider and acceptance checks restore the
+  root selection and originally absent desktop override after temporary multi-version tests.
+  Passed all 11 application cases; regular selections and both JVM runtime/graph checks pass.
+  Evidence: build/pari-219-default.log and
+  build/application-version-tests/796eadd43e6c41bb917ef4b326031153/.
+
 ## Kotlin consumer compatibility follow-up
 
 - [x] Confirm library-consumer scope and audit toolchain coupling; create

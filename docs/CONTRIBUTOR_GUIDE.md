@@ -200,7 +200,9 @@ process state and serialize access; a suspending initializer does not make evalu
 
 ## 3. Version selection and the Gradle scripts
 
-Pin PariKt's source revision independently of `pari.version`. For example, the root can select
+All regular applications inherit PARI 2.19.0 from the root `parikt.properties`; there is no
+desktop override. Multiple engine versions are opt-in examples/acceptance-test setup.
+Pin PariKt's source revision independently of `pari.version`. For example, a consumer root can select
 2.15.0 while `desktopApp/parikt.properties` selects 2.19.0. The terminal and desktop applications
 can share `consoleUi`, yet each receives one final engine. A shared library with an explicit
 2.15.0 requirement cannot be silently used by an application explicitly requiring 2.19.0:
@@ -316,18 +318,20 @@ and `build/test-results/`; custom Native verification also prints directly to th
 Several acceptance suites intentionally fail if a supposedly reusable engine rebuilds or fetches
 sources. They are not cold-install tests. The production Native/web/Android fixtures seed prepared
 artifacts from `parikt/.native`; inspect the suite's opening setup if a seed file is missing.
-For the repository's current default 2.15.0 / desktop override 2.19.0 configuration, prepare both:
+For the repository's regular 2.19.0 configuration, prepare its single engine:
 
 ```powershell
-foreach ($engine in @(':parikt', ':pariktEngine_2_19_0:parikt')) {
+foreach ($engine in @(':parikt')) {
     .\gradlew.bat "${engine}:buildJvmNativeDependencies" "${engine}:buildLinuxX64NativeDependencies" "${engine}:buildMingwX64NativeDependencies" "${engine}:buildWebNativeDependencies" --no-parallel
     if ($LASTEXITCODE) { throw "Engine preparation failed: $engine" }
 }
-.\gradlew.bat :pariktAndroidNative:buildNativeDependencies :pariktEngine_2_19_0:androidNative:buildNativeDependencies --no-parallel
+.\gradlew.bat :pariktAndroidNative:buildNativeDependencies --no-parallel
 ```
 
-These project paths depend on the current selections; use the corresponding provider paths if
-you change them. The scripts' fixed demo expectations are documented in their opening checks.
+Multi-version acceptance suites additionally need the 2.15.0 caches. Prepare those through the
+module-version example or run the application version suite, which temporarily selects root
+2.15.0 and desktop 2.19.0 and restores the original files in its finally block. These project
+paths depend on the current selections; use the corresponding provider paths if you change them.
 
 ### Verification script reference
 

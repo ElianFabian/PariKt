@@ -145,8 +145,9 @@ an ordinary Maven dependency plus a properties file alone cannot run these sourc
 See `PARI_VERSION_PLAN.md` for the implementation checklist and cache identity discussion.
 
 JVM, Native, Android and JS/Wasm application modules can override the root default with a `parikt.properties` in their
-own project directory. `terminalApp` inherits this repository's 2.15.0 default; `desktopApp`
-selects 2.19.0. Both use `consoleUi`, which compiles against the default and imposes no explicit
+own project directory. All regular applications inherit this repository's **2.19.0** default;
+different versions are exercised only by opt-in verification suites and the module-version example.
+The terminal and desktop apps use `consoleUi`, which compiles against the default and imposes no explicit
 engine requirement. A library with its own file does impose a requirement: a conflicting app
 fails with both files and the dependency path. Empty or invalid local files fail explicitly.
 Use `pariktSelections` to inspect effective versions and origins.
@@ -374,7 +375,7 @@ x86_64 build host, use `bash ./gradlew` instead of `.\gradlew.bat`; Linux runs d
 Windows executables and tests must run on Windows.
 
 Native modules support the same root defaults and local overrides as JVM modules. For example,
-`nativeTerminalApp/parikt.properties` can select 2.19.0 while the root remains on 2.15.0.
+`nativeTerminalApp/parikt.properties` can select another version instead of the root's 2.19.0.
 Shared libraries with inherited defaults remain neutral; local library files impose strict
 requirements. Module-only Native builds also work when every participating module selects locally.
 Keep `kotlin.mpp.enableCInteropCommonization=true` in gradle.properties for shared Native metadata,
