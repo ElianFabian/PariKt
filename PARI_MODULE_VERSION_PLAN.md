@@ -16,7 +16,10 @@
   Rabbit 1 (2026.2.1), Windows x86_64/WSL, prepared caches: sync succeeds in 29.525 seconds and
   IDE model import completes. Default/scoped providers and application modules appear in the
   Gradle tree. Evidence: build/ide-verification/android-studio-sync.log. No code fix required.
-- [ ] ARM64/API21 runtime, fresh-machine setup and other build hosts.
+- [x] Physical ARM64 Android demo smoke run.
+  User-confirmed on 2026-11-05: the app runs successfully on their physical Google Pixel 8.
+  Android/API level, exact APK/PARI selection and individual assertions were not recorded.
+- [ ] Full ARM64 two-version boundary suite, API21 runtime, fresh-machine setup and other hosts.
 - [x] Android Studio demo run and Kotlin breakpoint/step/resume workflow.
   Passed 2026-11-05 at 1368be8 with PARI 2.15.0 and the user's API36.1 x86_64 emulator.
   IDE build/install/launch, Ready/arithmetic/factorization, automatic Java/native attachment,
@@ -26,10 +29,12 @@
 - [ ] Broader IDE variant switching and native C breakpoint/stepping workflows.
   Active-variant choices did not open through automation, including after a successful GUI
   resync (29.057 seconds); release -> debug was not observed. No project variant defect established.
-  No ARM64 device or supported API21 image is installed; those runtime limits remain separate.
+  A later user-confirmed physical Pixel 8 smoke run passes as recorded above; full ARM64 suite
+  coverage and supported-ABI API21 runtime remain separate limits.
 
 Earlier rollout sections below retain their historical verification limits; these results extend
-GUI sync, scoped Android run/Kotlin debugging and Linux JVM cold-cache coverage described above.
+GUI sync, scoped Android run/Kotlin debugging, physical ARM64 smoke and Linux JVM cold-cache
+coverage described above.
 
 ## Android explicit initialization follow-up
 

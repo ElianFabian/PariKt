@@ -8,6 +8,12 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Physical ARM64 demo smoke verification is user-confirmed: on 2026-11-05 the user reported that
+the Android app runs successfully on their physical Google Pixel 8. This extends coverage beyond
+the x86_64 emulator. The device's Android/API level, exact APK/PARI selection and individual
+assertions were not recorded, so this does not claim the full two-version boundary suite or
+API21 coverage. No code change was required for this reported run.
+
 Android Studio run/debug verification passed on 2026-11-05 at 1368be8, with the repository's
 PARI 2.15.0 demo on Pixel 8 Pro API36.1 x86_64 (emulator-5554). The IDE built assembleDebug,
 installed and launched MainActivity; the console displayed Ready / 2 + 2 = 4 and factorization.
@@ -24,8 +30,9 @@ GUI Gradle sync passed in 29.057 seconds; no release -> debug switch was observe
 extra IDE launcher dialogs also appeared (IDE .port lock-file access); those launcher processes
 have exited and the working project IDE remains open. Do not infer a project variant defect
 from this inconclusive UI attempt. Logs and observed-step notes: build/ide-runtime-verification/.
-No ARM64 device was connected; installed images are x86/x86_64 and the API21 image is x86, so
-direct ARM64/API21 runtime checks remain pending. The SDK command-line package manager is not
+During the IDE checkpoint no ARM64 device was connected; installed images are x86/x86_64 and
+the API21 image is x86. The later user-confirmed Pixel 8 smoke run is recorded above; full ARM64
+boundary-suite and API21 runtime checks remain pending. The SDK command-line package manager is not
 installed; remote availability of other images was not established. The emulator-5580 process
 started for verification has exited; the user's emulator-5554 and its installed demo are retained.
 No production code, engine selections, targets, examples or Android minSdk changed.
@@ -181,8 +188,9 @@ stopped. Logs: build/project-review/fix-*. Details: PROJECT_REVIEW.md and the ar
 
 ## Remaining environment coverage
 
-Linux JVM cold-cache bootstrap passes as recorded above. ARM64/API21 runtime, fresh OS setup
-including prerequisite installation, and Apple/other build hosts remain unverified. Basic
+Linux JVM cold-cache bootstrap and the user-confirmed physical Pixel 8 demo smoke pass as recorded
+above. Full ARM64 boundary-suite coverage, API21 runtime, fresh OS setup including prerequisite
+installation, and Apple/other build hosts remain unverified. Basic
 Android Studio GUI sync and scoped demo run/Kotlin debugging pass as recorded above. IDE variant
 switching and native C breakpoint/stepping workflows remain outside that verified scope.
 The available API21 emulator is x86, outside the supported native ABI list. SDK compilation and an
