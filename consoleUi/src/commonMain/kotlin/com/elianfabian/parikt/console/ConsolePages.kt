@@ -14,7 +14,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,55 +49,64 @@ internal fun ConsoleSettingsScreen(state: ConsoleState, onBack: () -> Unit) {
 }
 
 @Composable
-internal fun ConsoleScriptsScreen(state: ConsoleState, onBack: () -> Unit) {
+internal fun ConsoleScriptsDialog(state: ConsoleState, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var editing by remember { mutableStateOf(false) }
     var originalName by remember { mutableStateOf<String?>(null) }
     var name by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var pendingDelete by remember { mutableStateOf<SavedScript?>(null) }
-    Column(Modifier.fillMaxSize()) {
-        ConsolePageBar(if (editing) "Edit script" else "Custom scripts") {
-            if (editing) { editing = false; state.dismissNotice() } else onBack()
-        }
-        ConsoleNotice(state)
-        if (editing) {
-            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("script-name"))
-                OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("GP code") }, minLines = 5, maxLines = 12,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.fillMaxWidth().testTag("script-code"))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { if (state.saveScript(originalName, name, code)) editing = false }, modifier = Modifier.testTag("save-script")) { Text("Save script") }
-                    TextButton(onClick = { editing = false; state.dismissNotice() }) { Text("Cancel") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("scripts-dialog"),
+        title = { Text("Custom Scripts & Functions") },
+        text = {
+            Column(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                // Scroll the editor on small screens/with the IME; retain a separate saved list.
+                Column(Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    ConsoleNotice(state)
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Script Name") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("script-name"))
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("PARI/GP Code") }, singleLine = false, maxLines = 4,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        modifier = Modifier.fillMaxWidth().testTag("script-code"))
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.align(androidx.compose.ui.Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (originalName != null) TextButton(onClick = { originalName = null; name = ""; code = ""; state.dismissNotice() }) { Text("Cancel edit") }
+                        Button(onClick = {
+                            if (state.saveScript(originalName, name, code)) { originalName = null; name = ""; code = "" }
+                        }, modifier = Modifier.testTag("save-script")) { Text(if (originalName == null) "Save Script" else "Update Script") }
+                    }
                 }
-                Text("Scripts are saved on this device/browser. Load one to edit the command, or run it in the current PARI session.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            }
-        } else {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Button(onClick = { originalName = null; name = ""; code = ""; editing = true; state.dismissNotice() }, modifier = Modifier.testTag("new-script")) { Text("New script") }
-            }
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (state.scripts.isEmpty()) item { Text("No saved scripts yet. Save GP commands or function definitions to reuse them.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                items(state.scripts, key = { it.name }) { script ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(script.name, style = MaterialTheme.typography.titleMedium)
-                            Text(script.code, fontFamily = FontFamily.Monospace, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(onClick = { state.command = script.code; onBack() }) { Text("Load") }
-                                TextButton(onClick = { scope.launch { state.command = script.code; state.runCommand(); onBack() } }, enabled = state.ready) { Text("Run") }
-                                TextButton(onClick = { originalName = script.name; name = script.name; code = script.code; editing = true; state.dismissNotice() }) { Text("Edit") }
-                                TextButton(onClick = { pendingDelete = script }) { Text("Delete") }
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                Text("Saved Scripts:", style = MaterialTheme.typography.titleSmall)
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    if (state.scripts.isEmpty()) item { Text("No saved scripts yet.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp)) }
+                    items(state.scripts, key = { it.name }) { script ->
+                        Card(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                            Column(Modifier.padding(8.dp)) {
+                                Text(script.name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                                Text(script.code, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Row(Modifier.align(androidx.compose.ui.Alignment.End)) {
+                                    IconButton(onClick = { state.command = script.code; onDismiss() }, modifier = Modifier.testTag("load-script-${script.name}")) { Icon(ConsoleIcons.Load, "Load ${script.name}") }
+                                    IconButton(onClick = { scope.launch { state.command = script.code; state.runCommand(); onDismiss() } }, enabled = state.ready,
+                                        modifier = Modifier.testTag("run-script-${script.name}")) { Icon(ConsoleIcons.Play, "Run ${script.name}") }
+                                    IconButton(onClick = { originalName = script.name; name = script.name; code = script.code; state.dismissNotice() },
+                                        modifier = Modifier.testTag("edit-script-${script.name}")) { Icon(ConsoleIcons.Edit, "Edit ${script.name}") }
+                                    IconButton(onClick = { pendingDelete = script }, modifier = Modifier.testTag("delete-script-${script.name}")) { Icon(ConsoleIcons.Delete, "Delete ${script.name}", tint = MaterialTheme.colorScheme.error) }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-    }
+        },
+        confirmButton = { TextButton(onClick = onDismiss, modifier = Modifier.testTag("close-scripts")) { Text("Close") } },
+    )
     pendingDelete?.let { script ->
         AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("Delete script?") }, text = { Text(script.name) },
             confirmButton = { TextButton(onClick = { state.deleteScript(script); pendingDelete = null }) { Text("Delete") } },

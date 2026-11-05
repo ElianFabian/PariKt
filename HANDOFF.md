@@ -8,12 +8,32 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Sample fidelity correction completed after user feedback on 2026-11-05. Re-read the sibling's
+PariScreen, PariViewModel and PariActivity: restored plain multiline Enter, icon controls,
+vertical non-focusable completion popup, compact name/version title, default Material theme,
+neutral compact result cards with swipe removal, and the scripts modal with an inline editor
+and saved list. The console remains visible behind the modal; create/edit/rename/delete/load/run
+and persistence remain available. The mobile field requests ImeAction.Default for a newline key,
+rather than the reference's Done key; no keyboard action submits the command. The check button
+runs input. This addresses multiline entry on mobile as well as hardware keyboards.
+
+Verified by the expanded real PARI 2.19.0 Compose test: actual Enter inserts two newlines into a
+GP block without evaluating it, mobile IME semantics request Default, check-button evaluation
+returns 144, modal close/reopen/edit/rename/load/run/delete work, swipe removal works, and
+settings/restart still pass. The nine state/file tests also pass. Android debug APK assembly and
+JS/WasmJS application compilation pass: build/sample-redesign/fidelity-final.log (101 tasks,
+13 seconds). Inspected console, multiline and modal screenshots under
+desktopApp/build/reports/sample-ui/. README and contributor guide match the corrected behavior.
+Device/browser runtime coverage of this redesign remains pending; existing targets/examples,
+persistence and Android minSdk 21 are preserved.
+
 The PariDroid-style sample adaptation is implemented and verified on 2026-11-05. The user chose
 console layout/history/autocomplete plus settings and custom scripts, shared across Android,
 desktop JVM and both web targets. consoleUi now provides compact input/control buttons,
 newest-first removable result cards, cursor-aware suggestions, draft-preserving history,
 copy/clear output, examples, validated stack settings/restart, and script create/edit/rename/
-delete/load/run. System light/dark theme is used. The sibling paridroid-2026 repository was a
+delete/load/run. The initial system-theme choice was superseded by the fidelity correction above.
+The sibling paridroid-2026 repository was a
 read-only reference and has not been edited.
 
 Settings/scripts use a shared versioned, length-prefixed format with Android SharedPreferences,

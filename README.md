@@ -396,11 +396,13 @@ The existing Compose desktop app continues to use JVM.
 ## Shared Compose demo
 
 `:consoleUi` shares a PariDroid-style GP console between Android, desktop JVM, Kotlin/JS, and
-Kotlin/WasmJS, following the system's light/dark theme. It shows the actual PARI version and runs
-`2 + 2` on startup. Enter a GP expression and press **Run** or Enter; Shift+Enter inserts a new
-line. Suggestions complete the command token at the cursor; click a suggestion or press Tab.
+Kotlin/WasmJS, using the reference app's default Material theme and compact title/icon controls.
+It shows the actual PARI version and runs `2 + 2` on startup. Enter a GP expression and press the
+**check button** to run it. Enter inserts a newline, and the mobile keyboard requests a multiline
+return key. The command field grows up to five visible lines and scrolls for longer input.
+A vertical completion popup suggests the command token at the cursor; click a suggestion or press Tab.
 **Previous**/**Next** browse session command history and restore your unfinished draft. Results
-appear newest first; click a command to reuse it or remove individual result cards.
+appear newest first; click a result to reuse its command or swipe a card sideways to remove it.
 
 The top-right menu contains examples, **Copy output**, **Clear output**, **Restart engine**,
 **Settings** and **Custom scripts**. Clearing output retains command history and PARI variables;
@@ -410,7 +412,8 @@ stack, default 0, disabling automatic growth). A nonzero maximum must be at leas
 size; both sizes are limited to signed 32-bit values for compatibility across these backends.
 **Apply and restart** saves the settings and reinitializes the engine on its owning UI thread.
 
-Custom scripts can be created, renamed, edited and deleted. **Load** copies saved GP code into
+The **Custom Scripts & Functions** modal keeps its editor and saved list together, with the
+console visible behind it. Scripts can be created, renamed, edited and deleted. **Load** copies saved GP code into
 the command field; **Run** evaluates it in the current session. For example, save and run
 `sq(x)=x^2`, then enter `sq(12)` in the console. Scripts use GP syntax and the same evaluator as
 typed commands. Settings and scripts survive application restarts: Android uses private

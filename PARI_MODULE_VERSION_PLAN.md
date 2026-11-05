@@ -2,6 +2,16 @@
 
 ## PariDroid-style sample follow-up
 
+- [x] Fidelity correction: restore plain multiline input/IME behavior, reference icon controls,
+  completion popup/title/theme and inline custom-scripts modal. Verify keyboard and modal
+  regression coverage, rebuild Android/web, and update onboarding/handoff.
+  Passed 2026-11-05: nine state/file tests plus expanded real PARI 2.19.0 Compose interaction
+  test. Actual Enter preserves a multiline GP block until check-button execution; mobile IME
+  requests a newline key. Modal close/reopen/edit/rename/load/run/delete, swipe removal and
+  settings/restart pass. Android debug assembly and JS/WasmJS compilation pass (101 tasks,
+  13 seconds); screenshots inspected. Evidence: build/sample-redesign/fidelity-final.log and
+  desktopApp/build/reports/sample-ui/. Device/browser runtime of the new UI remains pending.
+
 - [x] Adapt the shared console to PariDroid's compact input/control bar and result cards.
 - [x] Add command history navigation and cursor-aware engine command completion.
 - [x] Add validated engine settings/restart and persistent custom script management on Android,

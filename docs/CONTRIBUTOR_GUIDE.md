@@ -42,11 +42,14 @@ the real product modules, while disposable fixtures let tests change dependency 
 ### Shared sample application
 
 `consoleUi/commonMain` owns the sample behavior. `ConsoleApp.kt` renders the console and routes
-to the settings/scripts pages in `ConsolePages.kt`. `ConsoleState.kt` keeps cursor-aware command
+to the settings page or scripts modal in `ConsolePages.kt`. `ConsoleIcons.kt` supplies shared
+vector controls without platform drawables or an extended icon dependency. `ConsoleState.kt` keeps cursor-aware command
 completion, session history, output, initialization and engine restart separate from rendering.
 `ConsoleSession.kt` adapts the public PariKt API; evaluation and restart stay on the UI thread
-that initialized PARI. Changing pages preserves that session. Running a saved script completes
-before leaving its page, so navigation cannot cancel the operation.
+that initialized PARI. Changing pages or dismissing the modal preserves that session. Running a
+saved script completes before dismissing its dialog, so disposal cannot cancel the operation.
+Plain Enter inserts a newline; the mobile input requests a multiline return key. The check
+button evaluates. Completion appears in a non-focusable popup below the input, as in PariDroid.
 
 `ConsolePreferences.kt` validates stack sizes and encodes settings/scripts as versioned,
 length-prefixed fields, preserving multiline Unicode GP code. Small platform `ConsoleStore`
@@ -64,7 +67,8 @@ Run these checks after changing the shared sample:
 The state tests cover draft restoration, cursor completion, script persistence/renaming/deletion,
 invalid settings and storage failures. The JVM store test checks file replacement and reload.
 The desktop integration test uses the selected real PARI engine to exercise examples, completion,
-history, output clearing, saved function execution and settings/restart. It uses in-memory
+history, output clearing, real Enter-key multiline input, mobile IME configuration, script modal
+close/reopen/edit/load/run/delete, swipe dismissal and settings/restart. It uses in-memory
 preferences to avoid modifying a developer's saved data, and captures phone-size screens under
 `desktopApp/build/reports/sample-ui/`. Android packaging and web compilation supplement these
 tests; they do not establish device/browser runtime coverage for a new UI change.
