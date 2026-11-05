@@ -73,6 +73,16 @@ preferences to avoid modifying a developer's saved data, and captures phone-size
 `desktopApp/build/reports/sample-ui/`. Android packaging and web compilation supplement these
 tests; they do not establish device/browser runtime coverage for a new UI change.
 
+For a self-contained Windows x64 executable, run `desktopApp/package_windows.ps1` with a
+`jpackage`-capable JDK in `JAVA_HOME` (or pass `-JdkHome`). `stageWindowsApp` stages the runtime
+classpath and the same native DLL directory used by `verifyPariEngine`; a metadata task records
+the selected engine and main class/JAR. The PowerShell script creates a fresh jpackage app image,
+checks the packaged console and GUI launchers in engine-check mode, and archives the complete
+folder. The launcher's library path uses `$APPDIR/native`, allowing relocation without checkout
+paths. The Java runtime is included; the EXE must remain beside its `app` and `runtime` folders.
+See the README for prerequisites/output locations. Staging supports strict configuration-cache
+storage/reuse; creating the actual package is a separate PowerShell invocation.
+
 ### Where Kotlin code lives
 
 Under `parikt/src`, `commonMain` contains `PariKt`, extensions such as `getVersionName()`, and the

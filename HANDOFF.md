@@ -8,6 +8,35 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Empty local source-tree cleanup on 2026-11-05: verified zero files (including hidden files) and
+removed empty parikt/src/{iosMain,main,linuxX64Main,linuxX64Test} directory trees bottom-up.
+No source files or Gradle declarations changed. Linux source sets remain configured and use
+nativeMain/nativeTest; iOS has no configured target. Git does not track these empty directories,
+and the IDE/tooling may recreate configured empty Linux source roots. No build rerun was needed
+for this filesystem-only cleanup. Both examples and existing targets remain intact.
+
+Windows x64 portable executable built on 2026-11-05. desktopApp/package_windows.ps1 uses JDK
+jpackage app-image to include its Java runtime, runtime JARs and the selected PARI DLLs. The new
+stageWindowsApp / windowsPackageMetadata tasks derive native directory and version from the
+existing verifyPariEngine configuration, retaining module overrides without cache-path guessing.
+No custom plugin or installer toolchain was introduced. JAVA_HOME / -JdkHome selects packaging
+JDK; verified with JBR 21.0.7. Each invocation preserves previous outputs in a fresh GUID folder.
+
+Artifact: desktopApp/build/windows-package/output/bb2d5051f3c54d01b6ce491bd8df93ba/ contains
+PariKt/PariKt.exe and PariKt-windows-x64.zip. Keep the whole extracted PariKt folder together;
+the EXE requires app/ and runtime/. No recipient JDK/Gradle/WSL is required. The package contains
+exactly one PARI DLL (2.19.0, current desktop module override), JNI bridge and shared UI runtime.
+PariKt-check.exe is a console diagnostic launcher; normal PariKt.exe is a GUI launcher.
+
+Packaged console and GUI launchers both pass --check-engine using their bundled runtime and
+$APPDIR/native path. ZIP extraction/relocation into a path containing spaces also passes the
+real version/arithmetic/factorization/one-implementation check. Logs:
+build/sample-redesign/windows-package-final.log and the output folder's engine-check logs.
+Strict configuration-cache storage and warm reuse pass for stageWindowsApp (warm build: four
+seconds); evidence: windows-package-cc-warm.log. The package has not been checked on a separate Windows machine
+or launched interactively in this checkpoint, and is unsigned. README/contributor guide explain
+building, portable-folder usage and diagnostic launchers. All targets/examples/minSdk 21 remain.
+
 Sample fidelity correction completed after user feedback on 2026-11-05. Re-read the sibling's
 PariScreen, PariViewModel and PariActivity: restored plain multiline Enter, icon controls,
 vertical non-focusable completion popup, compact name/version title, default Material theme,

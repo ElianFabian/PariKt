@@ -42,3 +42,25 @@ tasks.register<JavaExec>("verifyPariEngine") {
 tasks.test {
 	systemProperty("java.awt.headless", "true")
 }
+
+// Reuse the final application's resolved engine selection; never reconstruct cache paths.
+val selectedEngineCheck = tasks.named<JavaExec>("verifyPariEngine")
+val windowsPackageMetadata = tasks.register<WriteProperties>("windowsPackageMetadata") {
+	destinationFile.set(layout.buildDirectory.file("windows-package/metadata.properties"))
+	property("pari.version", selectedEngineCheck.map { it.systemProperties.getValue("parikt.expected.version") })
+	property("main.jar", tasks.jar.flatMap { it.archiveFileName })
+	property("main.class", application.mainClass)
+}
+tasks.register<Sync>("stageWindowsApp") {
+	group = "distribution"
+	description = "Stages desktop JARs and its selected Windows PARI DLLs for jpackage."
+	dependsOn(selectedEngineCheck, windowsPackageMetadata)
+	into(layout.buildDirectory.dir("windows-package/input"))
+	from(tasks.jar)
+	from(configurations.runtimeClasspath)
+	from(selectedEngineCheck.map { it.systemProperties.getValue("java.library.path") }) {
+		include("*.dll")
+		into("native")
+	}
+	doFirst { check(System.getProperty("os.name").startsWith("Windows")) { "Stage Windows packages on Windows." } }
+}

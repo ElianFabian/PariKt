@@ -2,6 +2,21 @@
 
 ## PariDroid-style sample follow-up
 
+- [x] Inspect and clean empty local source trees shown in Android Studio (2026-11-05).
+  Removed zero-file iosMain/main/linuxX64Main/linuxX64Test directories only. Gradle Linux targets
+  and shared native implementations remain unchanged; empty directories are not Git-tracked and
+  IDE tooling may recreate configured roots. Verified absence of files before removal.
+
+- [x] Build and verify a portable Windows executable with bundled Java runtime and the desktop
+  module's selected PARI engine; add repeatable PowerShell packaging and usage documentation.
+  Passed 2026-11-05 with JBR 21.0.7 and desktop PARI 2.19.0: bundled console/GUI launcher engine
+  checks and ZIP extraction/relocation into a path containing spaces. Gradle staging uses the
+  resolved module engine and supports strict configuration-cache storage/reuse. PowerShell entry
+  point: desktopApp/package_windows.ps1; outputs: desktopApp/build/windows-package/output/.
+  Evidence: build/sample-redesign/windows-package-final.log, windows-package-cc*.log and packaged
+  engine-check logs. Unsigned portable folder (keep app/runtime beside EXE), not an installer;
+  interactive GUI and a separate Windows machine remain outside this checkpoint's coverage.
+
 - [x] Fidelity correction: restore plain multiline input/IME behavior, reference icon controls,
   completion popup/title/theme and inline custom-scripts modal. Verify keyboard and modal
   regression coverage, rebuild Android/web, and update onboarding/handoff.

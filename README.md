@@ -433,9 +433,32 @@ For the desktop window on Windows:
 
 On Linux x86_64 use `bash ./gradlew :desktopApp:run` in a graphical desktop session. Both commands
 prepare the selected PARI native libraries and configure `java.library.path`, like `terminalApp`.
-The terminal CLI remains available as `:terminalApp:run`. This is a host-specific development
-launcher; native installers and a packaged distribution containing libraries for every OS are
-not implemented. macOS native build/runtime verification remains deferred.
+The terminal CLI remains available as `:terminalApp:run`. These Gradle run tasks are host-specific
+development launchers. A portable Windows x64 package is available through the script below;
+native installers and packages for other operating systems are not implemented. macOS native
+build/runtime verification remains deferred.
+
+To build a Windows executable with its Java runtime and selected PARI DLLs included:
+
+```powershell
+.\desktopApp\package_windows.ps1
+# Or specify the packaging JDK explicitly:
+.\desktopApp\package_windows.ps1 -JdkHome 'C:\path\to\jdk-21'
+```
+
+Run this on Windows x64 with `JAVA_HOME` pointing to a JDK containing `jpackage` (verified with
+JBR 21). The existing Windows native-build prerequisites still apply when building. The script
+uses `:desktopApp:stageWindowsApp`, which gets the final module's resolved engine through the
+existing selection logic; it does not infer a version from cache directories. The current
+desktop override selects PARI 2.19.0. No installer toolchain or custom Gradle plugin is needed.
+
+Each invocation creates a new directory under `desktopApp/build/windows-package/output/`,
+containing `PariKt/PariKt.exe` and `PariKt-windows-x64.zip`. Extract the ZIP and keep the entire
+`PariKt` folder together, including `app` and `runtime`; the EXE is its launcher, not a single-file
+bundle. The recipient does not need Java, Gradle or WSL installed. `PariKt-check.exe` is a console
+diagnostic launcher that checks the bundled PARI version/arithmetic/factorization and exits.
+Packaging runs that check and checks `PariKt.exe --check-engine` before making the ZIP. Logs are
+stored beside the packaged folder. These are unsigned development binaries.
 
 The browser commands below use the same Compose screen. The Kotlin/JS canvas renderer in this
 Compose release is experimental. GP evaluation is synchronous on each platform's UI thread;
