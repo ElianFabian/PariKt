@@ -313,8 +313,10 @@ installer; omitting it on the three platform suites tests the older compatibilit
 The cold JVM verifier hides legacy `git -C` source-cache lookups outside its isolated root;
 the production source helper normally imports those Git objects to avoid duplicate downloads.
 Upstream fetches still use real Git. Without this test-only filtering, an empty new acquisition
-store would not prove a fresh source download. Current end-to-end cold verification remains
-incomplete because of the WSL download failure recorded in the handoff.
+store would not prove a fresh source download. End-to-end cold verification passed on 2026-11-05
+for PARI 2.19.0 on WSL Linux x86_64, including wrapper/dependency/source downloads, native
+compilation, runtime, warm reuse and real resume. Installed JDK/C tools remain prerequisites;
+see the handoff for logs and remaining platform limits.
 
 For example, after preparation, run these sequentially:
 

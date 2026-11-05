@@ -8,38 +8,30 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
-Cold-cache Linux JVM verification was attempted and is incomplete because of WSL downloads.
-verify_cold_jvm.ps1/.sh creates an independent Kotlin-only consumer with empty dependency, PARI
-source, compiled-engine, native-work and Konan caches. Installed JDK/C tools remain prerequisites.
--GradleExecutable can reuse an installed Gradle distribution; default wrapper provisioning was
-stopped during slow download and is unverified. No ARM64 device was connected.
+Cold-cache Linux JVM verification passed on 2026-11-05 using the verifier at 0e02eae.
+The default verify_cold_jvm.ps1 invocation downloaded Gradle 9.6.0 through the wrapper and used
+empty dependency, PARI source, compiled-engine, native-work and Konan caches. The isolated
+Kotlin-only consumer fetched PARI 2.19.0 from upstream with legacy source imports blocked,
+downloaded GMP 6.3.0, and compiled the Linux x86_64 JNI engine. Compile/runtime graph selection,
+version, arithmetic, factorization, command listing and recoverable GP error checks all passed.
 
-The real run acquired uncached plugins/dependencies, imported legacy cached PARI Git objects,
-compiled the Kotlin app,
-and passed compile/runtime graph selection checks. Native preparation then failed downloading
-GMP from gmplib.org (curl 56 / OpenSSL unexpected EOF), before C compilation/application execution.
-GNU mirror probes also timed out in WSL, including IPv4/HTTP1.1, while the same GNU archive
-successfully downloaded and passed tar validation on Windows. The production URL is unchanged:
-switching mirrors did not establish a fix for this environment. Full cold runtime/warm reuse are
-not verified. Evidence: build/cold-jvm/23c9ec2861f8/{cold,environment,worker}.log and
-build/cold-jvm-harness/gnu-{download,archive-check}.log.
+The application build completed in 1m 50s with seven tasks executed and strict configuration-cache
+storage. The warm build passed in four seconds, reusing the configuration cache and compiled
+engine, with matching engine stamps/generation and no download or native rebuild. A separate real
+ResumeLogDirectory invocation also passed runtime and warm reuse, preserving original cold.log
+and saving the retry log. Evidence: build/cold-jvm/e6a5d568b76b/ (cold.log, warm.log,
+cold-retry-*.log, environment.log, cold.stamp and cold.generation); launcher summaries are in
+build/cold-jvm/2026-11-05-{latest,resume}.log. Durable Linux state is retained at
+/home/pc/.cache/parikt-verification/cold-jvm.PgcA7R.
 
-The initial /tmp cache root disappeared on WSL shutdown after failure, preventing resume. New
-runs use fresh durable ~/.cache/parikt-verification/cold-jvm.* directories and retain their path
-in linux-root.txt. ResumeLogDirectory preserves original cold evidence and checks the same release;
-supply the same GradleExecutable. Maven Central is prioritized and recommended commonization is
-enabled in the fixture. A verification-only Git wrapper rejects legacy source lookups outside
-the isolated root, while upstream fetches still use real Git. The first attempt did not isolate
-legacy seeding; the tightened source-acquisition path still needs a successful real run.
-Existing caches and examples are untouched; no real verification is running.
-Offline fake-tool tests pass initial/retry failure, acquisition-evidence preservation, resumed
-warm-generation and mismatched-version/tool assertions; logs are explicitly labelled
-OFFLINE_HARNESS_ONLY (build/cold-jvm/9fa8e7fafc5f; build/cold-jvm-harness). A real-Git local-remote
-test also proves that the wrapper fetches the test tag instead of importing the global legacy
-tag, rejects outside-root lookups and delegates file hashing unchanged (source-isolation.log).
-These validate harness flow/isolation, not native/runtime behavior. Bash/PowerShell syntax and
-documentation checks pass.
-Next: retry the real cold verifier with working WSL/Linux downloads; leave its checklist unchecked.
+Host: WSL Linux x86_64, Ubuntu OpenJDK 21.0.12.1 and GCC 15.2.0. Installed JDK/C tools remain
+prerequisites: this proves cold caches for Linux JVM PARI 2.19.0, not fresh OS/prerequisite
+installation or other targets/hosts. Existing caches, both examples and Android minSdk 21 are
+unchanged. No production code or host networking settings needed changing for this retry.
+The earlier WSL TLS failure and interrupted wrapper download did not recur; historical failed
+evidence remains in build/cold-jvm/23c9ec2861f8 and build/cold-jvm-harness. Earlier offline harness
+checks remain flow/isolation tests only; the new run supplies the actual network/native/runtime
+proof. No verification is still running.
 
 Android Studio GUI sync is now verified at eb94ea7 on Windows x86_64/WSL with prepared caches.
 Android Studio Rabbit 1 (2026.2.1) opened the repository; manually invoking Sync Project with
@@ -167,7 +159,8 @@ stopped. Logs: build/project-review/fix-*. Details: PROJECT_REVIEW.md and the ar
 
 ## Remaining environment coverage
 
-ARM64/API21 runtime, fresh-machine setup and Apple/other build hosts remain unverified. Basic
+Linux JVM cold-cache bootstrap passes as recorded above. ARM64/API21 runtime, fresh OS setup
+including prerequisite installation, and Apple/other build hosts remain unverified. Basic
 Android Studio GUI sync passes as recorded above; broader IDE run/debug/variant workflows remain
 outside that verified scope.
 The available API21 emulator is x86, outside the supported native ABI list. SDK compilation and an

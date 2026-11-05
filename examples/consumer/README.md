@@ -17,7 +17,8 @@ wsl ./examples/consumer/app/build/bin/linuxX64/debugExecutable/app.kexe
 ```
 
 On Linux, use `bash ./gradlew` instead of `.\gradlew.bat`; run the Linux executable directly.
-Windows executables require Windows. Running Gradle itself on Linux remains unverified.
+Windows executables require Windows. This full multitarget example remains unverified with
+Gradle running on Linux; the separate focused cold JVM fixture passes on Linux/WSL.
 Android SDK platform 36 and NDK 28.2.13676358 are still prerequisites, even for the JVM example,
 because the current library build configures all targets. Set `ANDROID_HOME` or create a local
 `local.properties` in this directory; do not copy machine-local paths into version control.

@@ -2,18 +2,15 @@
 
 ## Additional environment verification
 
-- [ ] Cold Linux JVM consumer download/build/runtime with empty caches, followed by warm reuse.
-  Attempted via verify_cold_jvm.ps1/.sh with installed Gradle/JDK/C tools. Empty-cache plugin
-  acquisition, Kotlin compilation and JVM graph checks pass. PARI Git objects were imported from
-  a legacy cache, so that first source-acquisition attempt was not cold. GMP acquisition fails with
-  WSL curl 56 / TLS EOF. GNU mirror probes also time out in WSL while Windows downloads succeed;
-  production downloader is unchanged. Runtime and warm reuse remain unverified. Wrapper-download
-  mode was stopped for slow transfer and remains unverified. Logs: build/cold-jvm/23c9ec2861f8.
-  Verifier state now survives WSL restarts in ~/.cache/parikt-verification. Offline simulated
-  failure/resume/generation checks pass (build/cold-jvm-harness); these are not runtime evidence.
-  Verification-only Git filtering now blocks legacy seeding without altering production reuse;
-  a local real-Git remote test verifies acquisition isolation and unchanged hashing. A successful
-  real network/runtime run with that isolation remains pending.
+- [x] Cold Linux JVM consumer download/build/runtime with empty caches, followed by warm reuse.
+  Passed 2026-11-05 with PARI 2.19.0 on WSL Linux x86_64 (OpenJDK 21.0.12.1, GCC 15.2.0).
+  Default wrapper mode downloaded Gradle 9.6.0; dependencies, upstream PARI sources and GMP 6.3.0
+  were acquired with empty caches and legacy source imports blocked. JNI compilation, graph
+  selection, version/arithmetic/factorization/commands/error recovery and strict configuration-cache
+  storage passed. Warm runtime passed in four seconds with configuration-cache/engine reuse and
+  matching stamps/generation. Real resume mode also passed, preserving cold evidence. Logs:
+  build/cold-jvm/e6a5d568b76b. Previous WSL download failures did not recur; no production fix was
+  needed. Installed JDK/C tools are prerequisites; this is not a fresh OS or all-target test.
 
 - [x] Open eb94ea7 in Android Studio and trigger Gradle sync through the GUI.
   Rabbit 1 (2026.2.1), Windows x86_64/WSL, prepared caches: sync succeeds in 29.525 seconds and
@@ -22,8 +19,8 @@
 - [ ] ARM64/API21 runtime, fresh-machine setup and other build hosts.
 - [ ] Broader IDE variant switching and run/debug workflows.
 
-Earlier rollout sections below retain their historical verification limits; this result extends
-only basic GUI sync coverage for the current existing-checkout environment.
+Earlier rollout sections below retain their historical verification limits; these results extend
+basic GUI sync and the scoped Linux JVM cold-cache coverage described above.
 
 ## Android explicit initialization follow-up
 

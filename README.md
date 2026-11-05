@@ -184,8 +184,10 @@ cold-cache check, not a complete fresh-machine installation proof.
 dependency/native caches. With that option, `-ResumeLogDirectory <previous-run>` continues a
 failed run and preserves the original evidence. Linux state is kept in a new durable directory
 under `~/.cache/parikt-verification`; logs are under `build/cold-jvm/`.
-The first real run compiled the Kotlin consumer and passed graph checks, but GMP acquisition
-failed with a WSL TLS EOF. Runtime/warm reuse remain unverified; see the handoff for diagnostics.
+Verified on 2026-11-05 with PARI 2.19.0 on WSL Linux x86_64: fresh wrapper/dependency/source
+downloads, native compilation, consumer runtime and warm configuration-cache/engine reuse pass.
+Installed JDK/C tools remain prerequisites; this does not verify fresh OS setup or other targets.
+See the handoff for evidence and scope.
 
 ## Android
 
