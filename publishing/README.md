@@ -1,6 +1,6 @@
 # Maven candidate build (not released)
 
-This independent build compiles canonical library sources with Kotlin 2.0.21 into ordinary
+This independent build compiles canonical library sources with Kotlin 2.0.0 into ordinary
 Maven/KMP publications. Engine preparation tools are a separate artifact: PARI/GMP engines
 are built on demand and cached, never included in the library or tracked by Git. The existing
 source installer remains supported. Public release gates are tracked in RELEASE_PLAN.md.
@@ -58,16 +58,29 @@ Run scripts from the root after publishing the relevant platform candidates:
 - `verify_signing.ps1`: isolated one-day synthetic PGP key, required signing and detached-signature
   verification. Cleans its private keyring; does not use production credentials or upload.
 
+Older Kotlin browser-test tooling needs an explicit Karma framework to serve emitted binary
+assets; the web probe's `proof-karma/assets.js` supplies it through public `useConfigDirectory`.
+Modern KGP already supplies `webpack-output`, so the adapter skips itself. This is test-runner
+setup; production web routing does not depend on Karma. The probe verifies emitted custom
+fragment assets because old KGP filters successful Webpack stdout. JVM/web probes support
+`-ResumeDirectory` only inside their retained fixture directories; use the matching compiler/options.
+Native `-ConfigurationCache` requires strict store/reuse, verified under both compiler endpoints.
+
 The scripts retain fixtures/logs under `build/maven-*-consumer` and `build/signing-proof`.
 Windows C builds require WSL prerequisites; Linux requires C/JNI tools; Apple requires a compatible
 Xcode and modern Bison. Android needs SDK/NDK; web needs Emscripten through the existing builder.
 
-Verified locally: JVM all six release points, Windows Native oldest/newest, Android debug/R8
-packaging and four emulator runtimes, Kotlin 2.4.21 JS/Wasm Node/bundles/four browser tests,
-Maven bootstrap/JVM strict configuration-cache reuse, and nine synthetic-key signatures.
-Initial Linux JVM candidate CI also passes. Expanded Linux Native and Intel/ARM Apple Maven
-jobs, older web compilers and non-JVM strict cache checks remain gates. Native/Android/web
-probes now use the embedded bootstrap; their earlier runtime proofs used extracted tools directly.
+With the corrected Kotlin 2.0.0 publication baseline, local proofs pass: all six JVM points
+with strict cache reuse; Native oldest/newest runtimes and strict cache reuse; Android debug/R8
+packaging, both ABIs and minSdk21; and oldest/newest JS/Wasm Node, bundles and four browser tests
+per endpoint. All use the embedded Maven bootstrap. Four Android emulator runtimes and nine
+synthetic-key signatures were verified at the earlier milestone; Android runtime was not
+repeated after changing the compiler baseline.
+
+Hosted source CI is green at 9b66110. Its Maven candidate run passes Linux JVM/Native and ARM
+Mac all twelve publications/host consumers; Intel Mac still runs. Those artifacts used the
+previous 2.0.21 baseline, so corrected-baseline hosted checks remain a gate, alongside intermediate
+web compiler lines, Android/web strict cache checks and actual Central bundle/upload work.
 
 ## Build files
 

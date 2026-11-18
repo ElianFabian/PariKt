@@ -19,8 +19,8 @@ and signing gates; a tag is not a substitute for those checks.
   PowerShell scripts, validate metadata and run all six Windows JNI probes plus both Native
   tests from local CI-format artifacts. Evidence: build/ci-local/windows-1fa59209/ and stage.log.
 - [x] Run the regular hosted workflows, including the Linux-to-Windows handoff and both Apple
-  hosts: run 44347230604 / 12bb55f passes every job. Full Apple simulator/link coverage is
-  separately in progress (44350989857).
+  hosts: full run 44353196417 / a41523a passes every job, including Apple simulators
+  and all twelve framework/test-binary links.
   Initial commit e0b328c / run 44340852491 reached the runners and exposed Ubuntu SDK-tool PATH
   and Apple SwiftPM inventory-routing failures. Fixes and a targeted SwiftPM regression are
   implemented (build/apple-tests/4396d7b427d5/); subsequent hosted reruns passed.
@@ -28,7 +28,7 @@ and signing gates; a tag is not a substitute for those checks.
   regression now includes the foreign application, not only the foreign provider.
 - [ ] Separate the published library from engine provisioning on every backend, prove a clean
   external Maven consumer, then add actual signed publication tasks and a gated upload workflow.
-  The isolated publishing/ build is being implemented with a Kotlin 2.0.21 binary baseline;
+  The isolated publishing/ build is being implemented with a Kotlin 2.0.0 binary baseline (corrected after an oldest-Wasm ABI failure);
   candidate outputs are not ready for public distribution until the consumer proof passes.
 
 ## Candidate progress (2026-11-18)
@@ -48,8 +48,16 @@ and signing gates; a tag is not a substitute for those checks.
 - [x] Recheck all five source-installer property diagnostic cases after sharing participant parsing.
 - [x] Run the new manual private-candidate workflow on Linux (44350029452); it has no upload/signing credentials
   and publishes only to its temporary local repository and seven-day workflow artifact storage.
-- [ ] Finish Android, Native and web binary-consumer provisioning plus their external proofs;
-  add prebuilt engine assets/checksums and validate cache reuse/fallback builds.
+- [x] Prove Android debug/R8/both-ABI packaging, minSdk21, Startup, stripped hashes and conflicts,
+  plus four emulator runtimes (fa55b711b95c); JS/Wasm Node, production bundles, custom fragments
+  and four real browser tests pass under Kotlin 2.4.21 (0a7f30a4f8aa).
+- [x] Prove Maven-only embedded bootstrap, module named :parikt and strict JVM cache reuse
+  (28558c04de51, 76f958e35c6c, 0235cebeeb1c); source property diagnostics remain green.
+- [x] Verify nine detached Maven signatures with an isolated disposable key (5f65f628b190).
+  No production signing credentials were accessed; private test keyring removed.
+- [ ] Repeat Native/Android/web proofs through the embedded Maven bootstrap; broaden older
+  compiler web/non-JVM cache coverage. Engines build on demand; prebuilt downloads are optional
+  future acceleration and are not required for the source-build provisioning path.
 - [ ] Build and consume Apple Maven candidates on compatible Xcode/Kotlin toolchains.
 - [ ] Complete binary-consumer Kotlin/platform matrix and configuration-cache checks.
 - [ ] Add signed, protected Central Portal validation/upload only after these gates pass.
@@ -83,3 +91,10 @@ source installer remains supported while this publication path is developed.
 Only after that proof should io.github.elianfabian:parikt:<library-version> be presented as a
 ready-to-use binary dependency. Do not publish incomplete klibs or publish one PariKt version
 per PARI version. Credentials or tag creation cannot substitute for this packaging proof.
+
+Corrected-baseline evidence: strict JVM cache across all six points (8cc5e3b22d5a), Native
+2.0.0/2.4.21 runtime/conflict/hash/cache checks (fd94ebf0da0d), oldest web Node/bundles/fragments/
+four browsers/conflicts (6a85dc2a10fc), and Android packaging/ABI/minSdk21/R8 checks (a93895e60b53).
+The Android rerun is packaging-only; earlier four-emulator-runtime evidence used 2.0.21 bindings.
+Newest web full proof also passes (052754ba3fad); corrected-baseline hosted Maven reruns remain pending. Source CI at 9b66110
+is green (44375696793); ARM Mac Maven candidate at the previous baseline passes (a66df5cc5cb8).

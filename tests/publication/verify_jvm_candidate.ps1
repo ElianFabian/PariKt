@@ -1,6 +1,6 @@
 #requires -Version 7.0
 param([string[]]$KotlinVersions=@('2.0.0','2.0.21','2.1.21','2.2.21','2.3.21','2.4.21'),
-    [ValidatePattern('^[A-Za-z][A-Za-z0-9_]*$')][string]$SharedModule='shared',[switch]$ConfigurationCache)
+    [ValidatePattern('^[A-Za-z][A-Za-z0-9_]*$')][string]$SharedModule='shared',[switch]$ConfigurationCache,[string]$ResumeDirectory)
 $ErrorActionPreference='Stop'
 $repository=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $repository 'tests/build_configuration/harness.ps1')
@@ -14,14 +14,19 @@ $version=$metadata['version']
 $options=@('--no-parallel','--console=plain')
 if($ConfigurationCache){$options+=@('--configuration-cache','--configuration-cache-problems=fail')}
 $proof=Join-Path $repository ('build/maven-consumer/'+[guid]::NewGuid().ToString('N').Substring(0,12))
+if($ResumeDirectory) {
+    $proof=[IO.Path]::GetFullPath($ResumeDirectory)
+    $allowed=[IO.Path]::GetFullPath((Join-Path $repository 'build/maven-consumer'))+[IO.Path]::DirectorySeparatorChar
+    if(!$proof.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -or !(Test-Path (Join-Path $proof 'maven'))){throw 'ResumeDirectory must name a retained JVM Maven fixture.'}
+}
 $null=New-Item -ItemType Directory -Path $proof -Force
 # Copy only published Maven artifacts; never use includeBuild, source providers, or local engines.
-Copy-Item -LiteralPath $candidate -Destination (Join-Path $proof 'maven') -Recurse
+if(!$ResumeDirectory){Copy-Item -LiteralPath $candidate -Destination (Join-Path $proof 'maven') -Recurse}
 $jar=Get-ChildItem (Join-Path $proof "maven/io/github/elianfabian/parikt-engine-tools/$version") -Filter '*.jar' |
     Where-Object {$_.Name -notmatch '-(sources|javadoc)\.jar$'} | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if(!$jar) { throw 'Missing published engine-tools artifact.' }
 $tools=Join-Path $proof 'engine-tools'
-[IO.Compression.ZipFile]::ExtractToDirectory($jar.FullName,$tools)
+if(!$ResumeDirectory){[IO.Compression.ZipFile]::ExtractToDirectory($jar.FullName,$tools)}
 if(Get-ChildItem $tools -Recurse -Filter '*.kt') { throw 'Engine tools must not contain Kotlin library sources.' }
 function Write-ProofFile([string]$Path,[string]$Text) {
     if($SharedModule -ne 'shared'){$Text=$Text.Replace('project(":shared")',('project(":'+$SharedModule+'")'))}
@@ -30,6 +35,7 @@ function Write-ProofFile([string]$Path,[string]$Text) {
 }
 foreach($kotlin in $KotlinVersions) {
     $consumer=Join-Path $proof "consumer-$kotlin"
+    if(Test-Path (Join-Path $consumer 'shared/parikt.properties')){Remove-Item -LiteralPath (Join-Path $consumer 'shared/parikt.properties')}
     Write-ProofFile (Join-Path $consumer 'settings.gradle.kts') @'
 pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
 buildscript {
@@ -84,8 +90,11 @@ application { mainClass.set("AppKt") }
     $runtimeTasks=@(':appA:run',':appB:run',':appC:run')
     $result=Invoke-PariKtGradle -Repository $consumer -Wrapper $wrapper -Log $log -Arguments ($runtimeTasks+$options)
     Assert-PariKtOutput -Result $result -Log $log -Expected @('PASS external Maven engine [2,19,0]','PASS external Maven engine [2,15,0]')
-    if(([regex]::Matches($result.Output,'> Task :preparePariJvm_2_19_0')).Count -ne 1) { throw 'Expected one shared 2.19.0 preparation task.' }
+    # Gradle repeats a running task's header when parallel output switches back to it.
+    if(!$result.Output.Contains('> Task :preparePariJvm_2_19_0')) { throw 'Expected shared 2.19.0 preparation.' }
     $engineRoot=Join-Path $consumer 'build/parikt-binary/jvm'
+    $versions=@(Get-ChildItem $engineRoot -Directory | Select-Object -ExpandProperty Name | Sort-Object)
+    if(($versions -join ',') -ne '2.15.0,2.19.0'){throw "Expected exactly the two selected engine directories, got $versions"}
     $before=@{}
     Get-ChildItem $engineRoot -Recurse -File | Where-Object {$_.Extension -in @('.dll','.so')} | ForEach-Object { $before[$_.FullName]=(Get-FileHash $_.FullName).Hash }
     if(!$before.Count) { throw 'No engine binaries provisioned.' }

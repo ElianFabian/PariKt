@@ -1,5 +1,5 @@
 #requires -Version 7.0
-param([string[]]$KotlinVersions=@('2.0.0','2.4.21'))
+param([string[]]$KotlinVersions=@('2.0.0','2.4.21'),[switch]$ConfigurationCache)
 $ErrorActionPreference='Stop'
 $repository=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $repository 'tests/build_configuration/harness.ps1')
@@ -58,6 +58,7 @@ suspend fun exercise(expected: Int) {
         Join-Path $repository ('build/publication-wrapper/8.8/'+$(if($IsWindows){'gradlew.bat'}else{'gradlew'}))
     } else {Join-Path $repository $(if($IsWindows){'gradlew.bat'}else{'gradlew'})}
     $tasks=@(":appA:linkDebugExecutable$suffix",":appB:linkDebugExecutable$suffix",'--no-parallel','--console=plain')
+    if($ConfigurationCache){$tasks+=@('--configuration-cache','--configuration-cache-problems=fail')}
     $log=Join-Path $proof "$kotlin-links.log"
     $result=Invoke-PariKtGradle -Repository $consumer -Wrapper $wrapper -Log $log -Arguments $tasks
     Assert-PariKtOutput -Result $result -Log $log -Expected @('exactly one selected PARI 2.19.0 archive','exactly one selected PARI 2.15.0 archive')
@@ -75,6 +76,7 @@ suspend fun exercise(expected: Int) {
     $warmLog=Join-Path $proof "$kotlin-reuse.log"
     $warm=Invoke-PariKtGradle -Repository $consumer -Wrapper $wrapper -Log $warmLog -Arguments $tasks
     Assert-PariKtOutput -Result $warm -Log $warmLog -Expected @('artifacts are up to date')
+    if($ConfigurationCache){Assert-PariKtOutput -Result $warm -Log $warmLog -Expected @('Configuration cache entry reused')}
     foreach($file in $hashes.Keys){if((Get-FileHash $file).Hash -ne $hashes[$file]){throw "Warm run changed $file"}}
     Write-NativeProof (Join-Path $consumer 'shared/parikt.properties') "pari.version=2.19.0`n"
     $conflictLog=Join-Path $proof "$kotlin-conflict.log"

@@ -27,7 +27,7 @@ GNU GMP mirror/fallback; modern Bison; and suppressing the legacy Darwin loader 
 keeping GP dynamic loading disabled. Actual dependency graphs stay strict. Targeted SwiftPM
 regressions pass (4396d7b427d5, f6ce59c40401); no conflict bypass on actual compile/runtime graphs.
 
-Independent publishing/ build uses Kotlin 2.0.21, checksummed Gradle 8.8 and built-in Maven/
+Independent publishing/ build now tests Kotlin 2.0.0 (previous milestone used 2.0.21), checksummed Gradle 8.8 and built-in Maven/
 signing plugins. Canonical library sources produce version-independent JVM/AAR/JS/Wasm/Native
 bindings; engines remain separate and on demand. Native klibs contain no GP archive; web imports
 the generic @parikt/engine module. Engine-tools contains C sources and ordinary Gradle scripts,
@@ -50,6 +50,24 @@ Verified local Maven candidate results:
   test keys removed; no production keyring or KProxyable secret values accessed.
 - Five source property diagnostics pass after sharing parsing and fixing Maven reserved names.
 
+Publication-baseline follow-up: Kotlin 2.0.21 bindings exposed a 2.0.0 Wasm runtime ABI error
+(6d48fcbbc93c). Publishing with 2.0.0 fixes it. All 29 non-Apple candidate archives inspect clean.
+All six JVM points pass strict cache storage/reuse (8cc5e3b22d5a); Native 2.0.0/2.4.21
+runtime/conflict/hash and strict cache checks pass (fd94ebf0da0d). JS/Wasm Node, bundles,
+custom emitted-fragment assets, four real browser tests and conflicts pass under Kotlin
+2.0.0 (6a85dc2a10fc) and 2.4.21 (052754ba3fad). Android debug/R8/both-ABI/minSdk21/shared-AAR/
+conflict packaging passes (a93895e60b53); runtime was not repeated after the baseline change.
+Old KGP Karma needs explicit emitted-asset serving; the proof uses public useConfigDirectory.
+The JVM probe inspects actual engine directories rather than repeated console headers.
+JVM/web guarded resume modes retain isolated Maven snapshots. Intermediate web compiler lines
+and Android/web strict cache checks remain unverified. Corrected-baseline hosted candidate
+jobs will require strict JVM/Native cache store/reuse, both verified locally.
+
+Source CI at 9b66110 is green (44375696793). Expanded Maven run 44375737186 passes Linux
+(six JVM points c57ab3deb785, Native endpoints 86b47dc951ff) and ARM Mac (all twelve publications,
+24 klibs, host consumer endpoints a66df5cc5cb8); Intel Mac still runs. Hosted artifacts use
+the previous 2.0.21 baseline and need the corrected-baseline rerun.
+
 The parser reserves :parikt/:pariktAndroidNative only in source mode. Maven consumers can use
 those module names and still enforce their explicit requirements. Android uses the canonical
 C-only helper per selected version, attached only to final applications. Native final links use
@@ -57,7 +75,8 @@ consumer SDK/deployment metadata and reject embedded extra GP archives. Web uses
 Node routing plus per-application Webpack aliases; late user fragments are preserved during
 config generation, with bundling untracked so edits are observed. Engine/compiler caches remain.
 
-Next: commit this verified candidate milestone, run expanded manual candidate.yml (Linux Native
+Candidate milestone committed/pushed as 9b66110. Expanded manual candidate run 44375737186
+is in progress; source CI 44375696793 is green. Next: finish corrected-baseline candidate checks (Linux Native
 and Intel/ARM Apple Maven builds/consumers), broaden bootstrap/old-compiler web checks and strict
 cache checks, then implement the concrete signed Central bundle/upload path. Candidate jobs have
 no upload/signing credentials. GitHub names-only check found no Actions secrets/environments;
@@ -65,7 +84,7 @@ user must eventually configure publication credentials. Do not tag/upload incomp
 
 All probes now use the embedded Maven bootstrap; earlier Native/Android/web runtime evidence
 used the same extracted tools directly. Recheck those bootstrap paths in the expanded workflow/
-local smoke runs. The source build remains supported. See publishing/README.md for script roles.
+local smoke runs, now completed as recorded above. The source build remains supported. See publishing/README.md for script roles.
 
 Environment verification follow-up completed on 2026-11-18 for the available Android/browser
 sample checks. Root JS/Wasm lockfiles still described the old 2.15.0 regular engine after the

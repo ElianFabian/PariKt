@@ -1,17 +1,23 @@
 #requires -Version 7.0
-param([string]$KotlinVersion='2.4.21',[switch]$Browser,[string]$ChromeBinary=$env:CHROME_BIN)
+param([string]$KotlinVersion='2.4.21',[switch]$Browser,[string]$ChromeBinary=$env:CHROME_BIN,[string]$ResumeDirectory)
 $ErrorActionPreference='Stop'
 $repository=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $repository 'tests/build_configuration/harness.ps1')
 $proof=Join-Path $repository ('build/maven-web-consumer/'+[guid]::NewGuid().ToString('N').Substring(0,12))
+if($ResumeDirectory) {
+    $proof=[IO.Path]::GetFullPath($ResumeDirectory)
+    $allowed=[IO.Path]::GetFullPath((Join-Path $repository 'build/maven-web-consumer'))+[IO.Path]::DirectorySeparatorChar
+    if(!$proof.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -or !(Test-Path (Join-Path $proof 'maven'))){throw 'ResumeDirectory must name a retained web Maven fixture.'}
+}
 $null=New-Item -ItemType Directory -Path $proof -Force
-Copy-Item -LiteralPath (Join-Path $repository 'publishing/build/candidate-repository') -Destination (Join-Path $proof 'maven') -Recurse
+if(!$ResumeDirectory){Copy-Item -LiteralPath (Join-Path $repository 'publishing/build/candidate-repository') -Destination (Join-Path $proof 'maven') -Recurse}
 $version=((Get-Content (Join-Path $repository 'gradle.metadata.properties') | Where-Object {$_ -match '^version='}) -split '=',2)[1].Trim()
 $jar=Get-ChildItem (Join-Path $proof "maven/io/github/elianfabian/parikt-engine-tools/$version") -Filter '*.jar' |
     Where-Object {$_.Name -notmatch '-(sources|javadoc)\.jar$'} | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-[IO.Compression.ZipFile]::ExtractToDirectory($jar.FullName,(Join-Path $proof 'tools'))
+if(!$ResumeDirectory){[IO.Compression.ZipFile]::ExtractToDirectory($jar.FullName,(Join-Path $proof 'tools'))}
 if(Get-ChildItem (Join-Path $proof 'tools') -Recurse -Filter '*.kt') { throw 'Unexpected library Kotlin sources in engine tools.' }
 $consumer=Join-Path $proof 'consumer'
+if(Test-Path (Join-Path $consumer 'shared/parikt.properties')){Remove-Item -LiteralPath (Join-Path $consumer 'shared/parikt.properties')}
 function Write-WebProof([string]$Relative,[string]$Text) {
     $Text=$Text.Replace('__LIBRARY_VERSION__',$version)
     $path=Join-Path $consumer $Relative
@@ -47,7 +53,32 @@ suspend fun exercise(expected: Int) = withTimeout(30_000) {
     println("PASS web Maven $expected")
 }
 '@
-Write-WebProof 'user-webpack/marker.js' 'config.plugins=config.plugins||[]; config.plugins.push({apply() { console.log("PASS preserved user Webpack fragment"); }});'
+Write-WebProof 'user-webpack/marker.js' @'
+config.plugins=config.plugins||[];
+config.plugins.push({apply(compiler) {
+    compiler.hooks.thisCompilation.tap('PariKtConsumerProof', compilation => {
+        compilation.hooks.processAssets.tap('PariKtConsumerProof', () => {
+            compilation.emitAsset('parikt-user-fragment-proof.txt', new compiler.webpack.sources.RawSource('PASS preserved user Webpack fragment'));
+        });
+    });
+}});
+'@
+if($Browser) {
+    # Old KGP's Karma runner serves JS chunks but omits emitted binary assets.
+    # Keep this test-runner compatibility setup separate from application routing.
+    Write-WebProof 'proof-karma/assets.js' @'
+if (!config.frameworks.includes('webpack-output')) {
+    const serveAssets = function(karmaConfig) {
+        const controller = karmaConfig.__karmaWebpackController;
+        if (!controller) throw new Error('Webpack asset serving requires its controller');
+        karmaConfig.files.push({pattern: controller.outputPath.replace(/\\/g, '/') + '/**/*', included: false, served: true, watched: false});
+    };
+    serveAssets.$inject = ['config'];
+    config.plugins.push({'framework:parikt-webpack-assets': ['factory', serveAssets]});
+    config.frameworks.unshift('parikt-webpack-assets');
+}
+'@
+}
 foreach($app in @('appA','appB')) {
     Write-WebProof "$app/build.gradle.kts" @'
 plugins { kotlin("multiplatform") }
@@ -68,8 +99,8 @@ kotlin {
         implementation(kotlin("test"))
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     }
-    js().browser { testTask { useKarma { useChromeHeadless() } } }
-    wasmJs().browser { testTask { useKarma { useChromeHeadless() } } }
+    js().browser { testTask { useKarma { useChromeHeadless(); useConfigDirectory(rootProject.file("proof-karma")) } } }
+    wasmJs().browser { testTask { useKarma { useChromeHeadless(); useConfigDirectory(rootProject.file("proof-karma")) } } }
 }
 '@)
         Write-WebProof "$app/src/commonTest/kotlin/BrowserSmoke.kt" ('import kotlin.test.Test; import kotlinx.coroutines.test.runTest; import kotlinx.coroutines.withContext; import kotlinx.coroutines.Dispatchers; class BrowserSmoke { @Test fun mavenEngine()=runTest { withContext(Dispatchers.Default) { proof.exercise('+$expected+') } } }')
@@ -83,7 +114,13 @@ $result=Invoke-PariKtGradle -Repository $consumer -Wrapper $wrapper -Log $log -A
 Assert-PariKtOutput -Result $result -Log $log -Expected @('PASS web Maven 135936','PASS web Maven 134912')
 $log=Join-Path $proof 'webpack.log'
 $result=Invoke-PariKtGradle -Repository $consumer -Wrapper $wrapper -Log $log -Arguments @(':appA:jsBrowserProductionWebpack',':appB:jsBrowserProductionWebpack',':appA:wasmJsBrowserProductionWebpack',':appB:wasmJsBrowserProductionWebpack','--no-parallel','--console=plain')
-Assert-PariKtOutput -Result $result -Log $log -Expected @('PASS preserved user Webpack fragment')
+Assert-PariKtOutput -Result $result -Log $log
+# Older KGP versions filter successful Webpack stdout. Inspect emitted assets instead.
+foreach($app in @('appA','appB')) {
+    $markers=@(Get-ChildItem (Join-Path $consumer "$app/build/kotlin-webpack") -Recurse -Filter 'parikt-user-fragment-proof.txt')
+    if($markers.Count -ne 2){throw "Expected JS and Wasm user-fragment assets for $app, got $($markers.Count)."}
+    foreach($marker in $markers){if((Get-Content $marker.FullName -Raw) -ne 'PASS preserved user Webpack fragment'){throw "Invalid user fragment asset: $($marker.FullName)"}}
+}
 if($Browser) {
     if(!$ChromeBinary -and $IsWindows) {
         $ChromeBinary=@('C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe') | Where-Object {Test-Path $_} | Select-Object -First 1

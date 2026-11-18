@@ -22,10 +22,9 @@
 - [x] Verify nine Maven signatures using an isolated disposable key: 5f65f628b190. No production
   key values were accessed; no upload occurred. Private test keys were removed.
 - [x] Run initial Linux candidate publication/content/JVM proof: 44350029452.
-- [ ] Run expanded manual candidate workflow: Linux Native plus Intel/ARM Apple Maven builds
-  and external consumers. Latest Native/Android/web probes now use the embedded bootstrap;
-  their earlier runtime evidence used identical extracted tools directly and needs a rerun.
-- [ ] Broaden older-compiler web and non-JVM strict configuration-cache binary-consumer checks.
+- [ ] Expanded manual candidate run 44375737186 / 9b66110 is in progress: Linux Native plus Intel/ARM Apple Maven builds
+  and external consumers. All local Native/Android/web proofs now use the embedded bootstrap.
+- [ ] Verify intermediate web compiler lines and Android/web strict configuration-cache binary-consumer checks.
 - [ ] Implement signed Central bundle validation/upload after consumer gates; configure actual
   signing/Portal credentials and create the release tag only when ready. See RELEASE_PLAN.md.
 
@@ -729,3 +728,16 @@ split has exactly one selected engine; both x86_64 APKs pass Startup/evaluation 
 checks on API36.1. Logs are under build/project-review/fix-*. Both examples folders, every existing
 target, canonical source reuse and Android minSdk21 are preserved. Remaining structural cleanup is
 separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these checks.
+
+## Maven publication-baseline follow-up (2026-11-18)
+
+- [x] Fix oldest Wasm binary runtime by publishing with Kotlin 2.0.0; inspect all 29 non-Apple archives.
+- [x] Verify strict JVM cache storage/reuse across all six release points (8cc5e3b22d5a).
+- [x] Verify Native 2.0.0/2.4.21 runtimes/conflicts/reuse and strict cache mode (fd94ebf0da0d).
+- [x] Verify oldest JS/Wasm Node/bundles/four browser tests/fragments/conflicts (6a85dc2a10fc).
+- [x] Fix harness assumptions about Gradle task headers, filtered Webpack stdout and asset paths;
+  verify actual engine directories/emitted assets and use explicit legacy Karma asset serving.
+- [x] Verify newest web Node/bundles/four browsers/fragments/conflicts (052754ba3fad) and
+  Android debug/R8/both-ABI/minSdk21/shared-AAR/conflict packaging (a93895e60b53). Android runtime not repeated.
+
+- [ ] Run corrected-baseline hosted candidate jobs with locally verified strict JVM/Native cache switches.

@@ -27,9 +27,12 @@ artifacts, never committed to Git. Normal engine selection remains 2.19.0; the e
 two-version acceptance proof additionally uses 2.15.0. CI does not disable lock checks/signing
 errors or mark unsupported/skipped Apple execution as successful tests.
 
-The workflows are prepared but have not run on GitHub yet. Local Windows verification of the
-runtime script uses locally built artifacts; that does not establish the new Linux-to-Windows
-artifact handoff or Apple hosted-runner results. Push/dispatch is a separate user action.
+Full source workflow 44353196417 / a41523a passes, including the Linux-to-Windows
+handoff, both Mac hosts, mobile simulator tests and all twelve Apple framework/test-binary
+links. Historical failed and superseded/cancelled runs remain visible in Actions. The manual
+`candidate.yml` separately tests ordinary Maven publications with external consumers; it
+has no remote upload endpoint or publication credentials. Expanded candidate run 44375737186
+at 9b66110 is in progress. See HANDOFF.md for the latest completed evidence.
 
 ## Publication boundary
 
@@ -38,7 +41,9 @@ and compiles/caches binaries when reusable artifacts are absent. A general prebu
 download service is not implemented. Neither Maven nor an ordinary dependency automatically
 runs the Gradle settings/native-build scripts contained in a producer's checkout.
 
-Before configuring a publishable binary KMP component, implement the packaging proof in
+The independent `publishing/` build implements version-independent bindings and explicit
+Maven-loaded engine provisioning. See [publishing/README.md](../publishing/README.md) for its
+settings bootstrap and proof scripts. Finish the remaining packaging gates in
 `RELEASE_PLAN.md`: JVM native provisioning, Android payload/rules, Native binding/archive
 separation and web engine loading without local npm file paths. Preserve one selected engine
 per final app, shared-library compatibility and independently selected PARI versions. The

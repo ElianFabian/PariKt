@@ -35,8 +35,8 @@ jobs:
         shell: pwsh
         run: |
           ./tests/publication/verify_candidate_contents.ps1
-          ./tests/publication/verify_jvm_candidate.ps1
-          ./tests/publication/verify_native_candidate.ps1
+          ./tests/publication/verify_jvm_candidate.ps1 -ConfigurationCache
+          ./tests/publication/verify_native_candidate.ps1 -ConfigurationCache
       - name: Retain private candidate evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -87,7 +87,7 @@ jobs:
         shell: pwsh
         run: |
           ./tests/publication/verify_candidate_contents.ps1 -AppleOnly
-          ./tests/publication/verify_native_candidate.ps1
+          ./tests/publication/verify_native_candidate.ps1 -ConfigurationCache
       - name: Retain Apple Maven evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
