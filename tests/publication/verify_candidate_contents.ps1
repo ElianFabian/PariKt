@@ -1,5 +1,5 @@
 #requires -Version 7.0
-param([string]$Repository)
+param([string]$Repository,[switch]$AppleOnly)
 $ErrorActionPreference='Stop'
 if(!$Repository) { $Repository=Join-Path $PSScriptRoot '../../publishing/build/candidate-repository' }
 $Repository=[IO.Path]::GetFullPath($Repository)
@@ -50,5 +50,7 @@ foreach($pom in Get-ChildItem $Repository -Recurse -Filter '*.pom') {
         if([string]::IsNullOrWhiteSpace([string]$value)) { throw "Incomplete POM: $($pom.FullName)" }
     }
 }
-if(!$counts.Jvm -or !$counts.Android) { throw 'Expected JVM JAR and Android AAR candidates.' }
+if($AppleOnly) {
+    if($counts.Native -lt 24){throw 'Expected main and cinterop klibs for all twelve Apple targets.'}
+} elseif(!$counts.Jvm -or !$counts.Android) { throw 'Expected JVM JAR and Android AAR candidates.' }
 Write-Host "PASS $($archives.Count) candidate archives contain no engine payloads; JVM identities, Android JNI rules and POM fields verified. Native klibs inspected: $($counts.Native)"

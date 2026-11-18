@@ -2,7 +2,9 @@
 
 Host macOS support passes compilation, tests, framework linking and independent two-version
 applications on Intel and Apple Silicon GitHub runners (run 44347230604, Kotlin 2.4.21,
-Xcode 26.4). Mobile simulator/device and complete framework coverage are still being verified.
+Xcode 26.4). Full run 44353196417 also passes iOS/tvOS/watchOS simulator tests on both host
+architectures and all twelve framework/test-binary links. Physical Apple devices and external
+Swift framework consumers have not been exercised. Maven consumer verification is separate.
 The earlier Kotlin 2.x matrix does not establish Apple compatibility across compiler versions.
 
 ## Targets

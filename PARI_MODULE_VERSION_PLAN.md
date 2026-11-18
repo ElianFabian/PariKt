@@ -2,34 +2,32 @@
 
 ## GitHub Actions / publication preparation
 
-- [x] Fix hosted SDK discovery and generated SwiftPM inventory conflicts; targeted model
-  regression passes. Use GNU's GMP mirror with bounded primary/fallback downloads for JVM
-  and Android after the hosted runner could not connect to gmplib.org. Hosted reruns pending.
-- [x] Diagnose real Intel Mac PARI parser-generation failure; require modern Bison and
-  provision it in CI. Apple compilation/runtime remains unchecked until the rerun passes.
-
-- [x] Prepare and validate CI and release metadata using KProxyable as a reference; preserve
-  independent library/engine versions and document binary-packaging blockers in RELEASE_PLAN.md.
-- [ ] Run hosted CI and complete binary library/engine provisioning separation plus external
-  Maven consumer verification before configuring actual Sonatype publication.
-  Local unsigned JVM, common metadata, Android release, JS and Wasm candidate publications
-  build successfully (build/publication-logs/7d52478e0fda4d25a035c6654d2e646b.log).
-  This does not yet prove consumer engine provisioning or Native binary compatibility.
-  The private engine-tools candidate implements the first JVM provisioning path using the
-  existing fingerprinted C builders and shared selection parser; consumer proof pending.
-  Added independent Maven JVM consumer and artifact-content verification scripts under
-  tests/publication; runtime/reuse/conflict results are pending.
-  Candidate checks caught/fixed JVM Kotlin module identity, deferred Android coordinates and
-  the probe's GP result-prefix handling; corrected candidate verification is in progress.
-  Corrected content checks pass (29 archives) and Maven-only Windows JVM proofs pass for
-  Kotlin 2.0.0/2.4.21, both PARI versions, conflicts and warm reuse (c59afbf75aa7).
-  A manual credential-free candidate workflow repeats the proof on Linux; other binary
-  backends/Apple publication/signing remain tracked in RELEASE_PLAN.md.
-  Native binary-consumer linker wiring is now being implemented and still requires an
-  independent compile/link/runtime proof before checking it off.
-- [x] Run Linux Maven candidate publication/content/JVM external proofs (44350029452).
-- [ ] Verify the mobile Darwin-loader fix exposed by full Apple run 44350989857; host macOS
-  remains verified, while iOS/tvOS/watchOS execution/link coverage remains pending.
+- [x] Fix hosted SDK discovery, generated SwiftPM inventory scoping, GMP mirror fallback,
+  modern Bison and mobile Darwin loader configuration; retain strict real-graph conflicts.
+- [x] Run full source CI on Linux, Windows and Intel/ARM Macs, including mobile simulators
+  and all twelve Apple framework/test-binary links: run 44353196417 / a41523a is green.
+- [x] Build independent Kotlin 2.0.21 Maven bindings and separate engine tools; inspect 29
+  current archives/four Native klibs for leaked engines, POM fields, JNI rules and JVM identity.
+- [x] Prove Windows JVM Maven consumers across six Kotlin release points, and Native consumers
+  under 2.0.0/2.4.21: shared library, independent engines, one engine per final app, conflicts/reuse.
+  Evidence: e80fc6af4124 and d134ac6f2de1 under build/maven-{native-,}consumer.
+- [x] Prove Android Maven debug/R8 packaging, both ABIs, minSdk21, Startup, stripped payload
+  hashes and conflicts; all four APKs run on an owned emulator: fa55b711b95c. Emulator removed.
+- [x] Prove Kotlin 2.4.21 JS/Wasm Maven Node execution, four bundles, custom fragments,
+  conflicts and four real headless-browser tests: build/maven-web-consumer/0a7f30a4f8aa.
+- [x] Load the engine-tools settings bootstrap directly from Maven; hash-addressed locked
+  extraction needs no library source checkout. JVM proof 28558c04de51; strict configuration-cache
+  storage/reuse 0235cebeeb1c; shared module named :parikt regression 76f958e35c6c.
+- [x] Recheck all five source property diagnostics after sharing participant parsing.
+- [x] Verify nine Maven signatures using an isolated disposable key: 5f65f628b190. No production
+  key values were accessed; no upload occurred. Private test keys were removed.
+- [x] Run initial Linux candidate publication/content/JVM proof: 44350029452.
+- [ ] Run expanded manual candidate workflow: Linux Native plus Intel/ARM Apple Maven builds
+  and external consumers. Latest Native/Android/web probes now use the embedded bootstrap;
+  their earlier runtime evidence used identical extracted tools directly and needs a rerun.
+- [ ] Broaden older-compiler web and non-JVM strict configuration-cache binary-consumer checks.
+- [ ] Implement signed Central bundle validation/upload after consumer gates; configure actual
+  signing/Portal credentials and create the release tag only when ready. See RELEASE_PLAN.md.
 
 ## Apple target implementation
 
@@ -39,8 +37,10 @@
   regressions. All 12 Apple deployment resolutions and macOS-only family model also pass.
 - [x] Compile/link/run host macOS tests/frameworks and two-version apps on Intel and ARM64 Macs
   in hosted run 44347230604 (12bb55f); conflicts and warm reuse also pass.
-- [ ] Complete mobile simulator and all-device/framework/test-link coverage; run 44350989857
-  is in progress. Physical devices and external framework consumers remain unverified.
+- [x] Run iOS/tvOS/watchOS simulator tests on Intel and ARM64 Macs plus all twelve device/
+  simulator framework/test-binary links: full run 44353196417 / a41523a passes all jobs.
+- [ ] Verify physical Apple devices, external Swift framework use and Apple Maven consumers;
+  manual candidate workflow now includes both Mac hosts, but its new binary jobs are pending.
 
 ## Everyday engine simplification
 

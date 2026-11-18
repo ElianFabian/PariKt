@@ -5,12 +5,15 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
-    id("com.android.library")
+    id("com.android.library") apply false
     `maven-publish`
 }
 
 val repository = extra["parikt.repository"] as File
 val backend = File(repository, "parikt")
+val publishAndroid = providers.gradleProperty("parikt.publish.android").orElse("true").get().toBooleanStrict()
+val appleOnly = providers.gradleProperty("parikt.publish.appleOnly").orElse("false").get().toBooleanStrict()
+if (publishAndroid) pluginManager.apply("com.android.library")
 val appleFamilies = providers.gradleProperty("parikt.apple.families").orElse("macos,ios,tvos,watchos").get().split(',').toSet()
 val bindings = layout.buildDirectory.dir("generated/webBindings")
 val generateWebBindings = tasks.register<Sync>("generateWebBindings") {
@@ -48,14 +51,15 @@ kotlin {
         compilerOptions.moduleName.set("parikt")
         compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
-    androidTarget {
+    if (publishAndroid) androidTarget {
         publishLibraryVariants("release")
         compilerOptions.moduleName.set("parikt")
         compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
     js { useEsModules(); browser(); nodejs(); compilerOptions.moduleName.set("parikt") }
     wasmJs { browser(); nodejs(); compilerOptions.moduleName.set("parikt") }
-    val native = mutableListOf<KotlinNativeTarget>(linuxX64(), mingwX64())
+    val native = mutableListOf<KotlinNativeTarget>()
+    if (!appleOnly) native.addAll(listOf(linuxX64(), mingwX64()))
     @Suppress("DEPRECATION")
     val apple = buildList {
         if ("macos" in appleFamilies) { add(macosX64()); add(macosArm64()) }
@@ -81,13 +85,13 @@ kotlin {
             getByName(name).kotlin.srcDir(files(platformBindings.map { it.dir(name) }).builtBy(generatePlatformBindings))
         }
         commonMain.dependencies { implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0") }
-        androidMain.dependencies {
+        if (publishAndroid) androidMain.dependencies {
             implementation("androidx.core:core-ktx:1.15.0")
             implementation("androidx.startup:startup-runtime:1.2.0")
         }
     }
 }
-android {
+if (publishAndroid) extensions.configure<com.android.build.gradle.LibraryExtension> {
     namespace = "com.elianfabian.parikt"
     compileSdk = 36
     defaultConfig {

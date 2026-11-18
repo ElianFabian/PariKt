@@ -8,140 +8,64 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
-Regular hosted CI PASSES completely at 12bb55f / run 44347230604: Linux JVM/Native, Android
-packaging, Node/browser and UI tests; Linux-built Windows JNI/Native runtime execution; Intel
-and ARM64 macOS tests/frameworks/two-version apps/conflicts/reuse. Intel fixture d7fdaaf68d9e,
-ARM fixture 0461777298b7; raw logs retained under build/ci-local/apple-*-12bb55f.log.
-Full Apple simulator/device-framework/test-link coverage is running separately as 44350989857.
-Private Linux Maven-candidate proof is running as 44350029452. Neither implies release readiness.
-Linux candidate run 44350029452 now PASSES: publication content checks plus independent
-Maven JVM consumers on Kotlin 2.0.0/2.4.21, two engines, conflicts and warm reuse (ef51083bff15).
-Full Apple run 44350989857 exposed the mobile Darwin legacy-dlopen shim: disabling HAS_DLOPEN
-enabled fallback NSLinkModule APIs unavailable on iOS. Private target source copies now guard
-that shim with PARIKT_APPLE_MOBILE as well; normal macOS sources/features are preserved.
-This mobile fix requires a hosted rerun; no mobile success claim yet.
+First-release execution is authorized: commit/push prepared work, fix hosted CI, finish clean
+Maven consumers and signing/publication gates, then tag/publish. No release tag or Sonatype
+upload has been created. RELEASE_PLAN.md tracks remaining gates. Existing source installers,
+examples, default PARI 2.19.0, module overrides and Android minSdk21 are preserved.
 
-Hosted run 44342835721 also failed reaching gmplib.org during Android GMP setup. JVM and
-Android builders now use ftp.gnu.org first, with bounded connection/transfer time and the
-original upstream as fallback. Existing fingerprint checks remain enforced.
-The local Maven candidate exposed an unresolved JsModule in shared Kotlin 2.0 web metadata;
-move only its external factory declaration to platform-specific generated bindings.
+Full source-installation CI is GREEN at a41523a / run 44353196417: Linux JVM/Native, Android
+packaging, Node/browser/UI tests, Linux-to-Windows JNI/Native execution and both Mac hosts.
+Intel fixture ab4782cb7efe runs macOS/iOS/tvOS/watchOS X64 tests; ARM fixture 4dbc4594ae86 runs
+ARM64 host/simulator tests. Both link all twelve frameworks/test binaries and verify two GP
+versions, explicit conflicts and reuse. Raw logs: build/ci-local/apple-full-*-a41523a.log.
+Physical Apple devices, external Swift framework consumers and other Xcode profiles remain
+outside this result. Tested source compiler/Xcode: Kotlin 2.4.21 / Xcode 26.4.
 
-Intel run 44345026758 progressed into real C compilation and exposed macOS's old Bison 2.3.
-CI installs Homebrew Bison, the Apple builder requires version 3+ before downloading/building
-and includes its version in the output stamp. Linux CI also explicitly installs bison/patchelf.
-Both host macOS reruns now pass; mobile simulator/device coverage remains in progress.
+CI fixes are committed through a41523a: SDK-manager lookup; scoping the generated SwiftPM
+inventory to the selected provider; excluding synthetic app inventory from explicit requirements;
+GNU GMP mirror/fallback; modern Bison; and suppressing the legacy Darwin loader on mobile while
+keeping GP dynamic loading disabled. Actual dependency graphs stay strict. Targeted SwiftPM
+regressions pass (4396d7b427d5, f6ce59c40401); no conflict bypass on actual compile/runtime graphs.
 
-First-release execution authorized on 2026-11-18: commit/push prepared changes, run and fix
-hosted CI, complete candidate packaging/external-consumer verification, then tag/publish only
-after the release gates pass. No release tag or Sonatype upload has been created yet.
+Independent publishing/ build uses Kotlin 2.0.21, checksummed Gradle 8.8 and built-in Maven/
+signing plugins. Canonical library sources produce version-independent JVM/AAR/JS/Wasm/Native
+bindings; engines remain separate and on demand. Native klibs contain no GP archive; web imports
+the generic @parikt/engine module. Engine-tools contains C sources and ordinary Gradle scripts,
+no Kotlin library implementation or compiled engines. The settings bootstrap loads that JAR
+from Maven and extracts immutable hash-addressed tools under a file lock/value source.
 
-Prepared work committed/pushed as e0b328c; first hosted run 44340852491 found two real setup
-issues: sdkmanager was not on Ubuntu PATH, and KGP's SwiftPM umbrella inventory aggregated
-other apps' engine providers and hit consumer conflict routing. Resolve sdkmanager from the SDK
-and scope generated swiftPMDependenciesForLockFilesMetadataClasspath provider entries to the
-consumer's selected engine instead of treating global entries as explicit dependencies; actual
-compile/runtime/link graph and archive checks remain enforced. A new Windows configuration
-regression recreates the generated inventory and passes alongside explicit-conflict tests:
-build/apple-tests/4396d7b427d5/. Download-artifact was also moved to its verified Node-24 v6
-revision. Hosted rerun is pending the fix push.
+Verified local Maven candidate results:
+- Archive/POM/JVM identity/Android JNI rules: 29 current archives, four Native klibs, no engines.
+- JVM: all six 2.0-2.4 release points, two versions/three apps/shared library/conflicts/reuse:
+  e80fc6af4124. Maven-only bootstrap: 28558c04de51; module named :parikt: 76f958e35c6c.
+- Strict bootstrap configuration-cache store/reuse: 0235cebeeb1c (Kotlin 2.4.21).
+- Windows Native: Kotlin 2.0.0/2.4.21, two apps/shared library, one raw selected archive per link,
+  actual runtimes, visible conflicts and warm hashes: d134ac6f2de1. Old KGP C SDK bootstrap is wired.
+- Android: debug/R8 APKs for both engines, both ABIs, minSdk21, Startup metadata, stripped payload
+  hashes, engine-free shared AAR and conflicts: fa55b711b95c. All four APKs run on an owned
+  API36.1 x86_64 emulator; proof apps/AVD data/emulator were removed. Physical phone untouched.
+- Web: Kotlin 2.4.21 JS/Wasm Node, four production bundles, custom fragments, explicit conflicts
+  and all four real headless-browser tests: 0a7f30a4f8aa (Node/bundles also 68cb5b0b1f65).
+- Signing: nine signatures verify with an isolated one-day Ed25519 key: 5f65f628b190. Private
+  test keys removed; no production keyring or KProxyable secret values accessed.
+- Five source property diagnostics pass after sharing parsing and fixing Maven reserved names.
 
-Second run 44342835721 reached the next SwiftPM inventory check: its global appB metadata
-was mistaken for an appA explicit dependency requirement. Exclude this one generated inventory
-from requirement validation as well as scoping provider entries; the reproducer now includes
-the foreign application itself. Normal compile/runtime requirements remain strict.
-The expanded regression passes (build/apple-tests/f6ce59c40401/). Main commits use separate
-CI concurrency groups so a quick Apple fix does not cancel a long-running Linux cross-build;
-superseded PR runs still cancel normally.
+The parser reserves :parikt/:pariktAndroidNative only in source mode. Maven consumers can use
+those module names and still enforce their explicit requirements. Android uses the canonical
+C-only helper per selected version, attached only to final applications. Native final links use
+consumer SDK/deployment metadata and reject embedded extra GP archives. Web uses per-process
+Node routing plus per-application Webpack aliases; late user fragments are preserved during
+config generation, with bundling untracked so edits are observed. Engine/compiler caches remain.
 
-Independent Maven candidate build is in development under publishing/: Kotlin 2.0.21 baseline
-with a checksummed Gradle 8.8 launcher, built-in Maven/signing plugins, generic web module binding
-and Native cinterop declarations without embedded engine archives. Existing source builds remain
-unchanged. This candidate is not release-ready until engine installer and external-consumer
-proofs are implemented and pass; do not publish its intermediate outputs.
-Local unsigned JVM/common/Android/JS/Wasm publication tasks pass (publication log
-7d52478e0fda4d25a035c6654d2e646b). Generated per-platform JS factories fix Kotlin 2.0's
-shared-metadata annotation error. A missing Android consumer-rules path was corrected to
-an explicit JNI class/method keep rule in publishing/library/consumer-rules.pro.
-The private engine-tools candidate now reuses the properties/participant parser for Maven
-dependencies and has a JVM-only applied settings script (Linux or Windows/WSL C builds).
-It contains no Kotlin library sources. Other-platform provisioning and prebuilt asset
-download are still unfinished; verify this first with a clean external JVM consumer.
-PowerShell publication probes now inspect candidate archive contents/POM/JNI rules and create
-an isolated Maven-only shared-library/three-JVM-app fixture. Oldest/newest compiler runtime,
-two-engine selection, one preparation per shared version, warm hashes and conflicts are checked.
-These probes are running; do not mark them passed before inspecting their results.
-Content inspection caught missing stable JVM module identity and late Android coordinate
-defaults; the candidate now explicitly sets parikt on JVM/Android and finalizes parikt-android
-after KGP's deferred publication creation. The runtime probe also now strips GP's normal result
-prefix, matching existing platform tests. Rebuilding and rerunning the corrected candidates.
-Corrected candidate checks PASS: 29 current archives, JVM module identity, Android JNI rules,
-POM fields and no engine payloads; Linux/Windows Native publications build successfully.
-Maven-only external JVM runtime/selection/reuse/conflicts PASS under Kotlin 2.0.0 and 2.4.21:
-build/maven-consumer/c59afbf75aa7/. Five source property diagnostics also pass. The manual
-candidate.yml workflow will repeat this on Linux; it has no Central upload/signing steps.
-GitHub names-only checks found no repository Actions secrets/environments configured. No
-credential values or KProxyable signing keys were read/copied. RELEASE_PLAN.md tracks remaining
-platform provisioning, prebuilt download, Apple publication, compatibility and signing gates.
-Next candidate step in development: Native final-binary linker wiring through a project-applied
-script and the existing consumer-toolchain/Apple deployment argument providers. Published klibs
-remain engine-free; a link guard rejects older dependencies that embed an extra engine archive.
-This Native installer step is not yet verified and must not be treated as release-ready.
+Next: commit this verified candidate milestone, run expanded manual candidate.yml (Linux Native
+and Intel/ARM Apple Maven builds/consumers), broaden bootstrap/old-compiler web checks and strict
+cache checks, then implement the concrete signed Central bundle/upload path. Candidate jobs have
+no upload/signing credentials. GitHub names-only check found no Actions secrets/environments;
+user must eventually configure publication credentials. Do not tag/upload incomplete candidates.
 
-GitHub Actions/Central preparation added on 2026-11-18 using KProxyable read-only as a reference.
-CI/reusable verification workflows cover Linux JVM/Native, Android builds, Node/browser suites,
-desktop UI tests under Xvfb, actual Windows JNI/Native execution, and Intel/ARM64 macOS. Linux
-cross-builds Windows artifacts using public JNI headers supplied by the Windows JDK job; no WSL
-is needed on the Windows runner. Apple normal CI is host-only; tags/manual full mode also test
-mobile simulators and link all Apple slices. Read-only permissions, pinned official actions,
-no persisted checkout credentials or publishing secrets; reports retained on failure.
-
-Local checks pass: actionlint 1.7.12 (official checksum-verified release), new PowerShell syntax,
-metadata and all six Windows JNI probes plus two Native tests using locally staged CI-format
-artifacts. Evidence: build/ci-local/windows-1fa59209/ and stage.log. Hosted workflow execution,
-Linux cross-artifact handoff and Apple runs remain unverified. Implementation commits have
-been pushed; no release tag or Sonatype upload has been created.
-
-gradle.metadata.properties proposes io.github.elianfabian:parikt:0.1.0-SNAPSHOT independently
-of PARI selection. LICENSE matches the existing wrapper's GPL-3.0-or-later declaration; no MIT
-metadata/keys were copied from KProxyable. A checker rejects incomplete metadata, release
-SNAPSHOT/tag mismatch and tracked build/engine binaries. Signing keys are ignored by Git.
-This is preparation, not a publishable binary component. User wants library/engine separation;
-current scripts fetch sources/build caches, not a general prebuilt binary download service.
-Native klibs currently embed engines and web packages use local file paths. RELEASE_PLAN.md
-and docs/RELEASING.md record the required engine packaging/external Maven consumer proof before
-signed Sonatype upload tasks are added. Existing Apple/environment work is preserved.
-
-Apple library target source implementation completed on 2026-11-18: macOS X64/ARM64,
-iOS/tvOS ARM64 devices plus X64/ARM64 simulators, and watchOS arm64_32/ARM64 devices plus
-X64/ARM64 simulators (12 targets). Xcode SDK-specific static GMP/PARI/bridge archives, static
-frameworks and selected engine graph/archive checks are wired. Shared Native tests are inherited;
-Apple tests add sandbox temp/file I/O and reinit. Apple uses NSTemporaryDirectory; Native file
-tests now use writable temp paths. No automatic init, custom plugin or Android minSdk change.
-
-Deployment floors come from the actual consumer compiler. Apple cache stamps include target/ABI,
-SDK, deployment floor, Xcode/clang, PARI revision and inputs; GMP stages are shared across PARI
-versions. Portable kernels handle watchOS ILP32 separately; Configure probes never execute
-cross-target programs. Mobile dynamic loading/subprocess features are disabled. Apple families
-can be limited with parikt.apple.families; -HostOnly verification requires only macOS SDKs.
-On Mac, Native targets/terminal use Apple destinations instead of Linux-only C toolchains;
-Linux/Windows hosts retain existing targets. Both examples and earlier web-lock changes remain.
-
-Runner: tests/build_configuration/verify_apple_targets.ps1. An isolated Kotlin-only consumer
-tests macOS plus host-architecture iOS/tvOS/watchOS simulators, framework links, two macOS apps
-sharing a library with 2.19.0/2.15.0, conflicts, archive identity and warm reuse. -HostOnly limits
-to macOS; -AllAppleTargets also links every framework/test binary. -ConfigureOnly is safe on
-Windows and claims no Apple compilation. Docs/checklist: docs/APPLE_TARGETS.md and
-APPLE_TARGET_PLAN.md. Existing uncommitted environment verification work is preserved.
-
-Available checks pass: model/graph/conflict fixture aff96afe5b71 (all 12 Apple interop/framework/
-test-link declarations checked), macOS-only family model and all deployment argument resolutions.
-Existing Windows/Linux Native tests, Native app graph/archive checks, JVM engine/UI/state/file
-tests, Android debug packaging and JS/Wasm compilation pass. Oldest/newest Kotlin JVM consumer
-cache/conflict/runtime checks pass (b005b6a61e3f). Bash syntax/native-lock concurrency and
-PowerShell syntax pass. Logs: build/apple-research/. Apple compilation/linking/runtime, device/
-simulator tests, framework consumption and Xcode compatibility remain UNVERIFIED on a Mac.
-No Apple binary was produced here.
+All probes now use the embedded Maven bootstrap; earlier Native/Android/web runtime evidence
+used the same extracted tools directly. Recheck those bootstrap paths in the expanded workflow/
+local smoke runs. The source build remains supported. See publishing/README.md for script roles.
 
 Environment verification follow-up completed on 2026-11-18 for the available Android/browser
 sample checks. Root JS/Wasm lockfiles still described the old 2.15.0 regular engine after the

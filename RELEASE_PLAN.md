@@ -40,6 +40,11 @@ and signing gates; a tag is not a substitute for those checks.
 - [x] Prove clean Maven-only JVM consumption on Windows with Kotlin 2.0.0 and 2.4.21: a shared
   Kotlin library, three apps, independent 2.19.0/2.15.0 selection, same-version reuse and explicit
   requirement conflicts. Evidence: build/maven-consumer/c59afbf75aa7/.
+- [x] Expand Windows JVM binary consumption to all six supported release points; runtime,
+  independent selections, conflicts and warm reuse pass (e80fc6af4124).
+- [x] Prove Windows Native binary consumption under Kotlin 2.0.0/2.4.21 with a shared library,
+  two engine versions, exactly one archive per link, runtime, visible explicit conflicts and
+  warm reuse (d134ac6f2de1). Linux/Apple Native binary execution remains pending.
 - [x] Recheck all five source-installer property diagnostic cases after sharing participant parsing.
 - [x] Run the new manual private-candidate workflow on Linux (44350029452); it has no upload/signing credentials
   and publishes only to its temporary local repository and seven-day workflow artifact storage.

@@ -15,10 +15,10 @@ targets, examples, module version selection and Android minSdk 21. No custom Gra
 - [x] Validate script syntax, Gradle configuration and existing-platform regressions here.
 - [x] Run host macOS compilation, tests, frameworks and two-version apps on Intel and ARM64
   GitHub runners (run 44347230604 / 12bb55f).
-- [ ] Run mobile simulators and link every Apple device/simulator framework/test binary.
-  Full verification dispatched as run 44350989857; pending results.
-  ARM run exposed legacy Darwin loader APIs unavailable on iOS. The private mobile source copy
-  now suppresses that fallback while HAS_DLOPEN remains disabled; hosted rerun required.
+- [x] Run mobile simulators and link every Apple device/simulator framework/test binary on
+  Intel and ARM64 hosts (a41523a / 44353196417). Both jobs pass after the mobile loader fix.
+- [ ] Run independent Apple Maven publication/consumer proofs under older/newer Kotlin;
+  this is distinct from source-installation/runtime verification above.
 
 References: https://kotlinlang.org/docs/native-target-support.html and the installed KGP APIs.
 
@@ -53,3 +53,8 @@ d7fdaaf68d9e; ARM fixture: 0461777298b7. Xcode 26.4 and Kotlin 2.4.21 were used.
 retained in build/ci-local/apple-*-12bb55f.log and workflow artifacts. This does not prove
 mobile simulators/devices, all cross-architecture framework outputs or other Xcode/Kotlin
 versions. Full simulator/link verification is now running separately.
+Full run 44353196417 now passes every platform job. Intel fixture ab4782cb7efe runs macOS,
+iOS/tvOS/watchOS X64 simulators; ARM fixture 4dbc4594ae86 runs macOS and ARM64 simulators.
+Both hosts link all twelve frameworks and test binaries, run the two-version macOS apps and
+check conflicts/reuse. Physical devices, external Swift framework integration and other
+compiler/Xcode profiles remain outside this source-installation result.

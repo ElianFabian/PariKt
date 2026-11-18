@@ -10,6 +10,7 @@ fun ProjectDependency.pariktProjectPath(): String =
 // Shared scoped-selection infrastructure. Apply before or after consumer
 // includes: the callback observes final projectDir mappings, not guessed paths.
 val checkout = extra["pariktSourceDir"] as File
+val binaryConsumer = gradle.extensions.extraProperties.properties["parikt.binaryConsumer"] == true
 apply(from = File(checkout, "gradle/parikt.properties.settings.gradle.kts"))
 @Suppress("UNCHECKED_CAST")
 val selectProperties = gradle.extensions.extraProperties["parikt.selectProperties"] as (String, File) -> Triple<String, String, Boolean>?
@@ -24,7 +25,7 @@ gradle.settingsEvaluated {
     fun discover(descriptor: ProjectDescriptor) {
         // These names are owned by the integration. Engine projects are added
         // after this callback, so they cannot supply consumer overrides.
-        if (descriptor.path == ":parikt" || descriptor.path == ":pariktAndroidNative" ||
+        if ((!binaryConsumer && descriptor.path in setOf(":parikt", ":pariktAndroidNative")) ||
             descriptor.path.startsWith(":pariktEngine_")) return
         directories[descriptor.path] = descriptor.projectDir
         selectProperties(descriptor.path, descriptor.projectDir)?.let { selections[descriptor.path] = it }
@@ -43,7 +44,7 @@ gradle.projectsEvaluated {
     }
     // Binary installation shares the same selection parser and participation discovery.
     // Source installation continues to identify participants through provider projects.
-    if (gradle.extensions.extraProperties.properties["parikt.binaryConsumer"] == true) {
+    if (binaryConsumer) {
         consumers.forEach { (path, consumer) ->
             if (consumer.configurations.any { configuration -> configuration.dependencies.any {
                 it.group == "io.github.elianfabian" && it.name in setOf("parikt", "parikt-jvm")
@@ -54,7 +55,7 @@ gradle.projectsEvaluated {
     do {
         changed = false
         edges.forEach { (path, dependencies) ->
-            if (dependencies.any { it == ":parikt" || it.startsWith(":pariktEngine_") || it in participants }) {
+            if (dependencies.any { it in participants || (!binaryConsumer && (it == ":parikt" || it.startsWith(":pariktEngine_"))) }) {
                 if (participants.add(path)) changed = true
             }
         }

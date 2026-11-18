@@ -36,6 +36,7 @@ jobs:
         run: |
           ./tests/publication/verify_candidate_contents.ps1
           ./tests/publication/verify_jvm_candidate.ps1
+          ./tests/publication/verify_native_candidate.ps1
       - name: Retain private candidate evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -45,5 +46,56 @@ jobs:
             publishing/build/candidate-repository/
             build/publication-logs/*.log
             build/maven-consumer/**/*.log
+            build/maven-native-consumer/**/*.log
+          retention-days: 7
+          if-no-files-found: warn
+
+  apple-candidate:
+    name: Apple Maven candidate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-26-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: zulu
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: true
+      - name: Prepare Apple C prerequisites
+        run: |
+          xcodebuild -version
+          brew install bison
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+      - name: Publish private Apple candidates
+        shell: pwsh
+        run: |
+          $targets=@('macosX64','macosArm64','iosArm64','iosX64','iosSimulatorArm64','tvosArm64','tvosX64','tvosSimulatorArm64','watchosArm64','watchosDeviceArm64','watchosX64','watchosSimulatorArm64')
+          $tasks=@($targets | ForEach-Object { ':library:publish'+$_.Substring(0,1).ToUpperInvariant()+$_.Substring(1)+'PublicationToCandidateRepository' })
+          $tasks+=@(':library:publishKotlinMultiplatformPublicationToCandidateRepository',':engineTools:publishToolsPublicationToCandidateRepository','-Pparikt.publish.android=false','-Pparikt.publish.appleOnly=true')
+          ./publishing/gradle.ps1 @tasks
+      - name: Inspect and consume Apple candidates
+        shell: pwsh
+        run: |
+          ./tests/publication/verify_candidate_contents.ps1 -AppleOnly
+          ./tests/publication/verify_native_candidate.ps1
+      - name: Retain Apple Maven evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: private-apple-maven-${{ matrix.os }}
+          path: |
+            publishing/build/candidate-repository/
+            build/publication-logs/*.log
+            build/maven-native-consumer/**/*.log
           retention-days: 7
           if-no-files-found: warn
