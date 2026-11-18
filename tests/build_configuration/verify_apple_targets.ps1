@@ -82,6 +82,36 @@ import kotlinx.coroutines.runBlocking
 fun main() = runBlocking { checkShared("$expected"); println("PASS Apple $app PARI $expected") }
 "@
 }
+if ($ConfigureOnly) {
+    # Reproduce KGP's generated cross-project inventory even on Windows, where SwiftPM
+    # does not create it. Actual consumer graphs still reject explicit foreign providers.
+    [IO.File]::AppendAllText((Join-Path $fixture 'build.gradle.kts'), @'
+
+gradle.projectsEvaluated {
+    project(":appA") {
+        val inventory = configurations.findByName("swiftPMDependenciesForLockFilesMetadataClasspath")
+            ?: configurations.create("swiftPMDependenciesForLockFilesMetadataClasspath") {
+                isCanBeConsumed = false
+                isCanBeResolved = true
+                attributes.attribute(org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.attribute,
+                    org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.common)
+                attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named("kotlin-metadata"))
+            }
+        dependencies.add(inventory.name, project(":parikt"))
+        dependencies.add(inventory.name, project(":pariktEngine_2_15_0:parikt"))
+        tasks.register("verifyGeneratedSwiftPMInventory") {
+            doLast {
+                val paths = inventory.incoming.resolutionResult.allComponents.mapNotNull {
+                    (it.id as? org.gradle.api.artifacts.component.ProjectComponentIdentifier)?.projectPath
+                }.filter { it in setOf(":parikt", ":pariktEngine_2_15_0:parikt") }
+                check(paths == listOf(":parikt")) { "Wrong SwiftPM inventory engines: $paths" }
+                println("PASS generated SwiftPM inventory uses only the consumer-selected provider")
+            }
+        }
+    }
+}
+'@, $utf8)
+}
 Check-Build 'model' @('help',':appA:verifyPariNativeGraph',':appB:verifyPariNativeGraph') @(
     "PASS :appA:$hostTarget Native PARI=2.19.0 provider=:parikt",
     "PASS :appB:$hostTarget Native PARI=2.15.0 provider=:pariktEngine_2_15_0:parikt")
@@ -90,6 +120,7 @@ try {
     Check-Build 'explicit-conflict' @(':appB:verifyPariNativeGraph') @('PARI requirement conflict','2.15.0','2.19.0') -Failure
 } finally { Remove-Item -LiteralPath (Join-Path $fixture 'shared/parikt.properties') -ErrorAction SilentlyContinue }
 if ($ConfigureOnly) {
+    Check-Build 'swiftpm-inventory' @(':appA:verifyGeneratedSwiftPMInventory') @('PASS generated SwiftPM inventory uses only the consumer-selected provider')
     $expectedTasks = @($targets | ForEach-Object {
         $capitalized = $_.Substring(0,1).ToUpperInvariant() + $_.Substring(1)
         "cinteropPari$capitalized"

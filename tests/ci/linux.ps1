@@ -12,7 +12,13 @@ if(!$sdk) { throw 'ANDROID_HOME must name the configured Android SDK.' }
 $local=Join-Path $repository 'local.properties'
 if(-not (Test-Path $local)) { [IO.File]::WriteAllText($local,"sdk.dir=$sdk`n") }
 $ndk=Get-PariKtToolVersion -Repository $repository -Name 'ndk'
-& sdkmanager 'platforms;android-36' 'build-tools;36.0.0' "ndk;$ndk"
+$sdkmanager=Join-Path $sdk 'cmdline-tools/latest/bin/sdkmanager'
+if(-not (Test-Path -LiteralPath $sdkmanager)) {
+    $sdkmanager=Get-ChildItem -LiteralPath (Join-Path $sdk 'cmdline-tools') -Filter sdkmanager -Recurse -File |
+        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+}
+if(!$sdkmanager) { throw "Android SDK command-line tools were not found under $sdk" }
+& $sdkmanager 'platforms;android-36' 'build-tools;36.0.0' "ndk;$ndk"
 if($LASTEXITCODE) { throw 'Android SDK/NDK setup failed.' }
 $tasks=@(':parikt:jvmTest',':parikt:verifyLinuxX64',':parikt:linkDebugTestMingwX64',
     ':parikt:jsNodeTest',':parikt:wasmJsNodeTest',':parikt:jsBrowserTest',':parikt:wasmJsBrowserTest',

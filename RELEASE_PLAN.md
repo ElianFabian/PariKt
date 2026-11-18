@@ -19,6 +19,9 @@ and signing gates; a tag is not a substitute for those checks.
   PowerShell scripts, validate metadata and run all six Windows JNI probes plus both Native
   tests from local CI-format artifacts. Evidence: build/ci-local/windows-1fa59209/ and stage.log.
 - [ ] Run the hosted workflows, including the Linux-to-Windows handoff and both Apple hosts.
+  Initial commit e0b328c / run 44340852491 reached the runners and exposed Ubuntu SDK-tool PATH
+  and Apple SwiftPM inventory-routing failures. Fixes and a targeted SwiftPM regression are
+  implemented (build/apple-tests/4396d7b427d5/); hosted rerun is pending. No green CI claim yet.
 - [ ] Separate the published library from engine provisioning on every backend, prove a clean
   external Maven consumer, then add actual signed publication tasks and a gated upload workflow.
 

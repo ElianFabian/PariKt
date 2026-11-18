@@ -12,6 +12,16 @@ First-release execution authorized on 2026-11-18: commit/push prepared changes, 
 hosted CI, complete candidate packaging/external-consumer verification, then tag/publish only
 after the release gates pass. No release tag or Sonatype upload has been created yet.
 
+Prepared work committed/pushed as e0b328c; first hosted run 44340852491 found two real setup
+issues: sdkmanager was not on Ubuntu PATH, and KGP's SwiftPM umbrella inventory aggregated
+other apps' engine providers and hit consumer conflict routing. Resolve sdkmanager from the SDK
+and scope generated swiftPMDependenciesForLockFilesMetadataClasspath provider entries to the
+consumer's selected engine instead of treating global entries as explicit dependencies; actual
+compile/runtime/link graph and archive checks remain enforced. A new Windows configuration
+regression recreates the generated inventory and passes alongside explicit-conflict tests:
+build/apple-tests/4396d7b427d5/. Download-artifact was also moved to its verified Node-24 v6
+revision. Hosted rerun is pending the fix push.
+
 GitHub Actions/Central preparation added on 2026-11-18 using KProxyable read-only as a reference.
 CI/reusable verification workflows cover Linux JVM/Native, Android builds, Node/browser suites,
 desktop UI tests under Xvfb, actual Windows JNI/Native execution, and Intel/ARM64 macOS. Linux

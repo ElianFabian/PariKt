@@ -43,7 +43,12 @@ consumer.configurations.configureEach {
             val reference = requested as? org.gradle.api.artifacts.component.ProjectComponentSelector
             if (reference != null && reference.projectPath != ":parikt" && reference.projectPath in engines.values &&
                 reference.projectPath != enginePath && routedConfiguration(configuration)) {
-                throw GradleException("PARI provider conflict in ${consumer.path}:${configuration.name}: explicit provider ${reference.projectPath} " +
+                // KGP aggregates every MPP project into this generated SwiftPM inventory,
+                // including providers belonging to other applications. They are not explicit
+                // app dependencies: collapse equivalent provider metadata to this app's engine.
+                if (configuration.name == "swiftPMDependenciesForLockFilesMetadataClasspath") {
+                    useTarget(target, "Scope generated SwiftPM inventory to the consumer-selected PARI engine")
+                } else throw GradleException("PARI provider conflict in ${consumer.path}:${configuration.name}: explicit provider ${reference.projectPath} " +
                     "conflicts with selected $enginePath (${selection.first}, ${selection.second}); dependency declared in ${consumer.buildFile}")
             }
             if (reference?.projectPath == ":parikt" && enginePath != ":parikt" && routedConfiguration(configuration)) {
