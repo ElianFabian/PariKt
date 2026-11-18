@@ -22,9 +22,10 @@
 - [x] Verify nine Maven signatures using an isolated disposable key: 5f65f628b190. No production
   key values were accessed; no upload occurred. Private test keys were removed.
 - [x] Run initial Linux candidate publication/content/JVM proof: 44350029452.
-- [ ] Expanded manual candidate run 44375737186 / 9b66110 is in progress: Linux Native plus Intel/ARM Apple Maven builds
-  and external consumers. All local Native/Android/web proofs now use the embedded bootstrap.
-- [ ] Verify intermediate web compiler lines and Android/web strict configuration-cache binary-consumer checks.
+- [x] Verify Linux Native and Intel/ARM Apple Maven publications/host consumers (44388331545 / 789b0d4).
+  Both Macs publish all twelve targets; all probes use the embedded Maven bootstrap.
+- [x] Verify six representative web Node/bundle/conflict points, with explicit Binaryen 130 for 2.1.21.
+- [ ] Verify remaining intermediate-browser coverage and Android/web strict configuration-cache checks.
 - [ ] Implement signed Central bundle validation/upload after consumer gates; configure actual
   signing/Portal credentials and create the release tag only when ready. See RELEASE_PLAN.md.
 
@@ -38,8 +39,8 @@
   in hosted run 44347230604 (12bb55f); conflicts and warm reuse also pass.
 - [x] Run iOS/tvOS/watchOS simulator tests on Intel and ARM64 Macs plus all twelve device/
   simulator framework/test-binary links: full run 44353196417 / a41523a passes all jobs.
-- [ ] Verify physical Apple devices, external Swift framework use and Apple Maven consumers;
-  manual candidate workflow now includes both Mac hosts, but its new binary jobs are pending.
+- [ ] Verify physical Apple devices and external Swift framework use; Apple Maven host consumers
+  now pass on both Mac architectures (44388331545).
 
 ## Everyday engine simplification
 
@@ -740,14 +741,22 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 - [x] Verify newest web Node/bundles/four browsers/fragments/conflicts (052754ba3fad) and
   Android debug/R8/both-ABI/minSdk21/shared-AAR/conflict packaging (a93895e60b53). Android runtime not repeated.
 
-- [ ] Run corrected-baseline hosted candidate jobs with locally verified strict JVM/Native cache switches.
+- [ ] Run full-mode candidate verification on the eventual release commit; Native-only 44388331545 passes.
 
 ## Native candidate cold-SDK cache correction (2026-11-18)
 
-- [x] Identify the common Linux/Intel/ARM failure: KGP populates platform klibs during first Native execution.
-- [ ] Verify separate SDK provisioning followed by strict cache store/immediate reuse, runtimes, archive hashes and conflicts on local and hosted targets. Script implemented; verification pending.
+- [x] Identify the common Linux/Intel/ARM failure: KGP populates platform klibs during first execution.
+- [x] Verify explicit SDK provisioning followed by strict cache store/immediate reuse, runtimes,
+  archive identities/hashes and conflicts on Windows and hosted Linux/Intel/ARM Macs (44388331545).
+  Host fixtures: ce10e4b5b279, 81810ce274c4, dd5d922b9c70, 5c8c5257e4d5; both compiler endpoints pass.
+- [x] Verify the explicit Native-only workflow mode; full candidate verification remains the release gate.
+- [x] Source CI at the fix commit 789b0d4 also passes (44388300267).
 
-- [ ] Run explicit Native-only hosted regression mode on Linux and both Mac hosts; full publication verification remains the default workflow mode.
+## Intermediate Maven web consumer checks (2026-11-18)
 
-- [x] Verify actual provisioning-link identity diagnostics and strict store/reuse with up-to-date links;
-  local Native 2.0.0/2.4.21 runtimes/hashes/conflicts pass (ce10e4b5b279). Hosted checks pending.
+- [x] Verify Kotlin 2.2.21 default Node/bundles/fragments/conflicts (a85eefba8c71).
+- [x] Verify Kotlin 2.3.21 default proof (31b8400b1667) and Kotlin 2.1.21 explicit Binaryen 130
+  profile with four browsers (229717114318). Default 120 fails; identical flags and both optimized
+  runtimes pass with 130. Document the explicit consumer profile; no automatic library override.
+- [x] Verify Kotlin 2.0.21 default Node/bundles/fragments/conflicts (cd4b432c66ce).
+- [ ] Retain remaining intermediate-browser and Android/web strict cache checks as release gates.

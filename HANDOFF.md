@@ -8,11 +8,11 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
-Latest incident: source CI 44381227608 / 3fa4ce3 passes. Candidate run 44381272892 fails the
-Native 2.4.21 cache assertion on Linux and both Mac hosts after successful publication/build/
-runtime checks: first execution populates platform klibs. A separate cold provisioning phase
-now precedes strict measured store/reuse. Local correction verification passes (ce10e4b5b279); hosted
-verification will follow. Full candidate mode remains the release gate.
+Latest correction verified: 789b0d4 source CI 44388300267 and Native-focused candidate run
+44388331545 are GREEN. Windows local and Linux/Intel/ARM Mac hosted probes pass Kotlin
+2.0.0/2.4.21 after explicit SDK provisioning, followed by strict cache storage/immediate reuse,
+runtimes, one selected archive per final binary, hashes and conflicts. The earlier three
+failures were the same cold-SDK test assumption. Full candidate mode remains a release gate.
 
 First-release execution is authorized: commit/push prepared work, fix hosted CI, finish clean
 Maven consumers and signing/publication gates, then tag/publish. No release tag or Sonatype
@@ -450,21 +450,24 @@ bundles/graphs and Node execution. It does not repeat browser UI or emulator run
 
 ## Native candidate cold-SDK cache correction (2026-11-18)
 
-Run 44381272892 / 3fa4ce3 fails the same Native cache assertion on Linux, ARM Mac and Intel
-Mac. All candidate publication/content checks, all six Linux JVM/cache cases, Native 2.0.0
-cases and 2.4.21 builds/runtimes succeed. KGP populates klib/platform/<host-target> during
-the first 2.4.21 Native build; Gradle correctly invalidates the cached configuration afterward.
-The local Windows proof used an already prepared SDK and missed that cold-runner condition.
-The Native probe now provisions once with --no-configuration-cache, then requires a strict
-stored configuration and immediate reuse on the identical task graph. Archive counts, hashes,
-actual runtimes and explicit conflicts remain checked. Local and hosted correction verification
-are pending; this does not establish first-to-second-build cache reuse on an unprepared SDK.
+Run 44381272892 / 3fa4ce3 failed the same Native 2.4.21 cache assertion on Linux and both
+Macs after successful publication/build/runtime checks. KGP populated klib/platform/<target>
+during execution, correctly invalidating configuration captured before SDK setup. The Windows
+proof had an already prepared SDK. The corrected probe provisions once without configuration
+cache, then requires strict storage and immediate reuse of the identical task graph. Actual
+provisioning links enforce identity diagnostics; up-to-date measured links can skip their actions.
 
-Candidate workflow now has explicit native_only manual input (default false) for targeted Native regression feedback; full mode retains all JVM checks, and both modes retain publication/content plus all Native checks. The focused hosted rerun is pending.
+789b0d4 passes local Windows (ce10e4b5b279) and hosted run 44388331545: Linux 81810ce274c4,
+ARM Mac 5c8c5257e4d5, Intel Mac dd5d922b9c70. Every host tests Kotlin 2.0.0/2.4.21, both GP
+versions, runtimes, archive counts/hashes and conflicts. Both Macs publish/inspect all twelve
+Apple targets (24 klibs each). Raw logs/artifacts: build/ci-local/native-cache-*.
+Source CI 44388300267 is also green. This focused native_only run omits the JVM matrix;
+full mode remains the release gate. Cold unprovisioned first-to-second reuse is not promised.
 
-Local phase verification caught a harness expectation that link actions repeat after provisioning; up-to-date links correctly skip those actions. Archive-identity diagnostics are now required in the actual provisioning link, while the measured cache-store phase requires successful storage. Final runtime/archive/hash/conflict checks remain. Rerun pending.
-
-Local corrected three-phase Native probe passes both Kotlin 2.0.0/2.4.21 (ce10e4b5b279):
-actual provisioning links, strict cache storage/immediate reuse, both runtimes, archive counts/
-hashes and conflicts. Hosted cold-SDK verification remains pending. PowerShell syntax, actionlint,
-metadata and whitespace validation pass. No production engine or target configuration changed.
+Intermediate web consumers: 2.2.21 (a85eefba8c71) and 2.3.21 (31b8400b1667) pass default
+Node/bundles/fragments/conflicts. Kotlin 2.1.21's default Binaryen 120 optimizer fails, while
+130 succeeds on the identical flags. The explicit LegacyBinaryenVersion 130 full probe passes
+Node/bundles/four browsers/fragments/conflicts (229717114318), and both optimized Node runtimes
+pass separately. Consumer configuration is documented in publishing/README.md; the library
+does not force an optimizer override. Kotlin 2.0.21 web also passes (cd4b432c66ce); other browser/cache matrix
+limits remain explicit in KOTLIN_COMPATIBILITY_PLAN.md. No release tag/upload was created.

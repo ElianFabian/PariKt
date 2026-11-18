@@ -1,6 +1,8 @@
 #requires -Version 7.0
-param([string]$KotlinVersion='2.4.21',[switch]$Browser,[string]$ChromeBinary=$env:CHROME_BIN,[string]$ResumeDirectory)
+param([string]$KotlinVersion='2.4.21',[switch]$Browser,[string]$ChromeBinary=$env:CHROME_BIN,[string]$ResumeDirectory,
+    [ValidatePattern('^[0-9]+$')][string]$LegacyBinaryenVersion)
 $ErrorActionPreference='Stop'
+if($LegacyBinaryenVersion -and $KotlinVersion -notmatch '^2\.[0-3]\.') {throw 'LegacyBinaryenVersion uses the Kotlin 2.0-2.3 public Binaryen API.'}
 $repository=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $repository 'tests/build_configuration/harness.ps1')
 $proof=Join-Path $repository ('build/maven-web-consumer/'+[guid]::NewGuid().ToString('N').Substring(0,12))
@@ -33,6 +35,14 @@ include(":shared",":appA",":appB")
 apply(from=javaClass.classLoader.getResource("gradle/parikt.bootstrap.settings.gradle.kts")!!)
 '@
 Write-WebProof 'build.gradle.kts' ('plugins { kotlin("multiplatform") version "'+$KotlinVersion+'" apply false }')
+if($LegacyBinaryenVersion) {
+    [IO.File]::AppendAllText((Join-Path $consumer 'build.gradle.kts'),@'
+
+plugins.withType<org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenRootPlugin> {
+    rootProject.extensions.configure<org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenRootExtension> { version="__BINARYEN__" }
+}
+'@.Replace('__BINARYEN__',$LegacyBinaryenVersion))
+}
 Write-WebProof 'gradle.properties' "org.gradle.jvmargs=-Xmx2g`nkotlin.js.yarn=false`n"
 Write-WebProof 'parikt.properties' "pari.version=2.19.0`n"
 Write-WebProof 'appB/parikt.properties' "pari.version=2.15.0`n"

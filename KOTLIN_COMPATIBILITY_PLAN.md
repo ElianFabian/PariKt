@@ -106,3 +106,37 @@ not make an untested Apple compiler/Xcode/Compose promise.
 Reference toolchain matrices:
 https://kotlinlang.org/docs/multiplatform/multiplatform-compatibility-guide.html
 https://developer.android.com/build/kotlin-support
+
+## Independent Maven consumers (2026-11-18)
+
+These checks consume Kotlin 2.0.0-compiled candidates from an isolated Maven repository and
+load engine tools from the Maven bootstrap. They are separate from the source-consumer matrix.
+Every web proof uses two applications sharing a compiled Kotlin library, both GP versions,
+custom Webpack fragments and explicit requirement conflicts.
+
+| Consumer Kotlin | JVM + strict cache | JS/Wasm Node + production bundles | Real JS/Wasm browsers | Optimizer profile |
+| --- | --- | --- | --- | --- |
+| 2.0.0 | Pass | Pass | Pass | Default |
+| 2.0.21 | Pass | Pass | Not rerun | Default |
+| 2.1.21 | Pass | Pass | Pass | Explicit Binaryen 130 |
+| 2.2.21 | Pass | Pass | Not rerun | Default |
+| 2.3.21 | Pass | Pass | Not rerun | Default |
+| 2.4.21 | Pass | Pass | Pass | Default |
+
+Kotlin 2.1.21's default Binaryen 120 crashes during production optimization. With identical
+optimizer flags, 130 succeeds; both optimized Node application runtimes also pass. See
+[publishing/README.md](publishing/README.md) for the explicit consumer configuration and probe
+option. This qualification is part of the tested profile, not an automatic library override.
+No historical/future patch or browser coverage beyond the table is inferred.
+
+Web fixtures under build/maven-web-consumer: 6a85dc2a10fc (2.0.0), 229717114318 (2.1.21/130),
+cd4b432c66ce (2.0.21), a85eefba8c71 (2.2.21), 31b8400b1667 (2.3.21), 052754ba3fad (2.4.21). Optimized 2.1 Node
+runtime log: build/ci-local/kotlin-2.1-binaryen130-bundles.log. JVM six-point strict-cache fixture:
+build/maven-consumer/8cc5e3b22d5a; Linux six-point hosted strict-cache fixture: 9abf69dd62e0.
+
+Native consumers under 2.0.0/2.4.21 pass on Windows, Linux, ARM Mac and Intel Mac. The corrected
+cold-SDK probe provisions first, then requires strict cache storage/immediate reuse, actual
+runtimes, exact archive identities/hashes and conflicts. Hosted Native-focused run 44388331545
+and source CI 44388300267 pass at 789b0d4. This does not promise immediate reuse of configuration
+recorded before a fresh compiler SDK populates its platform klibs. The Native-focused run
+omits the JVM matrix; full candidate mode remains the release gate.

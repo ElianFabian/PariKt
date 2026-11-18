@@ -58,7 +58,8 @@ and signing gates; a tag is not a substitute for those checks.
 - [ ] Repeat Native/Android/web proofs through the embedded Maven bootstrap; broaden older
   compiler web/non-JVM cache coverage. Engines build on demand; prebuilt downloads are optional
   future acceleration and are not required for the source-build provisioning path.
-- [ ] Build and consume Apple Maven candidates on compatible Xcode/Kotlin toolchains.
+- [x] Publish all twelve Apple Maven candidates and consume on Intel/ARM macOS under Kotlin
+  2.0.0/2.4.21 (44388331545 / 789b0d4); mobile Maven runtime remains unverified.
 - [ ] Complete binary-consumer Kotlin/platform matrix and configuration-cache checks.
 - [ ] Add signed, protected Central Portal validation/upload only after these gates pass.
   The repository currently has no Actions secrets or environments configured (names-only check).
@@ -105,3 +106,14 @@ builds/runtimes: KGP initially populates klib/platform/<target>, invalidating th
 The corrected probe separates initial SDK provisioning from a required strict store/reuse pair;
 verification is pending. Focused native_only dispatch is diagnostic; full mode remains the
 release gate.
+
+Cold-SDK correction verified: 789b0d4 source CI 44388300267 and Native-focused candidate
+44388331545 both pass. Windows/Linux/Intel/ARM probes verify both compiler endpoints with
+SDK provisioning followed by strict cache store/reuse, runtimes, archive identities/hashes
+and conflicts. Full-mode candidate verification is still a release gate; native_only omits JVM.
+
+Six representative Maven web Node/production-bundle/fragment/conflict points now pass locally.
+Kotlin 2.1.21 requires the explicit tested Binaryen 130 profile; default 120 crashes. The same
+optimization flags and both optimized Node runtimes pass with 130, as do four browser tests.
+Other compiler points use default optimizers. Remaining browser/cache and full-run/signing/
+Central gates are unchanged; see KOTLIN_COMPATIBILITY_PLAN.md for exact fixtures and scope.

@@ -109,3 +109,30 @@ configuration recorded before that provisioning. All three phases retain separat
 The manual candidate workflow defaults to full verification. Its explicit native_only mode
 omits the JVM matrix for focused Native regressions; that run does not replace a full
 release-verification run.
+
+## Kotlin 2.1.21 production Wasm profile
+
+The Kotlin 2.1.21 default Binaryen 120 fails its production optimization sequence with
+`Internal GlobalTypeRewriter build error: Heap type has an invalid supertype`. Node development
+execution still passes. Binaryen 130 succeeds with the identical optimization flags; both
+optimized application runtimes and the full Node/bundle/browser/conflict probe pass.
+The library does not automatically replace the consumer's optimizer.
+
+Run the explicit tested profile with:
+
+```powershell
+./tests/publication/verify_web_candidate.ps1 -KotlinVersion 2.1.21 -LegacyBinaryenVersion 130 -Browser
+```
+
+For a Kotlin 2.1.21 consumer, configure its root `build.gradle.kts` through KGP's public API:
+
+```kotlin
+plugins.withType<org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenRootPlugin> {
+    rootProject.extensions.configure<org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenRootExtension> {
+        version = "130"
+    }
+}
+```
+
+The probe's optional override uses the legacy Kotlin 2.0-2.3 API. This profile is verified
+specifically with Kotlin 2.1.21; other recorded compiler points use their default optimizer.

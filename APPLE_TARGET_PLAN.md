@@ -17,7 +17,7 @@ targets, examples, module version selection and Android minSdk 21. No custom Gra
   GitHub runners (run 44347230604 / 12bb55f).
 - [x] Run mobile simulators and link every Apple device/simulator framework/test binary on
   Intel and ARM64 hosts (a41523a / 44353196417). Both jobs pass after the mobile loader fix.
-- [ ] Run independent Apple Maven publication/consumer proofs under older/newer Kotlin;
+- [x] Publish all twelve Apple Maven targets and run independent host macOS consumers under Kotlin 2.0.0/2.4.21;
   this is distinct from source-installation/runtime verification above.
 
 References: https://kotlinlang.org/docs/native-target-support.html and the installed KGP APIs.
@@ -58,3 +58,9 @@ iOS/tvOS/watchOS X64 simulators; ARM fixture 4dbc4594ae86 runs macOS and ARM64 s
 Both hosts link all twelve frameworks and test binaries, run the two-version macOS apps and
 check conflicts/reuse. Physical devices, external Swift framework integration and other
 compiler/Xcode profiles remain outside this source-installation result.
+
+Corrected-baseline Maven proof passes on both hosts at 789b0d4 / 44388331545. Kotlin 2.0.0
+produces all twelve publications; 24 engine-free klibs per Mac inspect clean. Host macOS
+consumers under 2.0.0/2.4.21 run both GP versions, reject conflicts and verify archive/hash
+reuse plus strict configuration-cache storage/reuse after cold SDK provisioning. ARM fixture
+5c8c5257e4d5; Intel fixture dd5d922b9c70. Mobile Maven runtime and external Swift remain unverified.
