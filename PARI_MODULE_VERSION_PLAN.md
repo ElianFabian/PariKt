@@ -1,5 +1,21 @@
 # Project defaults and module-specific PARI versions
 
+## GitHub Actions / publication preparation
+
+- [x] Prepare and validate CI and release metadata using KProxyable as a reference; preserve
+  independent library/engine versions and document binary-packaging blockers in RELEASE_PLAN.md.
+- [ ] Run hosted CI and complete binary library/engine provisioning separation plus external
+  Maven consumer verification before configuring actual Sonatype publication.
+
+## Apple target implementation
+
+- [x] Implement Apple Kotlin/Native targets, SDK-specific engine builds, shared/Apple tests and
+  a Mac verification runner; track exact scope and unverified Apple execution in APPLE_TARGET_PLAN.md.
+- [x] Verify Windows model/task/graph/conflict checks and existing Native/JVM/Android/web
+  regressions. All 12 Apple deployment resolutions and macOS-only family model also pass.
+- [ ] Compile/link/run Apple frameworks and tests on a Mac; do not infer success from Windows
+  configuration checks. Apple device runtime and framework consumers also remain unverified.
+
 ## Everyday engine simplification
 
 - [x] Select PARI 2.19.0 in the root defaults and remove the redundant desktop override;
@@ -67,6 +83,17 @@ device or in a browser; earlier device smoke results below predate this change. 
 version routing, example fixture or minimum SDK change was needed.
 
 ## Additional environment verification
+
+- [x] 2026-11-18: verify redesigned samples on disposable API36.1 x86_64 Android and JS/Wasm
+  browsers: multiline evaluation, autocomplete, factorization, saved-script modal/run and settings
+  restart pass. JS reload persistence and Android force-stop/relaunch persistence pass. Existing
+  desktop UI/state/file suites pass. Evidence and exact scope: HANDOFF.md and
+  build/environment-verification/; this extends the older sample checkpoint below.
+- [x] Update regular JS/Wasm locks to PARI 2.19.0, build both production bundles with strict
+  lock checks, and run both library browser boundary suites (four tests) in headless Chromium.
+- [x] Rebuild the Windows package and verify its real bundled-runtime engine check.
+- [ ] Interactive packaged Windows UI: computer-use launch was not approved for PariKt.
+  Test config restored; separate Windows-machine testing also remains unavailable.
 
 - [x] Cold Linux JVM consumer download/build/runtime with empty caches, followed by warm reuse.
   Passed 2026-11-05 with PARI 2.19.0 on WSL Linux x86_64 (OpenJDK 21.0.12.1, GCC 15.2.0).

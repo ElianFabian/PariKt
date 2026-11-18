@@ -1,18 +1,27 @@
 plugins { id("org.jetbrains.kotlin.multiplatform") }
 
 kotlin {
-	linuxX64 {
-		binaries.executable { entryPoint = "com.elianfabian.parikt.nativecli.main" }
-	}
-	mingwX64 {
-		binaries.executable { entryPoint = "com.elianfabian.parikt.nativecli.main" }
-	}
+    val nativeTargets = if (System.getProperty("os.name").startsWith("Mac")) {
+        @Suppress("DEPRECATION")
+        val apple = listOf(macosX64(), macosArm64())
+        apple
+    } else listOf(linuxX64(), mingwX64())
+    nativeTargets.forEach { it.binaries.executable { entryPoint = "com.elianfabian.parikt.nativecli.main" } }
 	sourceSets {
 		commonMain.dependencies {
 			implementation(project(":parikt"))
 			implementation(libs.kotlinx.coroutines.core)
 		}
 	}
+}
+
+if (System.getProperty("os.name").startsWith("Mac")) tasks.register<Exec>("runMacos") {
+    group = "application"
+    description = "Runs the native macOS terminal on the host architecture."
+    val target = if (System.getProperty("os.arch") in setOf("aarch64", "arm64")) "macosArm64" else "macosX64"
+    dependsOn("linkDebugExecutable${target.replaceFirstChar(Char::uppercaseChar)}")
+    commandLine(layout.buildDirectory.file("bin/$target/debugExecutable/nativeTerminalApp.kexe").get().asFile.absolutePath)
+    standardInput = System.`in`
 }
 
 // Include KGP's generated IDE run tasks as well as our custom Windows/WSL launchers.

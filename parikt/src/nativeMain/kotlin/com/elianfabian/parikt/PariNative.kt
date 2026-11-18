@@ -5,6 +5,9 @@ package com.elianfabian.parikt
 import com.elianfabian.parikt.cinterop.*
 import kotlinx.cinterop.toKString
 
+internal expect fun nativeTemporaryDirectory(): String
+internal fun systemNativeTemporaryDirectory(): String = checkNotNull(parikt_native_default_tmpdir()).toKString()
+
 internal actual object PariNative {
     actual suspend fun prepareLibraries() {}
     actual fun loadLibraries() {} // Static libraries are linked into the executable.
@@ -24,7 +27,7 @@ internal actual object PariNative {
     actual fun init(pariSize: Long) {
         checkThread()
         require(pariSize > 0) { "PARI stack size must be positive." }
-        val directory = checkNotNull(parikt_native_default_tmpdir()).toKString()
+        val directory = nativeTemporaryDirectory()
         check(setTemporaryDirectory(directory)) { "Unable to configure PARI's temporary directory." }
         check(parikt_native_init(pariSize) != 0) { "Unable to initialize PARI." }
     }

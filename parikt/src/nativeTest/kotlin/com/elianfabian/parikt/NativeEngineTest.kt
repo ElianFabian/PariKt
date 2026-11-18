@@ -30,10 +30,11 @@ class NativeEngineTest {
 			assertEquals("4", result("2+2"))
 			assertContains(PariKt.getSupportedCommands(), "factor")
 			// Exercise file status/opening too: Windows CRT mismatches can pass arithmetic.
-			val filename = "parikt native test ${Random.nextLong()}.gp"
+			val filename = nativeTemporaryDirectory().trimEnd('/', '\\') + "/parikt native test ${Random.nextLong()}.gp"
+			val gpFilename = filename.replace("\\", "\\\\").replace("\"", "\\\"")
 			try {
-				PariKt.eval("write(\"$filename\", 42)")
-				assertEquals("42", result("read(\"$filename\")"))
+				PariKt.eval("write(\"$gpFilename\", 42)")
+				assertEquals("42", result("read(\"$gpFilename\")"))
 			} finally { removeTestFile(filename) }
 			withContext(Dispatchers.Default) {
 				assertFailsWith<IllegalStateException> { PariKt.eval("2+2") }

@@ -14,7 +14,15 @@ gradle.projectsEvaluated {
     @Suppress("UNCHECKED_CAST")
     val participants = gradle.extensions.extraProperties["parikt.participants"] as Set<String>
     if (consumer.path !in participants) return@projectsEvaluated
-    val names = listOf("linuxX64", "mingwX64").filter { consumer.configurations.findByName("${it}CompileKlibraries") != null }
+    val kotlin = consumer.extensions.findByName("kotlin") ?: return@projectsEvaluated
+    val targetNames = kotlin.withGroovyBuilder {
+        if (hasProperty("targets")) (getProperty("targets") as NamedDomainObjectCollection<*>).names else emptySet<String>()
+    }
+    val names = consumer.configurations.filter { configuration ->
+        configuration.isCanBeResolved && configuration.name.endsWith("CompileKlibraries") &&
+            configuration.name.removeSuffix("CompileKlibraries") in targetNames &&
+            configuration.attributes.keySet().any { it.name == "org.jetbrains.kotlin.native.target" }
+    }.map { it.name.removeSuffix("CompileKlibraries") }
     if (names.isEmpty()) return@projectsEvaluated
     consumer.tasks.register("verifyPariNativeGraph") {
         group = "verification"

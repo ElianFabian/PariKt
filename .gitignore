@@ -6,3 +6,8 @@ local.properties
 .native/
 *.iml
 .idea/
+# Publishing keys belong in user/CI secret stores, never the checkout.
+*.gpg
+*.keystore
+*.jks
+.env

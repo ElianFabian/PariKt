@@ -5,6 +5,9 @@ Kotlin API.
 
 New to the repository? Read the [contributor guide](docs/CONTRIBUTOR_GUIDE.md) for the project
 layout, each target's implementation, PARI builds/caches, and a verification-script reference.
+GitHub Actions coverage and the Maven Central preparation boundary are documented in
+[the release guide](docs/RELEASING.md). Generated engines remain outside Git; a binary Maven
+installation and prebuilt-engine provisioning are not yet implemented.
 
 ## Choose PARI independently of PariKt
 
@@ -102,7 +105,8 @@ also run on an API36.1 x86_64 emulator. Web boundary/lifecycle tests pass on all
 
 The verified host is Windows with WSL for Linux execution. Other historical patches, future
 releases, older-compiler browser runtime and API21-device runtime are not individually verified.
-iOS backend implementation remains separate. See [the compatibility plan](KOTLIN_COMPATIBILITY_PLAN.md)
+Apple backends are now implemented separately, with Mac verification pending; the matrix above
+does not establish Apple compatibility. See [Apple targets](docs/APPLE_TARGETS.md) and [the compatibility plan](KOTLIN_COMPATIBILITY_PLAN.md)
 for evidence and exact limits; this matrix does not change the existing sample-app pins.
 
 The standalone `examples/consumer` build demonstrates JVM, Native Windows/Linux and JS/Wasm
@@ -439,7 +443,9 @@ from tiny or excessive allocations are not recoverable guarantees. Optional PARI
 are not bundled. Linux uses `TMPDIR` for temporary files, falling back to `/tmp`. Windows uses
 `TEMP`, then `TMP`, with the current directory as the final fallback.
 
-Native support currently covers Linux and Windows x86_64. Apple targets, Linux ARM64,
+Native support covers Linux and Windows x86_64. Source implementations and tests also cover
+macOS, iOS, tvOS and watchOS devices/simulators; **Apple compilation and runtime remain unverified**.
+See [Apple targets and Mac verification commands](docs/APPLE_TARGETS.md). Linux ARM64,
 publication, clean-machine validation and additional operating-system versions remain future work.
 The existing Compose desktop app continues to use JVM.
 

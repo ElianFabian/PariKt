@@ -8,11 +8,12 @@ parikt_unlock_work_directories() {
   [ "${PARIKT_LOCK_OWNER:-}" = "${BASHPID:-$$}" ] || return 0
   [ "${PARIKT_LOCK_SUBSHELL:-}" = "$BASH_SUBSHELL" ] || return 0
   local directory file owner
-  for directory in "${PARIKT_LOCK_DIRECTORIES[@]}"; do
+  # macOS ships Bash 3.2, where an empty array under nounset needs this expansion.
+  for directory in ${PARIKT_LOCK_DIRECTORIES[@]+"${PARIKT_LOCK_DIRECTORIES[@]}"}; do
     rm -f "$directory/pid"
     rmdir "$directory" 2>/dev/null || true
   done
-  for file in "${PARIKT_LOCK_FILES[@]}"; do
+  for file in ${PARIKT_LOCK_FILES[@]+"${PARIKT_LOCK_FILES[@]}"}; do
     owner=""
     if [ -f "$file" ]; then read -r owner < "$file" || true; fi
     if [ "$owner" = "$PARIKT_LOCK_OWNER" ]; then rm -f "$file"; fi
@@ -22,7 +23,7 @@ parikt_lock_work_directory() {
   mkdir -p "$1"
   PARIKT_LOCK_DIRECTORY="$1/.parikt-build.lock"
   local held
-  for held in "${PARIKT_LOCK_DIRECTORIES[@]}"; do
+  for held in ${PARIKT_LOCK_DIRECTORIES[@]+"${PARIKT_LOCK_DIRECTORIES[@]}"}; do
     [ "$held" != "$PARIKT_LOCK_DIRECTORY" ] || return 0
   done
   local attempts=0 claim="$PARIKT_LOCK_DIRECTORY.owner" owner="${BASHPID:-$$}"

@@ -8,6 +8,100 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+First-release execution authorized on 2026-11-18: commit/push prepared changes, run and fix
+hosted CI, complete candidate packaging/external-consumer verification, then tag/publish only
+after the release gates pass. No release tag or Sonatype upload has been created yet.
+
+GitHub Actions/Central preparation added on 2026-11-18 using KProxyable read-only as a reference.
+CI/reusable verification workflows cover Linux JVM/Native, Android builds, Node/browser suites,
+desktop UI tests under Xvfb, actual Windows JNI/Native execution, and Intel/ARM64 macOS. Linux
+cross-builds Windows artifacts using public JNI headers supplied by the Windows JDK job; no WSL
+is needed on the Windows runner. Apple normal CI is host-only; tags/manual full mode also test
+mobile simulators and link all Apple slices. Read-only permissions, pinned official actions,
+no persisted checkout credentials or publishing secrets; reports retained on failure.
+
+Local checks pass: actionlint 1.7.12 (official checksum-verified release), new PowerShell syntax,
+metadata and all six Windows JNI probes plus two Native tests using locally staged CI-format
+artifacts. Evidence: build/ci-local/windows-1fa59209/ and stage.log. Hosted workflow execution,
+Linux cross-artifact handoff and Apple runs remain unverified. Nothing was pushed or uploaded.
+
+gradle.metadata.properties proposes io.github.elianfabian:parikt:0.1.0-SNAPSHOT independently
+of PARI selection. LICENSE matches the existing wrapper's GPL-3.0-or-later declaration; no MIT
+metadata/keys were copied from KProxyable. A checker rejects incomplete metadata, release
+SNAPSHOT/tag mismatch and tracked build/engine binaries. Signing keys are ignored by Git.
+This is preparation, not a publishable binary component. User wants library/engine separation;
+current scripts fetch sources/build caches, not a general prebuilt binary download service.
+Native klibs currently embed engines and web packages use local file paths. RELEASE_PLAN.md
+and docs/RELEASING.md record the required engine packaging/external Maven consumer proof before
+signed Sonatype upload tasks are added. Existing Apple/environment work is preserved.
+
+Apple library target source implementation completed on 2026-11-18: macOS X64/ARM64,
+iOS/tvOS ARM64 devices plus X64/ARM64 simulators, and watchOS arm64_32/ARM64 devices plus
+X64/ARM64 simulators (12 targets). Xcode SDK-specific static GMP/PARI/bridge archives, static
+frameworks and selected engine graph/archive checks are wired. Shared Native tests are inherited;
+Apple tests add sandbox temp/file I/O and reinit. Apple uses NSTemporaryDirectory; Native file
+tests now use writable temp paths. No automatic init, custom plugin or Android minSdk change.
+
+Deployment floors come from the actual consumer compiler. Apple cache stamps include target/ABI,
+SDK, deployment floor, Xcode/clang, PARI revision and inputs; GMP stages are shared across PARI
+versions. Portable kernels handle watchOS ILP32 separately; Configure probes never execute
+cross-target programs. Mobile dynamic loading/subprocess features are disabled. Apple families
+can be limited with parikt.apple.families; -HostOnly verification requires only macOS SDKs.
+On Mac, Native targets/terminal use Apple destinations instead of Linux-only C toolchains;
+Linux/Windows hosts retain existing targets. Both examples and earlier web-lock changes remain.
+
+Runner: tests/build_configuration/verify_apple_targets.ps1. An isolated Kotlin-only consumer
+tests macOS plus host-architecture iOS/tvOS/watchOS simulators, framework links, two macOS apps
+sharing a library with 2.19.0/2.15.0, conflicts, archive identity and warm reuse. -HostOnly limits
+to macOS; -AllAppleTargets also links every framework/test binary. -ConfigureOnly is safe on
+Windows and claims no Apple compilation. Docs/checklist: docs/APPLE_TARGETS.md and
+APPLE_TARGET_PLAN.md. Existing uncommitted environment verification work is preserved.
+
+Available checks pass: model/graph/conflict fixture aff96afe5b71 (all 12 Apple interop/framework/
+test-link declarations checked), macOS-only family model and all deployment argument resolutions.
+Existing Windows/Linux Native tests, Native app graph/archive checks, JVM engine/UI/state/file
+tests, Android debug packaging and JS/Wasm compilation pass. Oldest/newest Kotlin JVM consumer
+cache/conflict/runtime checks pass (b005b6a61e3f). Bash syntax/native-lock concurrency and
+PowerShell syntax pass. Logs: build/apple-research/. Apple compilation/linking/runtime, device/
+simulator tests, framework consumption and Xcode compatibility remain UNVERIFIED on a Mac.
+No Apple binary was produced here.
+
+Environment verification follow-up completed on 2026-11-18 for the available Android/browser
+sample checks. Root JS/Wasm lockfiles still described the old 2.15.0 regular engine after the
+2.19.0 default change; updated both through KGP's upgrade tasks. Both production bundles now
+build with normal strict lock checks, and each includes the selected 2.19.0 engine. No lock
+mismatch bypass or engine-selection restriction was added.
+
+Actual JS and Wasm browser samples pass startup, plain Enter/multiline evaluation (144/169),
+autocomplete selection, factorization, saved-script execution (169/196) and settings restart.
+JS history and script creation/reload persistence pass; Wasm reads the same-origin saved script
+and executes it. Scripts remain modal with the console visible behind them. Both browser console
+error lists are empty. Both library browser boundary suites also pass in headless Brave/Chromium
+(two tests per adapter). Current pinned compiler only; no new older-compiler/browser claim.
+
+Disposable API36.1 x86_64 Android sample passes Ready/version/startup math, plain Enter/multiline
+evaluation (144), autocomplete selection, factorization, history, modal script creation/run (225),
+script persistence after force-stop/relaunch, and settings restart/startup math. XML dumps omit
+some Compose popup windows, so screenshots also verify popup/modal states. Early harness retries
+include a leftover-draft parse error and a missing popup XML assertion; cleared draft and visual
+inspection resolve those harness issues without a production UI change. Existing desktop UI
+integration and state/file suites pass. No physical-device, ARM64 or API21-runtime claim.
+
+Windows package rebuild and bundled-runtime engine check pass. Output:
+desktopApp/build/windows-package/output/4d1b22a22c8e4ae3b81b57f28cff52c9/.
+Interactive packaged UI remains unverified: computer-use launch returned
+"Computer Use was not approved to use parikt". Temporary test user.home configuration was
+restored; the ZIP is unchanged. No separate Windows machine is available.
+
+Evidence: build/environment-verification/{build-retry,browser-tests,windows-package}.log,
+browser-errors.json, js-scripts.jpg, wasm-script.jpg, android/{multiline,script-result}.xml,
+android/script-persisted-ready.png and android/settings-after-restart.xml. Disposable AVD/data
+are under build/environment-verification/android; only its emulator was used. The connected
+Quest device and user's AVDs were untouched. The owned emulator and both local-only HTTP servers
+were stopped after verification. No supported API21 or ARM64 image is installed.
+Broader IDE variant/native C debugging, fresh OS prerequisites, other hosts and Apple runtime
+verification remain open.
+
 Everyday engine simplification (2026-11-05): root parikt.properties now selects PARI 2.19.0.
 Removed desktopApp/parikt.properties so all regular apps inherit one version. Multi-version
 examples and compatibility fixtures remain opt-in and retain their explicit test versions.
@@ -55,7 +149,8 @@ oldest-profile R8 override and PowerShell runner/resume behavior. All targets, e
 routing/reuse and Android minSdk21 remain. Verified host: Windows/JBR21 plus WSL Linux; API21
 runtime, other hosts, old-compiler browser runtime and other patches are separate coverage.
 User's Mac for future iOS work: 2019 Intel i5 quad-core 1.4 GHz, 16 GB RAM, macOS15.7.5/Xcode26.3,
-free Apple account; not attached here. iOS engine/app integration remains to implement.
+free Apple account; not attached here. Apple source support is now implemented above; actual
+Mac verification and Apple sample app integration remain separate work.
 
 Empty local source-tree cleanup on 2026-11-05: verified zero files (including hidden files) and
 removed empty parikt/src/{iosMain,main,linuxX64Main,linuxX64Test} directory trees bottom-up.

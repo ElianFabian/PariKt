@@ -1,0 +1,151 @@
+name: Platform verification
+
+on:
+  workflow_call:
+    inputs:
+      full_apple:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  windows-headers:
+    name: Windows JDK headers
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: zulu
+          java-version: '21'
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-jni-headers
+          path: ${{ env.JAVA_HOME }}/include/
+          retention-days: 1
+          if-no-files-found: error
+
+  linux:
+    name: Linux, Android, web and Windows cross-build
+    needs: windows-headers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: zulu
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: windows-jni-headers
+          path: build/ci/windows-jdk/include
+      - name: Install C build and headless UI prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential m4 xz-utils xvfb libgl1 libfontconfig1
+          echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+      - name: Validate release metadata
+        shell: pwsh
+        run: ./tests/build_configuration/verify_release_metadata.ps1
+      - name: Build and test
+        run: xvfb-run --auto-servernum pwsh -File tests/ci/linux.ps1 -WindowsJniHeaders "$GITHUB_WORKSPACE/build/ci/windows-jdk"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-runtime
+          path: build/ci/windows-runtime/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Retain Linux reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: linux-reports
+          path: |
+            build/ci/*.log
+            **/build/test-results/**/*.xml
+            **/build/reports/tests/**
+            androidApp/build/outputs/apk/debug/*.apk
+          retention-days: 7
+          if-no-files-found: warn
+
+  windows:
+    name: Actual Windows JVM and Native runtime
+    needs: linux
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: zulu
+          java-version: '21'
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: windows-runtime
+          path: build/ci/windows-runtime
+      - name: Run Windows engine tests
+        shell: pwsh
+        run: ./tests/ci/windows.ps1 -ArtifactDirectory build/ci/windows-runtime
+      - name: Retain Windows reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-reports
+          path: build/ci/windows-runtime/*.log
+          retention-days: 7
+          if-no-files-found: warn
+
+  apple:
+    name: Apple (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-26-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: zulu
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      - name: Verify selected Xcode
+        run: xcodebuild -version
+      - name: Run Apple verification
+        shell: pwsh
+        env:
+          FULL_APPLE: ${{ inputs.full_apple }}
+        run: |
+          if ($env:FULL_APPLE -eq 'true') {
+            ./tests/build_configuration/verify_apple_targets.ps1 -AllAppleTargets
+          } else {
+            ./tests/build_configuration/verify_apple_targets.ps1 -HostOnly
+          }
+      - name: Retain Apple reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: apple-reports-${{ matrix.os }}
+          path: |
+            build/apple-tests/**/*.log
+            build/apple-tests/**/results.json
+            build/apple-tests/**/test-results/**/*.xml
+          retention-days: 7
+          if-no-files-found: warn

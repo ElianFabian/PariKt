@@ -99,7 +99,9 @@ and prepared caches were available, so this is not a fresh-OS test.
 
 User's Mac for future iOS work: 2019 Intel i5 quad-core 1.4 GHz, 16 GB RAM, macOS 15.7.5,
 Xcode 26.3, free Apple account. It is not attached to this workspace. Kotlin compatibility
-alone adds no Apple backend and makes no untested Xcode/Compose promise.
+alone did not add an Apple backend. The later Apple implementation and pending Mac verification
+are documented separately in APPLE_TARGET_PLAN.md and docs/APPLE_TARGETS.md; this matrix does
+not make an untested Apple compiler/Xcode/Compose promise.
 
 Reference toolchain matrices:
 https://kotlinlang.org/docs/multiplatform/multiplatform-compatibility-guide.html

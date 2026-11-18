@@ -90,6 +90,7 @@ if (defaultProvider && rootProject.projectDir.canonicalFile != sourceDirectory) 
 	layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("parikt/modules/parikt"))
 }
 val isWindows = System.getProperty("os.name").startsWith("Windows")
+val isAppleHost = System.getProperty("os.name").startsWith("Mac")
 val jvmHost = when {
 	System.getProperty("os.arch").lowercase() in setOf("amd64", "x86_64") && isWindows -> "windows-x86_64"
 	System.getProperty("os.arch").lowercase() in setOf("amd64", "x86_64") && System.getProperty("os.name").startsWith("Linux") -> "linux-x86_64"
@@ -241,6 +242,50 @@ val generateWebBindings = tasks.register<Sync>("generateWebBindings") {
 
 val kotlinNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirectory, "native-$pariVersion/linux-x86_64") }).get()
 val mingwNativeDirectory = layout.dir(providers.provider { File(nativeCacheDirectory, "native-$pariVersion/windows-x86_64") }).get()
+// Target identity separates device/simulator archives even when their CPU is the same.
+val appleFamilies = providers.gradleProperty("parikt.apple.families").orElse("macos,ios,tvos,watchos")
+    .get().split(',').map { it.trim().lowercase() }.toSet()
+require(appleFamilies.isNotEmpty() && appleFamilies.all { it in setOf("macos", "ios", "tvos", "watchos") }) {
+    "parikt.apple.families must select macos,ios,tvos,watchos (or a nonempty subset)."
+}
+val appleTargets = linkedMapOf(
+    "macosX64" to ("macos_x64" to "macos"), "macosArm64" to ("macos_arm64" to "macos"),
+    "iosArm64" to ("ios_arm64" to "ios"), "iosX64" to ("ios_x64" to "ios"),
+    "iosSimulatorArm64" to ("ios_simulator_arm64" to "ios"),
+    "tvosArm64" to ("tvos_arm64" to "tvos"), "tvosX64" to ("tvos_x64" to "tvos"),
+    "tvosSimulatorArm64" to ("tvos_simulator_arm64" to "tvos"),
+    "watchosArm64" to ("watchos_arm64" to "watchos"),
+    "watchosDeviceArm64" to ("watchos_device_arm64" to "watchos"),
+    "watchosX64" to ("watchos_x64" to "watchos"),
+    "watchosSimulatorArm64" to ("watchos_simulator_arm64" to "watchos"),
+).filterValues { it.second in appleFamilies }
+val appleNativeDirectories = appleTargets.mapValues { (target, _) ->
+    layout.dir(providers.provider { File(nativeCacheDirectory, "native-$pariVersion/$target") }).get()
+}
+apply(from = File(sourceDirectory, "gradle/parikt.apple-arguments.gradle.kts"))
+@Suppress("UNCHECKED_CAST")
+val appleArguments = extra["parikt.appleArguments"] as (File, String, String) -> org.gradle.process.CommandLineArgumentProvider
+val appleNativeBuilds = appleTargets.mapValues { (target, descriptor) ->
+    tasks.register<Exec>("build${target.replaceFirstChar(Char::uppercaseChar)}NativeDependencies") {
+        group = "native"
+        description = "Builds the selected static PARI engine for Apple $target using Xcode."
+        doNotTrackState("The Apple builder fingerprints its SDK/compiler/version cache.")
+        dependsOn("preparePariKonanDistribution")
+        inputs.files(engineSources.file("native/build-apple.sh"), engineSources.file("native/build-lock.sh"),
+            engineSources.file("native/pari-source.sh"))
+        inputs.dir(engineSources.dir("native/kotlin-native"))
+        inputs.dir(engineSources.dir("native/paridroid"))
+        inputs.property("pariVersion", pariVersion)
+        inputs.property("kotlinVersion", consumerKotlinVersion)
+        inputs.property("developerDirectory", providers.environmentVariable("DEVELOPER_DIR").orElse("xcode-select"))
+        outputs.dir(appleNativeDirectories.getValue(target))
+        commandLine("bash", engineSources.file("native/build-apple.sh").asFile.absolutePath,
+            "--pari-version", pariVersion, "--target", target,
+            "--out", appleNativeDirectories.getValue(target).asFile.absolutePath)
+        argumentProviders.add(appleArguments(layout.buildDirectory.file("konan.txt").get().asFile, descriptor.first, descriptor.second))
+        if (providers.gradleProperty("kotlinNativeForce").isPresent) args("--force")
+    }
+}
 val konanDataDirectory = providers.gradleProperty("konan.data.dir")
 	.orElse(providers.environmentVariable("KONAN_DATA_DIR"))
 	.map { rootProject.file(it) }.orElse(File(System.getProperty("user.home"), ".konan"))
@@ -311,7 +356,9 @@ kotlin {
 		}
 	}
 
-	listOf(linuxX64(), mingwX64()).forEach { target ->
+    // These C builders execute Linux binaries (WSL on Windows). Do not make Apple's
+    // cinterop commonization invoke them on a Mac. Existing Linux/Windows hosts retain both.
+	(if (isAppleHost) emptyList() else listOf(linuxX64(), mingwX64())).forEach { target ->
 		target.compilerOptions.moduleName.set("parikt")
 		val directory = if (target.name == "linuxX64") kotlinNativeDirectory else mingwNativeDirectory
 		target.compilations.getByName("main").cinterops.create("pari") {
@@ -320,6 +367,26 @@ kotlin {
 			extraOpts("-libraryPath", directory.dir("lib").asFile.absolutePath)
 		}
 	}
+
+    // Declared on every host for metadata/IDE discovery; Apple C interop/linking needs macOS.
+    @Suppress("DEPRECATION")
+    val apple = appleTargets.keys.map { target -> when (target) {
+        "macosX64" -> macosX64(); "macosArm64" -> macosArm64()
+        "iosArm64" -> iosArm64(); "iosX64" -> iosX64(); "iosSimulatorArm64" -> iosSimulatorArm64()
+        "tvosArm64" -> tvosArm64(); "tvosX64" -> tvosX64(); "tvosSimulatorArm64" -> tvosSimulatorArm64()
+        "watchosArm64" -> watchosArm64(); "watchosDeviceArm64" -> watchosDeviceArm64()
+        "watchosX64" -> watchosX64(); "watchosSimulatorArm64" -> watchosSimulatorArm64()
+        else -> error("Unknown Apple target $target")
+    } }
+    apple.forEach { target ->
+        target.compilerOptions.moduleName.set("parikt")
+        target.compilations.getByName("main").cinterops.create("pari") {
+            definitionFile.set(engineSources.file("src/nativeInterop/cinterop/pari.def"))
+            includeDirs(engineSources.dir("native/kotlin-native"))
+            extraOpts("-libraryPath", appleNativeDirectories.getValue(target.name).dir("lib").asFile.absolutePath)
+        }
+        target.binaries.framework { baseName = "PariKt"; isStatic = true }
+    }
 
 	js {
 		if (modernJsInterop) compilerOptions.freeCompilerArgs.add("-opt-in=kotlin.js.ExperimentalWasmJsInterop")
@@ -349,8 +416,8 @@ kotlin {
 
 	sourceSets {
         // Scoped providers compile the same canonical sources, without copying source files.
-        listOf("commonMain", "jvmMain", "nativeMain", "jsMain", "wasmJsMain").forEach { name ->
-            named(name) { kotlin.srcDir(engineSources.dir("src/$name/kotlin")) }
+        listOf("commonMain", "jvmMain", "nativeMain", "linuxX64Main", "mingwX64Main", "appleMain", "jsMain", "wasmJsMain").forEach { name ->
+            findByName(name)?.kotlin?.srcDir(engineSources.dir("src/$name/kotlin"))
         }
 		named("commonTest") {
 			dependencies {
@@ -394,7 +461,8 @@ kotlin {
 // Older KGP versions provision the compiler through konanHome instead of exposing
 // downloadKotlinNativeDistribution. Keep that legacy path separate from current KGP.
 fun Project.legacyPariKonanHome(): String {
-    val home = tasks.named("cinteropPariMingwX64").get().withGroovyBuilder {
+    val compilerTarget = if (isAppleHost) appleTargets.keys.first().replaceFirstChar(Char::uppercaseChar) else "MingwX64"
+    val home = tasks.named("cinteropPari$compilerTarget").get().withGroovyBuilder {
         @Suppress("UNCHECKED_CAST")
         (getProperty("konanHome") as org.gradle.api.provider.Provider<String>).get()
     }
@@ -525,20 +593,35 @@ configurations.matching { it.isCanBeConsumed }.configureEach {
 	outgoing.capability("com.elianfabian.parikt:engine:$pariVersion")
 }
 
-tasks.named("cinteropPariLinuxX64") {
+tasks.matching { it.name == "cinteropPariLinuxX64" }.configureEach {
 	dependsOn(buildLinuxX64NativeDependencies)
 	inputs.dir(kotlinNativeDirectory)
 }
-tasks.named("cinteropPariMingwX64") {
+tasks.matching { it.name == "cinteropPariMingwX64" }.configureEach {
 	dependsOn(buildMingwX64NativeDependencies)
 	inputs.dir(mingwNativeDirectory)
+}
+appleNativeBuilds.forEach { (target, nativeBuild) ->
+    tasks.named("cinteropPari${target.replaceFirstChar(Char::uppercaseChar)}") {
+        dependsOn(nativeBuild)
+        inputs.dir(appleNativeDirectories.getValue(target))
+    }
+    if (target.endsWith("X64") && target != "macosX64" || target.endsWith("SimulatorArm64")) {
+        val family = appleTargets.getValue(target).second
+        val simulator = providers.gradleProperty("parikt.apple.$family.simulatorId")
+        tasks.named("${target}Test") {
+            if (simulator.isPresent) withGroovyBuilder { setProperty("deviceId", simulator.get()) }
+        }
+    }
 }
 
 // Gradle's standard native test runner requires a Linux host; WSL can run the executable too.
 tasks.register<Exec>("verifyLinuxX64") {
 	group = "verification"
 	description = "Runs Kotlin/Native linuxX64 tests locally or through WSL on Windows."
-	dependsOn("linkDebugTestLinuxX64")
+	if (!isAppleHost) dependsOn("linkDebugTestLinuxX64")
+	val available = !isAppleHost
+	doFirst { check(available) { "Linux Native verification requires Linux or Windows/WSL." } }
 	val executable = layout.buildDirectory.file("bin/linuxX64/debugTest/test.kexe").get().asFile
 	commandLine(if (isWindows) listOf("wsl", executable.toWslPath()) else listOf(executable.absolutePath))
 }
@@ -548,7 +631,7 @@ if (isWindows) tasks.named("check") { dependsOn("verifyLinuxX64") }
 tasks.register("verifyMingwX64") {
 	group = "verification"
 	description = "Runs Kotlin/Native Windows tests on a Windows host."
-	dependsOn("mingwX64Test")
+	if (!isAppleHost) dependsOn("mingwX64Test")
 	val supportedHost = isWindows
 	doFirst { check(supportedHost) { "Windows native tests require a Windows x86_64 host." } }
 }
