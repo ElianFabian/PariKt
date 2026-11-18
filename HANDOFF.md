@@ -8,6 +8,12 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Hosted run 44342835721 also failed reaching gmplib.org during Android GMP setup. JVM and
+Android builders now use ftp.gnu.org first, with bounded connection/transfer time and the
+original upstream as fallback. This changes download transport, not compiled-cache identity.
+The local Maven candidate exposed an unresolved JsModule in shared Kotlin 2.0 web metadata;
+move only its external factory declaration to platform-specific generated bindings.
+
 First-release execution authorized on 2026-11-18: commit/push prepared changes, run and fix
 hosted CI, complete candidate packaging/external-consumer verification, then tag/publish only
 after the release gates pass. No release tag or Sonatype upload has been created yet.

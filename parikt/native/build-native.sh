@@ -109,7 +109,10 @@ mkdir -p "$WORK_DIR/src" "$WORK_DIR/logs"
 
 if [ ! -f "$GMP_SRC/configure" ]; then
   log "downloading GMP $GMP_VERSION"
-  curl -fL --retry 3 -o "$WORK_DIR/src/gmp.tar.xz" "https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.xz"
+  curl -fL --connect-timeout 20 --max-time 180 --retry 2 -o "$WORK_DIR/src/gmp.tar.xz" \
+    "https://ftp.gnu.org/gnu/gmp/gmp-$GMP_VERSION.tar.xz" ||
+    curl -fL --connect-timeout 20 --max-time 180 --retry 2 -o "$WORK_DIR/src/gmp.tar.xz" \
+      "https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.xz"
   tar -xf "$WORK_DIR/src/gmp.tar.xz" -C "$WORK_DIR/src" && rm "$WORK_DIR/src/gmp.tar.xz"
 fi
 

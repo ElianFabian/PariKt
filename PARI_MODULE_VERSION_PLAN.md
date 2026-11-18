@@ -2,6 +2,10 @@
 
 ## GitHub Actions / publication preparation
 
+- [x] Fix hosted SDK discovery and generated SwiftPM inventory conflicts; targeted model
+  regression passes. Use GNU's GMP mirror with bounded primary/fallback downloads for JVM
+  and Android after the hosted runner could not connect to gmplib.org. Hosted reruns pending.
+
 - [x] Prepare and validate CI and release metadata using KProxyable as a reference; preserve
   independent library/engine versions and document binary-packaging blockers in RELEASE_PLAN.md.
 - [ ] Run hosted CI and complete binary library/engine provisioning separation plus external
