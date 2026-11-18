@@ -13,7 +13,12 @@ targets, examples, module version selection and Android minSdk 21. No custom Gra
 - [x] Add a PowerShell Mac verification runner for library tests, framework links and two apps
   sharing a Kotlin library with different engine selections.
 - [x] Validate script syntax, Gradle configuration and existing-platform regressions here.
-- [ ] Run Apple compilation/linking/tests on macOS (pending an actual Mac).
+- [x] Run host macOS compilation, tests, frameworks and two-version apps on Intel and ARM64
+  GitHub runners (run 44347230604 / 12bb55f).
+- [ ] Run mobile simulators and link every Apple device/simulator framework/test binary.
+  Full verification dispatched as run 44350989857; pending results.
+  ARM run exposed legacy Darwin loader APIs unavailable on iOS. The private mobile source copy
+  now suppresses that fallback while HAS_DLOPEN remains disabled; hosted rerun required.
 
 References: https://kotlinlang.org/docs/native-target-support.html and the installed KGP APIs.
 
@@ -42,6 +47,9 @@ Regression evidence under build/apple-research/:
 - Bash syntax and existing native-lock concurrency tests pass under WSL; the Apple builder
   rejects Linux execution before attempting SDK compilation. PowerShell syntax passes.
 
-No Apple artifact has been compiled/linked/executed. Frameworks, all Apple Kotlin tests,
-Intel/Apple Silicon simulator/device behavior, Xcode compatibility and the Mac runner's runtime
-stages remain to verify on macOS. The prior six-compiler matrix adds no Apple runtime claim.
+Hosted run 44347230604 passes macosX64 and macosArm64 library tests, host framework links,
+explicit conflicts, two apps sharing a library with 2.19.0/2.15.0 and warm reuse. Intel fixture:
+d7fdaaf68d9e; ARM fixture: 0461777298b7. Xcode 26.4 and Kotlin 2.4.21 were used. Logs are
+retained in build/ci-local/apple-*-12bb55f.log and workflow artifacts. This does not prove
+mobile simulators/devices, all cross-architecture framework outputs or other Xcode/Kotlin
+versions. Full simulator/link verification is now running separately.

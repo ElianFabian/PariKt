@@ -25,6 +25,11 @@
   Kotlin 2.0.0/2.4.21, both PARI versions, conflicts and warm reuse (c59afbf75aa7).
   A manual credential-free candidate workflow repeats the proof on Linux; other binary
   backends/Apple publication/signing remain tracked in RELEASE_PLAN.md.
+  Native binary-consumer linker wiring is now being implemented and still requires an
+  independent compile/link/runtime proof before checking it off.
+- [x] Run Linux Maven candidate publication/content/JVM external proofs (44350029452).
+- [ ] Verify the mobile Darwin-loader fix exposed by full Apple run 44350989857; host macOS
+  remains verified, while iOS/tvOS/watchOS execution/link coverage remains pending.
 
 ## Apple target implementation
 
@@ -32,8 +37,10 @@
   a Mac verification runner; track exact scope and unverified Apple execution in APPLE_TARGET_PLAN.md.
 - [x] Verify Windows model/task/graph/conflict checks and existing Native/JVM/Android/web
   regressions. All 12 Apple deployment resolutions and macOS-only family model also pass.
-- [ ] Compile/link/run Apple frameworks and tests on a Mac; do not infer success from Windows
-  configuration checks. Apple device runtime and framework consumers also remain unverified.
+- [x] Compile/link/run host macOS tests/frameworks and two-version apps on Intel and ARM64 Macs
+  in hosted run 44347230604 (12bb55f); conflicts and warm reuse also pass.
+- [ ] Complete mobile simulator and all-device/framework/test-link coverage; run 44350989857
+  is in progress. Physical devices and external framework consumers remain unverified.
 
 ## Everyday engine simplification
 

@@ -1,8 +1,9 @@
 # Apple library backends and tests
 
-Apple support is implemented in source, but has **not been compiled, linked or executed on a
-Mac yet**. Windows configuration checks are not Apple verification. The Kotlin 2.x compatibility
-matrix predates this backend and does not establish Apple compiler/Xcode compatibility.
+Host macOS support passes compilation, tests, framework linking and independent two-version
+applications on Intel and Apple Silicon GitHub runners (run 44347230604, Kotlin 2.4.21,
+Xcode 26.4). Mobile simulator/device and complete framework coverage are still being verified.
+The earlier Kotlin 2.x matrix does not establish Apple compatibility across compiler versions.
 
 ## Targets
 

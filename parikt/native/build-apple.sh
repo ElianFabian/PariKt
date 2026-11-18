@@ -86,6 +86,7 @@ chmod +x "$TOOLS/cc"
 printf -v CC '%q' "$TOOLS/cc"
 export CC AR RANLIB
 export CFLAGS='-O2 -std=gnu17 -fPIC'
+if [ "$FAMILY" != macos ]; then CFLAGS="$CFLAGS -DPARIKT_APPLE_MOBILE=1"; fi
 export CPPFLAGS= LDFLAGS=
 # Fail before building dependencies if the selected compiler's data model is wrong.
 printf '_Static_assert(sizeof(long) == %s, "wrong long ABI");\n_Static_assert(sizeof(void*) == %s, "wrong pointer ABI");\n' \
@@ -113,6 +114,14 @@ PARI_STAGE="$STAGE/pari"
 if [ "$FORCE" = 1 ] || [ ! -f "$PARI_STAGE/lib/libpari.a" ]; then
   build=$(mktemp -d "$WORK/pari-build.XXXXXX")
   cp -R "$SOURCE/." "$build/"
+  if [ "$FAMILY" != macos ]; then
+    # HAS_DLOPEN=no disables GP install(), but also enables PARI's compatibility
+    # dlopen implementation for old macOS. Its NSLinkModule APIs do not exist on
+    # mobile SDKs. Keep both loaders disabled, retaining all other Darwin settings.
+    shim="$build/src/systems/darwin/darwin.c"
+    grep -q '^#ifndef HAS_DLOPEN' "$shim" || die "unrecognized PARI Darwin loader guard: $shim"
+    perl -pi -e 's/^#ifndef HAS_DLOPEN/#if !defined(HAS_DLOPEN) \&\& !defined(PARIKT_APPLE_MOBILE)/' "$shim"
+  fi
   # Configure must never execute device/simulator probes on the build Mac. Only these two
   # probes return target data; feature availability is still determined by compile/link tests.
   endian=-; [ "$LONG_BYTES" = 8 ] || endian=1

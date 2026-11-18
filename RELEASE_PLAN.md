@@ -18,10 +18,12 @@ and signing gates; a tag is not a substitute for those checks.
 - [x] Validate workflows with official checksum-verified actionlint 1.7.12, parse all new
   PowerShell scripts, validate metadata and run all six Windows JNI probes plus both Native
   tests from local CI-format artifacts. Evidence: build/ci-local/windows-1fa59209/ and stage.log.
-- [ ] Run the hosted workflows, including the Linux-to-Windows handoff and both Apple hosts.
+- [x] Run the regular hosted workflows, including the Linux-to-Windows handoff and both Apple
+  hosts: run 44347230604 / 12bb55f passes every job. Full Apple simulator/link coverage is
+  separately in progress (44350989857).
   Initial commit e0b328c / run 44340852491 reached the runners and exposed Ubuntu SDK-tool PATH
   and Apple SwiftPM inventory-routing failures. Fixes and a targeted SwiftPM regression are
-  implemented (build/apple-tests/4396d7b427d5/); hosted rerun is pending. No green CI claim yet.
+  implemented (build/apple-tests/4396d7b427d5/); subsequent hosted reruns passed.
   Run 44342835721 additionally exposed generated inventory app requirements; its targeted
   regression now includes the foreign application, not only the foreign provider.
 - [ ] Separate the published library from engine provisioning on every backend, prove a clean
@@ -39,7 +41,7 @@ and signing gates; a tag is not a substitute for those checks.
   Kotlin library, three apps, independent 2.19.0/2.15.0 selection, same-version reuse and explicit
   requirement conflicts. Evidence: build/maven-consumer/c59afbf75aa7/.
 - [x] Recheck all five source-installer property diagnostic cases after sharing participant parsing.
-- [ ] Run the new manual private-candidate workflow on Linux; it has no upload/signing credentials
+- [x] Run the new manual private-candidate workflow on Linux (44350029452); it has no upload/signing credentials
   and publishes only to its temporary local repository and seven-day workflow artifact storage.
 - [ ] Finish Android, Native and web binary-consumer provisioning plus their external proofs;
   add prebuilt engine assets/checksums and validate cache reuse/fallback builds.

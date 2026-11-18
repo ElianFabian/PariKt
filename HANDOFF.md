@@ -8,6 +8,19 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Regular hosted CI PASSES completely at 12bb55f / run 44347230604: Linux JVM/Native, Android
+packaging, Node/browser and UI tests; Linux-built Windows JNI/Native runtime execution; Intel
+and ARM64 macOS tests/frameworks/two-version apps/conflicts/reuse. Intel fixture d7fdaaf68d9e,
+ARM fixture 0461777298b7; raw logs retained under build/ci-local/apple-*-12bb55f.log.
+Full Apple simulator/device-framework/test-link coverage is running separately as 44350989857.
+Private Linux Maven-candidate proof is running as 44350029452. Neither implies release readiness.
+Linux candidate run 44350029452 now PASSES: publication content checks plus independent
+Maven JVM consumers on Kotlin 2.0.0/2.4.21, two engines, conflicts and warm reuse (ef51083bff15).
+Full Apple run 44350989857 exposed the mobile Darwin legacy-dlopen shim: disabling HAS_DLOPEN
+enabled fallback NSLinkModule APIs unavailable on iOS. Private target source copies now guard
+that shim with PARIKT_APPLE_MOBILE as well; normal macOS sources/features are preserved.
+This mobile fix requires a hosted rerun; no mobile success claim yet.
+
 Hosted run 44342835721 also failed reaching gmplib.org during Android GMP setup. JVM and
 Android builders now use ftp.gnu.org first, with bounded connection/transfer time and the
 original upstream as fallback. Existing fingerprint checks remain enforced.
@@ -17,7 +30,7 @@ move only its external factory declaration to platform-specific generated bindin
 Intel run 44345026758 progressed into real C compilation and exposed macOS's old Bison 2.3.
 CI installs Homebrew Bison, the Apple builder requires version 3+ before downloading/building
 and includes its version in the output stamp. Linux CI also explicitly installs bison/patchelf.
-Apple compilation/runtime is still unverified until the rerun passes.
+Both host macOS reruns now pass; mobile simulator/device coverage remains in progress.
 
 First-release execution authorized on 2026-11-18: commit/push prepared changes, run and fix
 hosted CI, complete candidate packaging/external-consumer verification, then tag/publish only
@@ -70,6 +83,10 @@ candidate.yml workflow will repeat this on Linux; it has no Central upload/signi
 GitHub names-only checks found no repository Actions secrets/environments configured. No
 credential values or KProxyable signing keys were read/copied. RELEASE_PLAN.md tracks remaining
 platform provisioning, prebuilt download, Apple publication, compatibility and signing gates.
+Next candidate step in development: Native final-binary linker wiring through a project-applied
+script and the existing consumer-toolchain/Apple deployment argument providers. Published klibs
+remain engine-free; a link guard rejects older dependencies that embed an extra engine archive.
+This Native installer step is not yet verified and must not be treated as release-ready.
 
 GitHub Actions/Central preparation added on 2026-11-18 using KProxyable read-only as a reference.
 CI/reusable verification workflows cover Linux JVM/Native, Android builds, Node/browser suites,
