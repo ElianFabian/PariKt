@@ -100,3 +100,12 @@ web compiler lines, Android/web strict cache checks and actual Central bundle/up
 
 The applied scripts live under `publishing/engineTools/`. They configure standard Gradle/Kotlin/
 Android plugins; a successful archive publication alone does not prove consumer installation.
+
+Native cache verification first provisions a cold compiler/target SDK with an uncached build,
+then requires strict configuration-cache storage and immediate reuse on identical link tasks.
+KGP can populate its platform klibs during initial compilation, legitimately invalidating a
+configuration recorded before that provisioning. All three phases retain separate logs.
+
+The manual candidate workflow defaults to full verification. Its explicit native_only mode
+omits the JVM matrix for focused Native regressions; that run does not replace a full
+release-verification run.

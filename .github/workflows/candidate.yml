@@ -2,6 +2,11 @@ name: Private Maven candidate
 
 on:
   workflow_dispatch:
+    inputs:
+      native_only:
+        description: Focus on Native regression checks (omit the JVM matrix)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,11 +36,18 @@ jobs:
         run: |
           [IO.File]::WriteAllText('publishing/local.properties', "sdk.dir=$env:ANDROID_HOME`n")
           ./publishing/gradle.ps1 :library:publishJvmPublicationToCandidateRepository :library:publishKotlinMultiplatformPublicationToCandidateRepository :library:publishAndroidReleasePublicationToCandidateRepository :library:publishJsPublicationToCandidateRepository :library:publishWasmJsPublicationToCandidateRepository :library:publishLinuxX64PublicationToCandidateRepository :library:publishMingwX64PublicationToCandidateRepository :engineTools:publishToolsPublicationToCandidateRepository
-      - name: Inspect and consume candidates
+      - name: Inspect candidates
         shell: pwsh
         run: |
           ./tests/publication/verify_candidate_contents.ps1
+      - name: Verify JVM consumers
+        if: ${{ !inputs.native_only }}
+        shell: pwsh
+        run: |
           ./tests/publication/verify_jvm_candidate.ps1 -ConfigurationCache
+      - name: Verify Native consumers
+        shell: pwsh
+        run: |
           ./tests/publication/verify_native_candidate.ps1 -ConfigurationCache
       - name: Retain private candidate evidence
         if: always()

@@ -8,6 +8,12 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Latest incident: source CI 44381227608 / 3fa4ce3 passes. Candidate run 44381272892 fails the
+Native 2.4.21 cache assertion on Linux and both Mac hosts after successful publication/build/
+runtime checks: first execution populates platform klibs. A separate cold provisioning phase
+now precedes strict measured store/reuse. Local correction verification passes (ce10e4b5b279); hosted
+verification will follow. Full candidate mode remains the release gate.
+
 First-release execution is authorized: commit/push prepared work, fix hosted CI, finish clean
 Maven consumers and signing/publication gates, then tag/publish. No release tag or Sonatype
 upload has been created. RELEASE_PLAN.md tracks remaining gates. Existing source installers,
@@ -441,3 +447,24 @@ The available API21 emulator is x86, outside the supported native ABI list. SDK 
 API36.1 x86_64 run do not prove those cases. Publication is outside the completed source integration.
 Browser pages were previously executed; this structural checkpoint verifies their rebuilt
 bundles/graphs and Node execution. It does not repeat browser UI or emulator runtime execution.
+
+## Native candidate cold-SDK cache correction (2026-11-18)
+
+Run 44381272892 / 3fa4ce3 fails the same Native cache assertion on Linux, ARM Mac and Intel
+Mac. All candidate publication/content checks, all six Linux JVM/cache cases, Native 2.0.0
+cases and 2.4.21 builds/runtimes succeed. KGP populates klib/platform/<host-target> during
+the first 2.4.21 Native build; Gradle correctly invalidates the cached configuration afterward.
+The local Windows proof used an already prepared SDK and missed that cold-runner condition.
+The Native probe now provisions once with --no-configuration-cache, then requires a strict
+stored configuration and immediate reuse on the identical task graph. Archive counts, hashes,
+actual runtimes and explicit conflicts remain checked. Local and hosted correction verification
+are pending; this does not establish first-to-second-build cache reuse on an unprepared SDK.
+
+Candidate workflow now has explicit native_only manual input (default false) for targeted Native regression feedback; full mode retains all JVM checks, and both modes retain publication/content plus all Native checks. The focused hosted rerun is pending.
+
+Local phase verification caught a harness expectation that link actions repeat after provisioning; up-to-date links correctly skip those actions. Archive-identity diagnostics are now required in the actual provisioning link, while the measured cache-store phase requires successful storage. Final runtime/archive/hash/conflict checks remain. Rerun pending.
+
+Local corrected three-phase Native probe passes both Kotlin 2.0.0/2.4.21 (ce10e4b5b279):
+actual provisioning links, strict cache storage/immediate reuse, both runtimes, archive counts/
+hashes and conflicts. Hosted cold-SDK verification remains pending. PowerShell syntax, actionlint,
+metadata and whitespace validation pass. No production engine or target configuration changed.

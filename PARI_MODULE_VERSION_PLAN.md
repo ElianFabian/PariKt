@@ -741,3 +741,13 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
   Android debug/R8/both-ABI/minSdk21/shared-AAR/conflict packaging (a93895e60b53). Android runtime not repeated.
 
 - [ ] Run corrected-baseline hosted candidate jobs with locally verified strict JVM/Native cache switches.
+
+## Native candidate cold-SDK cache correction (2026-11-18)
+
+- [x] Identify the common Linux/Intel/ARM failure: KGP populates platform klibs during first Native execution.
+- [ ] Verify separate SDK provisioning followed by strict cache store/immediate reuse, runtimes, archive hashes and conflicts on local and hosted targets. Script implemented; verification pending.
+
+- [ ] Run explicit Native-only hosted regression mode on Linux and both Mac hosts; full publication verification remains the default workflow mode.
+
+- [x] Verify actual provisioning-link identity diagnostics and strict store/reuse with up-to-date links;
+  local Native 2.0.0/2.4.21 runtimes/hashes/conflicts pass (ce10e4b5b279). Hosted checks pending.

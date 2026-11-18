@@ -58,10 +58,19 @@ suspend fun exercise(expected: Int) {
         Join-Path $repository ('build/publication-wrapper/8.8/'+$(if($IsWindows){'gradlew.bat'}else{'gradlew'}))
     } else {Join-Path $repository $(if($IsWindows){'gradlew.bat'}else{'gradlew'})}
     $tasks=@(":appA:linkDebugExecutable$suffix",":appB:linkDebugExecutable$suffix",'--no-parallel','--console=plain')
-    if($ConfigurationCache){$tasks+=@('--configuration-cache','--configuration-cache-problems=fail')}
+    if($ConfigurationCache){
+        # KGP can populate klib/platform/<target> during a cold Native build.
+        # Provision the SDK before measuring an unchanged configuration's cache reuse.
+        $provisionLog=Join-Path $proof "$kotlin-provision.log"
+        $provision=Invoke-PariKtGradle -Repository $consumer -Wrapper $wrapper -Log $provisionLog -Arguments ($tasks+@('--no-configuration-cache'))
+        Assert-PariKtOutput -Result $provision -Log $provisionLog -Expected @('exactly one selected PARI 2.19.0 archive','exactly one selected PARI 2.15.0 archive')
+        $tasks+=@('--configuration-cache','--configuration-cache-problems=fail')
+    }
     $log=Join-Path $proof "$kotlin-links.log"
     $result=Invoke-PariKtGradle -Repository $consumer -Wrapper $wrapper -Log $log -Arguments $tasks
-    Assert-PariKtOutput -Result $result -Log $log -Expected @('exactly one selected PARI 2.19.0 archive','exactly one selected PARI 2.15.0 archive')
+    Assert-PariKtOutput -Result $result -Log $log
+    if($ConfigurationCache){Assert-PariKtOutput -Result $result -Log $log -Expected @('Configuration cache entry stored')}
+    else {Assert-PariKtOutput -Result $result -Log $log -Expected @('exactly one selected PARI 2.19.0 archive','exactly one selected PARI 2.15.0 archive')}
     foreach($app in @('appA','appB')) {
         $extension=if($IsWindows){'.exe'}else{'.kexe'}
         $executable=Join-Path $consumer "$app/build/bin/$target/debugExecutable/$app$extension"

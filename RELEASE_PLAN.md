@@ -98,3 +98,10 @@ four browsers/conflicts (6a85dc2a10fc), and Android packaging/ABI/minSdk21/R8 ch
 The Android rerun is packaging-only; earlier four-emulator-runtime evidence used 2.0.21 bindings.
 Newest web full proof also passes (052754ba3fad); corrected-baseline hosted Maven reruns remain pending. Source CI at 9b66110
 is green (44375696793); ARM Mac Maven candidate at the previous baseline passes (a66df5cc5cb8).
+
+Hosted corrected-baseline run 44381272892 builds/inspects all candidates and passes all six
+Linux JVM/cache cases. All three Native jobs fail one 2.4.21 cache assertion after successful
+builds/runtimes: KGP initially populates klib/platform/<target>, invalidating the first cache.
+The corrected probe separates initial SDK provisioning from a required strict store/reuse pair;
+verification is pending. Focused native_only dispatch is diagnostic; full mode remains the
+release gate.
