@@ -5,11 +5,18 @@
 - [x] Fix hosted SDK discovery and generated SwiftPM inventory conflicts; targeted model
   regression passes. Use GNU's GMP mirror with bounded primary/fallback downloads for JVM
   and Android after the hosted runner could not connect to gmplib.org. Hosted reruns pending.
+- [x] Diagnose real Intel Mac PARI parser-generation failure; require modern Bison and
+  provision it in CI. Apple compilation/runtime remains unchecked until the rerun passes.
 
 - [x] Prepare and validate CI and release metadata using KProxyable as a reference; preserve
   independent library/engine versions and document binary-packaging blockers in RELEASE_PLAN.md.
 - [ ] Run hosted CI and complete binary library/engine provisioning separation plus external
   Maven consumer verification before configuring actual Sonatype publication.
+  Local unsigned JVM, common metadata, Android release, JS and Wasm candidate publications
+  build successfully (build/publication-logs/7d52478e0fda4d25a035c6654d2e646b.log).
+  This does not yet prove consumer engine provisioning or Native binary compatibility.
+  The private engine-tools candidate implements the first JVM provisioning path using the
+  existing fingerprinted C builders and shared selection parser; consumer proof pending.
 
 ## Apple target implementation
 

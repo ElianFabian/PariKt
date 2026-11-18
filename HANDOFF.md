@@ -10,9 +10,14 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 Hosted run 44342835721 also failed reaching gmplib.org during Android GMP setup. JVM and
 Android builders now use ftp.gnu.org first, with bounded connection/transfer time and the
-original upstream as fallback. This changes download transport, not compiled-cache identity.
+original upstream as fallback. Existing fingerprint checks remain enforced.
 The local Maven candidate exposed an unresolved JsModule in shared Kotlin 2.0 web metadata;
 move only its external factory declaration to platform-specific generated bindings.
+
+Intel run 44345026758 progressed into real C compilation and exposed macOS's old Bison 2.3.
+CI installs Homebrew Bison, the Apple builder requires version 3+ before downloading/building
+and includes its version in the output stamp. Linux CI also explicitly installs bison/patchelf.
+Apple compilation/runtime is still unverified until the rerun passes.
 
 First-release execution authorized on 2026-11-18: commit/push prepared changes, run and fix
 hosted CI, complete candidate packaging/external-consumer verification, then tag/publish only
@@ -41,6 +46,14 @@ with a checksummed Gradle 8.8 launcher, built-in Maven/signing plugins, generic 
 and Native cinterop declarations without embedded engine archives. Existing source builds remain
 unchanged. This candidate is not release-ready until engine installer and external-consumer
 proofs are implemented and pass; do not publish its intermediate outputs.
+Local unsigned JVM/common/Android/JS/Wasm publication tasks pass (publication log
+7d52478e0fda4d25a035c6654d2e646b). Generated per-platform JS factories fix Kotlin 2.0's
+shared-metadata annotation error. A missing Android consumer-rules path was corrected to
+an explicit JNI class/method keep rule in publishing/library/consumer-rules.pro.
+The private engine-tools candidate now reuses the properties/participant parser for Maven
+dependencies and has a JVM-only applied settings script (Linux or Windows/WSL C builds).
+It contains no Kotlin library sources. Other-platform provisioning and prebuilt asset
+download are still unfinished; verify this first with a clean external JVM consumer.
 
 GitHub Actions/Central preparation added on 2026-11-18 using KProxyable read-only as a reference.
 CI/reusable verification workflows cover Linux JVM/Native, Android builds, Node/browser suites,

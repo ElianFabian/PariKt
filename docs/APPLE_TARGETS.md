@@ -30,6 +30,11 @@ The verification runner's `-HostOnly` mode selects only the macOS family unless 
 
 ## How the engine is built
 
+Install GNU Bison 3 or newer (`brew install bison`) and put its `bin` directory on PATH:
+`export PATH="$(brew --prefix bison)/bin:$PATH"`. macOS's bundled Bison 2.3 cannot generate
+the parser from PARI's Git sources. The builder checks this before downloading dependencies;
+CI installs the current Homebrew version explicitly.
+
 `parikt/native/build-apple.sh` uses the selected Xcode (`xcode-select` or `DEVELOPER_DIR`) and
 `xcrun` to select the destination SDK, clang and Apple libtool. Each target has its own
 `native-<PARI version>/<target>/lib/libparikt.a` output. The archive contains the C bridge,

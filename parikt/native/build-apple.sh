@@ -36,9 +36,12 @@ case "$TARGET" in
 esac
 [ "$(uname -s)" = Darwin ] || die "Apple native dependencies require macOS and Xcode"
 [[ "$MINIMUM" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || die "--minimum-version must match the Kotlin/Native deployment target"
-for tool in xcrun xcodebuild make m4 git curl tar shasum perl; do
+for tool in xcrun xcodebuild make m4 bison git curl tar shasum perl; do
   command -v "$tool" >/dev/null || die "missing required build tool: $tool"
 done
+BISON_VERSION=$(bison --version | sed -n '1s/.* //p')
+[[ "$BISON_VERSION" =~ ^[0-9]+\. ]] && [ "${BISON_VERSION%%.*}" -ge 3 ] ||
+  die "PARI sources require GNU Bison 3 or newer; install Homebrew bison and add its bin directory to PATH (macOS ships Bison 2.3)"
 SDK_PATH=$(xcrun --sdk "$SDK" --show-sdk-path)
 SDK_VERSION=$(xcrun --sdk "$SDK" --show-sdk-version)
 CLANG=$(xcrun --sdk "$SDK" --find clang)
@@ -68,7 +71,7 @@ INPUT_HASH=$(cat "${BASH_SOURCE[0]}" "$SCRIPT_DIR/pari-source.sh" "$SCRIPT_DIR/b
   "$SCRIPT_DIR/paridroid/paridroid.c" "$SCRIPT_DIR/paridroid/paridroid.h" | shasum -a 256 | cut -d' ' -f1)
 COMPILER=$("$CLANG" --version | head -n 1)
 XCODE=$(xcodebuild -version | tr '\n' ' ')
-STAMP="pari=$PARI_VERSION revision=$SOURCE_ID gmp=$GMP_VERSION target=$TARGET triple=$TRIPLE sdk=$SDK_VERSION path=$SDK_PATH long=$LONG_BYTES compiler=$COMPILER xcode=$XCODE inputs=$INPUT_HASH"
+STAMP="pari=$PARI_VERSION revision=$SOURCE_ID gmp=$GMP_VERSION target=$TARGET triple=$TRIPLE sdk=$SDK_VERSION path=$SDK_PATH long=$LONG_BYTES compiler=$COMPILER xcode=$XCODE bison=$BISON_VERSION inputs=$INPUT_HASH"
 BUILD_ID=$(printf '%s' "$STAMP" | shasum -a 256 | cut -c1-20)
 TOOLCHAIN_ID=$({ git hash-object "${BASH_SOURCE[0]}"; printf '%s\n' "$COMPILER" "$XCODE" "$TRIPLE" "$SDK_PATH" "$SDK_VERSION"; } | shasum -a 256 | cut -c1-20)
 if [ "$FORCE" = 0 ] && [ "$(cat "$OUT/.stamp" 2>/dev/null || true)" = "$STAMP" ] && \

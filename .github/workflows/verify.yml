@@ -50,7 +50,7 @@ jobs:
       - name: Install C build and headless UI prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential m4 xz-utils xvfb libgl1 libfontconfig1
+          sudo apt-get install --yes build-essential bison m4 patchelf xz-utils xvfb libgl1 libfontconfig1
           echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
       - name: Validate release metadata
         shell: pwsh
@@ -128,6 +128,10 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
       - name: Verify selected Xcode
         run: xcodebuild -version
+      - name: Install current GNU Bison
+        run: |
+          brew install bison
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
       - name: Run Apple verification
         shell: pwsh
         env:
