@@ -22,6 +22,20 @@ regression recreates the generated inventory and passes alongside explicit-confl
 build/apple-tests/4396d7b427d5/. Download-artifact was also moved to its verified Node-24 v6
 revision. Hosted rerun is pending the fix push.
 
+Second run 44342835721 reached the next SwiftPM inventory check: its global appB metadata
+was mistaken for an appA explicit dependency requirement. Exclude this one generated inventory
+from requirement validation as well as scoping provider entries; the reproducer now includes
+the foreign application itself. Normal compile/runtime requirements remain strict.
+The expanded regression passes (build/apple-tests/f6ce59c40401/). Main commits use separate
+CI concurrency groups so a quick Apple fix does not cancel a long-running Linux cross-build;
+superseded PR runs still cancel normally.
+
+Independent Maven candidate build is in development under publishing/: Kotlin 2.0.21 baseline
+with a checksummed Gradle 8.8 launcher, built-in Maven/signing plugins, generic web module binding
+and Native cinterop declarations without embedded engine archives. Existing source builds remain
+unchanged. This candidate is not release-ready until engine installer and external-consumer
+proofs are implemented and pass; do not publish its intermediate outputs.
+
 GitHub Actions/Central preparation added on 2026-11-18 using KProxyable read-only as a reference.
 CI/reusable verification workflows cover Linux JVM/Native, Android builds, Node/browser suites,
 desktop UI tests under Xvfb, actual Windows JNI/Native execution, and Intel/ARM64 macOS. Linux

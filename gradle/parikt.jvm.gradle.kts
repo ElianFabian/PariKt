@@ -75,7 +75,8 @@ consumer.configurations.configureEach {
             if (!visited.add(node.id)) continue
             val path = (node.id as? ProjectComponentIdentifier)?.projectPath
             val requirement = selections[path]
-            if (requirement != null && requirement.third && requirement.first != selection.first) {
+            if (requirement != null && requirement.third && requirement.first != selection.first &&
+                configuration.name != "swiftPMDependenciesForLockFilesMetadataClasspath") {
                 throw GradleException("PARI requirement conflict in ${consumer.path}:${configuration.name}: " +
                     "${selection.first} (${selection.second}) conflicts with ${requirement.first} (${requirement.second}); " +
                     "dependency path: ${chain.joinToString(" -> ")}")

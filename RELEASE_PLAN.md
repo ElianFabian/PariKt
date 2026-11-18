@@ -22,8 +22,12 @@ and signing gates; a tag is not a substitute for those checks.
   Initial commit e0b328c / run 44340852491 reached the runners and exposed Ubuntu SDK-tool PATH
   and Apple SwiftPM inventory-routing failures. Fixes and a targeted SwiftPM regression are
   implemented (build/apple-tests/4396d7b427d5/); hosted rerun is pending. No green CI claim yet.
+  Run 44342835721 additionally exposed generated inventory app requirements; its targeted
+  regression now includes the foreign application, not only the foreign provider.
 - [ ] Separate the published library from engine provisioning on every backend, prove a clean
   external Maven consumer, then add actual signed publication tasks and a gated upload workflow.
+  The isolated publishing/ build is being implemented with a Kotlin 2.0.21 binary baseline;
+  candidate outputs are not ready for public distribution until the consumer proof passes.
 
 ## Binary publication prerequisites
 

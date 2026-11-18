@@ -99,6 +99,7 @@ gradle.projectsEvaluated {
             }
         dependencies.add(inventory.name, project(":parikt"))
         dependencies.add(inventory.name, project(":pariktEngine_2_15_0:parikt"))
+        dependencies.add(inventory.name, project(":appB"))
         tasks.register("verifyGeneratedSwiftPMInventory") {
             doLast {
                 val paths = inventory.incoming.resolutionResult.allComponents.mapNotNull {
