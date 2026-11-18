@@ -1,0 +1,5 @@
+headers = bridge.h
+headerFilter = bridge.h
+package = com.elianfabian.parikt.cinterop
+# Only ABI declarations belong in Maven klibs. The final application selects/links its engine.
+linkerOpts.linux = -lm -ldl -lpthread

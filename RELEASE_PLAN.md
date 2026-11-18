@@ -29,6 +29,27 @@ and signing gates; a tag is not a substitute for those checks.
   The isolated publishing/ build is being implemented with a Kotlin 2.0.21 binary baseline;
   candidate outputs are not ready for public distribution until the consumer proof passes.
 
+## Candidate progress (2026-11-18)
+
+- [x] Build ordinary unsigned common/JVM/Android/JS/Wasm/Linux Native/Windows Native Maven
+  candidates with Kotlin 2.0.21, separate from engine tooling. Android minSdk remains 21.
+- [x] Inspect current snapshot archives for leaked engine binaries, stable JVM module identity,
+  Android JNI consumer rules and complete POM fields (29 archives, including four Native klibs).
+- [x] Prove clean Maven-only JVM consumption on Windows with Kotlin 2.0.0 and 2.4.21: a shared
+  Kotlin library, three apps, independent 2.19.0/2.15.0 selection, same-version reuse and explicit
+  requirement conflicts. Evidence: build/maven-consumer/c59afbf75aa7/.
+- [x] Recheck all five source-installer property diagnostic cases after sharing participant parsing.
+- [ ] Run the new manual private-candidate workflow on Linux; it has no upload/signing credentials
+  and publishes only to its temporary local repository and seven-day workflow artifact storage.
+- [ ] Finish Android, Native and web binary-consumer provisioning plus their external proofs;
+  add prebuilt engine assets/checksums and validate cache reuse/fallback builds.
+- [ ] Build and consume Apple Maven candidates on compatible Xcode/Kotlin toolchains.
+- [ ] Complete binary-consumer Kotlin/platform matrix and configuration-cache checks.
+- [ ] Add signed, protected Central Portal validation/upload only after these gates pass.
+  The repository currently has no Actions secrets or environments configured (names-only check).
+  No signing key or token has been read/copied from KProxyable.
+- [ ] Create the first release tag only after hosted verification and publication gates pass.
+
 ## Binary publication prerequisites
 
 The current integration is source-based; Gradle scripts from an ordinary Maven dependency do

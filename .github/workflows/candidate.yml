@@ -1,0 +1,49 @@
+name: Private Maven candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: Build and consume unsigned Maven artifacts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: zulu
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: true
+      - name: Install C prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential bison m4 patchelf xz-utils libncurses5 libtinfo5
+      - name: Build local candidates
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllText('publishing/local.properties', "sdk.dir=$env:ANDROID_HOME`n")
+          ./publishing/gradle.ps1 :library:publishJvmPublicationToCandidateRepository :library:publishKotlinMultiplatformPublicationToCandidateRepository :library:publishAndroidReleasePublicationToCandidateRepository :library:publishJsPublicationToCandidateRepository :library:publishWasmJsPublicationToCandidateRepository :library:publishLinuxX64PublicationToCandidateRepository :library:publishMingwX64PublicationToCandidateRepository :engineTools:publishToolsPublicationToCandidateRepository
+      - name: Inspect and consume candidates
+        shell: pwsh
+        run: |
+          ./tests/publication/verify_candidate_contents.ps1
+          ./tests/publication/verify_jvm_candidate.ps1
+      - name: Retain private candidate evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: private-maven-candidate
+          path: |
+            publishing/build/candidate-repository/
+            build/publication-logs/*.log
+            build/maven-consumer/**/*.log
+          retention-days: 7
+          if-no-files-found: warn

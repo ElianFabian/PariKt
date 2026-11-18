@@ -41,6 +41,15 @@ gradle.projectsEvaluated {
             configuration.dependencies.withType(ProjectDependency::class.java).map { it.pariktProjectPath() }
         }.toSet()
     }
+    // Binary installation shares the same selection parser and participation discovery.
+    // Source installation continues to identify participants through provider projects.
+    if (gradle.extensions.extraProperties.properties["parikt.binaryConsumer"] == true) {
+        consumers.forEach { (path, consumer) ->
+            if (consumer.configurations.any { configuration -> configuration.dependencies.any {
+                it.group == "io.github.elianfabian" && it.name in setOf("parikt", "parikt-jvm")
+            } }) participants.add(path)
+        }
+    }
     var changed: Boolean
     do {
         changed = false

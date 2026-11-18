@@ -17,6 +17,14 @@
   This does not yet prove consumer engine provisioning or Native binary compatibility.
   The private engine-tools candidate implements the first JVM provisioning path using the
   existing fingerprinted C builders and shared selection parser; consumer proof pending.
+  Added independent Maven JVM consumer and artifact-content verification scripts under
+  tests/publication; runtime/reuse/conflict results are pending.
+  Candidate checks caught/fixed JVM Kotlin module identity, deferred Android coordinates and
+  the probe's GP result-prefix handling; corrected candidate verification is in progress.
+  Corrected content checks pass (29 archives) and Maven-only Windows JVM proofs pass for
+  Kotlin 2.0.0/2.4.21, both PARI versions, conflicts and warm reuse (c59afbf75aa7).
+  A manual credential-free candidate workflow repeats the proof on Linux; other binary
+  backends/Apple publication/signing remain tracked in RELEASE_PLAN.md.
 
 ## Apple target implementation
 

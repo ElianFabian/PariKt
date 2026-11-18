@@ -54,6 +54,22 @@ The private engine-tools candidate now reuses the properties/participant parser 
 dependencies and has a JVM-only applied settings script (Linux or Windows/WSL C builds).
 It contains no Kotlin library sources. Other-platform provisioning and prebuilt asset
 download are still unfinished; verify this first with a clean external JVM consumer.
+PowerShell publication probes now inspect candidate archive contents/POM/JNI rules and create
+an isolated Maven-only shared-library/three-JVM-app fixture. Oldest/newest compiler runtime,
+two-engine selection, one preparation per shared version, warm hashes and conflicts are checked.
+These probes are running; do not mark them passed before inspecting their results.
+Content inspection caught missing stable JVM module identity and late Android coordinate
+defaults; the candidate now explicitly sets parikt on JVM/Android and finalizes parikt-android
+after KGP's deferred publication creation. The runtime probe also now strips GP's normal result
+prefix, matching existing platform tests. Rebuilding and rerunning the corrected candidates.
+Corrected candidate checks PASS: 29 current archives, JVM module identity, Android JNI rules,
+POM fields and no engine payloads; Linux/Windows Native publications build successfully.
+Maven-only external JVM runtime/selection/reuse/conflicts PASS under Kotlin 2.0.0 and 2.4.21:
+build/maven-consumer/c59afbf75aa7/. Five source property diagnostics also pass. The manual
+candidate.yml workflow will repeat this on Linux; it has no Central upload/signing steps.
+GitHub names-only checks found no repository Actions secrets/environments configured. No
+credential values or KProxyable signing keys were read/copied. RELEASE_PLAN.md tracks remaining
+platform provisioning, prebuilt download, Apple publication, compatibility and signing gates.
 
 GitHub Actions/Central preparation added on 2026-11-18 using KProxyable read-only as a reference.
 CI/reusable verification workflows cover Linux JVM/Native, Android builds, Node/browser suites,
@@ -66,7 +82,8 @@ no persisted checkout credentials or publishing secrets; reports retained on fai
 Local checks pass: actionlint 1.7.12 (official checksum-verified release), new PowerShell syntax,
 metadata and all six Windows JNI probes plus two Native tests using locally staged CI-format
 artifacts. Evidence: build/ci-local/windows-1fa59209/ and stage.log. Hosted workflow execution,
-Linux cross-artifact handoff and Apple runs remain unverified. Nothing was pushed or uploaded.
+Linux cross-artifact handoff and Apple runs remain unverified. Implementation commits have
+been pushed; no release tag or Sonatype upload has been created.
 
 gradle.metadata.properties proposes io.github.elianfabian:parikt:0.1.0-SNAPSHOT independently
 of PARI selection. LICENSE matches the existing wrapper's GPL-3.0-or-later declaration; no MIT
