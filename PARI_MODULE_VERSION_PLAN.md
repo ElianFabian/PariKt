@@ -783,3 +783,5 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 - [x] Fail before scheduling source/candidate builds when release metadata or tag is invalid. Valid and mismatched bare tags were checked against the resolve step.
 
 - [x] Keep the README focused on the public API and installation links. Preserve detailed source selection/cache documentation and platform commands in dedicated guides.
+- [x] Credit PariDroid in the README and link to the official PARI-hosted repository.
+- [x] Document PARI/GP's GPL-2.0-or-later license and retain the incorporated PariDroid bridge's GPL-3.0-or-later terms.

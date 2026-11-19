@@ -2,6 +2,8 @@
 
 PariKt is a Kotlin Multiplatform library for evaluating [PARI/GP](https://pari.math.u-bordeaux.fr/) commands from Kotlin.
 
+PariKt is based on [PariDroid](https://pari.math.u-bordeaux.fr/git/paridroid.git).
+
 It supports JVM, Android (minSdk 21), JavaScript, WebAssembly, and Kotlin/Native for Linux x64,
 Windows x64, macOS, iOS, tvOS, and watchOS. Apple tests ran on Intel and Apple Silicon Macs
 and in Apple simulators. See the [Apple target guide](docs/APPLE_TARGETS.md) for coverage.
@@ -46,4 +48,5 @@ The build fetches and compiles engines on demand and reuses compatible cached ou
 - [Tested Kotlin versions](KOTLIN_COMPATIBILITY_PLAN.md)
 - [Maven Central release process](docs/RELEASING.md)
 
-PariKt is licensed under [GPL-3.0-or-later](LICENSE).
+PariKt is licensed under [GPL-3.0-or-later](LICENSE), the license of the PariDroid bridge it incorporates.
+[PARI/GP is GPL-2.0-or-later](https://pari.math.u-bordeaux.fr/faq.html), which permits use under GPLv3.

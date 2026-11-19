@@ -507,3 +507,6 @@ Republishing the original 0.1.0 tag ran its old workflow again (44533431643). Al
 The corrected 0.1.0 retry (44542084598) passed resolve and skipped both already-verified suites. Central now runs its full release metadata validator in resolve before either suite can start. A mismatched-tag probe fails there without emitting outputs. The public key fingerprint supplied by the user returned HTTP 404 at Ubuntu's keyserver and keys.openpgp.org.
 
 The root README is now a short project overview, API example and guide index. Source installer, selection and cache details moved to docs/SOURCE_INSTALLATION.md. Platform prerequisites, demos and commands moved to docs/PLATFORM_GUIDE.md. Updated Apple verification language and contributor links.
+
+The README credits PariDroid as the basis for PariKt and links to the official repository hosted by the PARI project.
+The README also distinguishes PARI/GP's GPL-2.0-or-later terms from the incorporated PariDroid bridge's GPL-3.0-or-later terms. PariKt retains GPL-3.0-or-later in its license and artifact metadata.
