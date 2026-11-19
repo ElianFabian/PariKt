@@ -763,14 +763,13 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 - [x] Run the final browser proofs for 2.0.21, 2.2.21 and 2.3.21. All twelve cases passed (no skips).
   Fixtures: cd4b432c66ce, a85eefba8c71 and 31b8400b1667. Android/web strict cache checks remain open.
 
-- [ ] Verify the 0.1.0 Central bundle preview with all 20 coordinates and their Gradle
-  metadata redirects. Release metadata and workflow are implemented; hosted proof is pending.
+- [x] Verify 0.1.0 Central bundle preview with all 20 coordinates and their Gradle metadata redirects (44516060539).
 
 - [x] Verify complete unsigned host preview (44513216051) and Android Maven debug strict store/reuse.
-- [ ] Verify the signed all-target preview and standard Webpack directory regression; both are release preparation follow-ups.
+- [x] Verify signed all-target preview and standard Webpack directory regression (44516060539, d1aaeb1ea211).
 
 - [x] Verify standard Webpack directory with both 0.1.0 engine selections (d1aaeb1ea211).
 - [x] Strict cache stores and reuses for all four standard Webpack bundles and all four Node runs when tested as separate task graphs.
 
 - [x] Fix overlapping documentation signature outputs and verify parallel publication sources in a single local JVM/JS/tools build (14 signatures, 1ccf3027eb07).
-- [ ] Confirm signed all-target assembly after isolating documentation outputs.
+- [x] Confirm signed all-target assembly after isolating documentation outputs (44516060539 / 7b28f22, 126 verified signatures).

@@ -123,10 +123,10 @@ verification and signing/Central work remain open. See KOTLIN_COMPATIBILITY_PLAN
 
 - [x] Set Maven coordinates to 0.1.0 and require matching release metadata.
 - [x] Add published-release Central workflow, disposable-key signed preview and complete bundle validation.
-- [ ] Verify full bundle assembly on the hosted preview and record the release commit.
+- [x] Verify full signed bundle assembly (44516060539): target 7b28f22 for v0.1.0.
 - [x] Create the maven-central GitHub environment.
 - [ ] Owner supplies Central and PGP secrets, publishes the GitHub release and approves Central publication.
 
 Unsigned 0.1.0 preview 44513216051 passed all 20 coordinates and 126 payloads. Local nine-signature proof de16cb5fe435 and JVM strict-cache fixture 3f98abacba99 passed. The final preview adds disposable signing and verifies every detached signature. Android debug cache checks passed on the retained Maven fixture; standard Webpack directory regression proof is pending.
 
-Signed preview 44514895465 failed before assembly because multiple publications signed a shared documentation file. Dedicated outputs fix the local multi-publication signing proof (14 signatures, 1ccf3027eb07). Signed hosted rerun is pending.
+Signed preview 44514895465 failed before assembly because multiple publications signed a shared documentation file. Dedicated outputs fix the local multi-publication signing proof (14 signatures, 1ccf3027eb07). Signed hosted rerun 44516060539 verified all 126 signatures and validated all 20 coordinates on 7b28f22.

@@ -90,9 +90,11 @@ config generation, with bundling untracked so edits are observed. Engine/compile
 Version 0.1.0 release preparation is on main. The Central workflow runs source and Maven
 candidate verification on the published tag, then validates and signs all 20 coordinates.
 Preview 44513216051 proved complete unsigned assembly (126 payloads). Disposable-key signed
-preview 44514895465 and full candidate run 44513347354 are in progress. The maven-central
+preview 44514895465 exposed a shared documentation signature output. The corrected preview
+44516060539 passes at release commit 7b28f22 (20 coordinates, 126 payloads and signatures).
+Full candidate run 44513347354 was still in progress at the time of handoff. The maven-central
 GitHub environment exists and awaits the owner's signing key and Central token credentials.
-The owner creates the GitHub release once the signing preview passes. No tag or deployment exists.
+The owner can now configure credentials and publish v0.1.0 targeting 7b28f22. The release event runs full source and candidate verification on that tag. No tag or deployment exists.
 
 Local checks: 0.1.0 JVM strict-cache and runtime (3f98abacba99), isolated nine-signature proof
 with an optional empty key ID (7a68c987df38), Android Maven debug strict store/reuse on fixture
@@ -494,4 +496,4 @@ The hosted preview is pending. See docs/RELEASING.md for the user's release step
 
 The 0.1.0 standard Webpack regression passed Node, bundles, user fragments, four browsers and conflicts (d1aaeb1ea211). The strict cache probe found a redundant rewrite of the staged alias invalidates the entry. Avoiding that rewrite for the already-staged directory is under verification.
 
-Signed preview 44514895465 exposed overlapping documentation .asc outputs across Gradle publications. Each Maven publication now writes its documentation JAR to a private output directory. Local JVM + JS + engine-tools signing verifies all 14 signatures (1ccf3027eb07), including the empty optional key ID. The hosted all-target signed rerun is pending.
+Signed preview 44514895465 exposed overlapping documentation .asc outputs across Gradle publications. Each Maven publication now writes its documentation JAR to a private output directory. Local JVM + JS + engine-tools signing verifies all 14 signatures (1ccf3027eb07), including the empty optional key ID. The hosted all-target signed rerun 44516060539 passes.
