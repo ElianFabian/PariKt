@@ -1,6 +1,6 @@
 #requires -Version 7.0
 param([string]$KotlinVersion='2.4.21',[switch]$Browser,[string]$ChromeBinary=$env:CHROME_BIN,[string]$ResumeDirectory,
-    [ValidatePattern('^[0-9]+$')][string]$LegacyBinaryenVersion)
+    [ValidatePattern('^[0-9]+$')][string]$LegacyBinaryenVersion,[switch]$DefaultWebpackDirectory)
 $ErrorActionPreference='Stop'
 if($LegacyBinaryenVersion -and $KotlinVersion -notmatch '^2\.[0-3]\.') {throw 'LegacyBinaryenVersion uses the Kotlin 2.0-2.3 public Binaryen API.'}
 $repository=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -90,7 +90,7 @@ if (!config.frameworks.includes('webpack-output')) {
 '@
 }
 foreach($app in @('appA','appB')) {
-    Write-WebProof "$app/build.gradle.kts" @'
+    $appBuild = @'
 plugins { kotlin("multiplatform") }
 kotlin {
     js { useEsModules(); nodejs(); browser { commonWebpackConfig { configDirectory=rootProject.file("user-webpack") } }; binaries.executable() }
@@ -98,6 +98,11 @@ kotlin {
     sourceSets.commonMain.dependencies { implementation(project(":shared")) }
 }
 '@
+    if ($DefaultWebpackDirectory) {
+        $appBuild = $appBuild.Replace('browser { commonWebpackConfig { configDirectory=rootProject.file("user-webpack") } }','browser()')
+        Write-WebProof "$app/webpack.config.d/marker.js" (Get-Content -LiteralPath (Join-Path $consumer 'user-webpack/marker.js') -Raw)
+    }
+    Write-WebProof "$app/build.gradle.kts" $appBuild
     $expected=if($app -eq 'appA'){135936}else{134912}
     Write-WebProof "$app/src/commonMain/kotlin/Main.kt" ('suspend fun main() { proof.exercise('+$expected+') }')
     if($Browser) {

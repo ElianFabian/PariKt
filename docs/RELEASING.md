@@ -73,9 +73,10 @@ does not have this native provisioning requirement.
 4. Open the Central deployment from the workflow summary. Once Central marks it
    **Validated**, select **Publish** in the Portal.
 
-Use the workflow's **Run workflow** button for an unsigned preview on the selected ref.
+Use the workflow's **Run workflow** button for a signed preview on the selected ref.
 It assembles the same Maven coordinates, validates their metadata and retains the ZIP as
-a GitHub Actions artifact. The preview requires neither the signing key nor a Central token.
+a GitHub Actions artifact. It uses a disposable key and verifies every signature locally.
+The preview requires neither your signing key nor a Central token.
 
 The signed bundle contains `parikt`, all 18 platform publications and
 `parikt-engine-tools`. Its validator checks the root Gradle module redirects, the files

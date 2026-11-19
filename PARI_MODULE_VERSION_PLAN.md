@@ -765,3 +765,6 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 
 - [ ] Verify the 0.1.0 Central bundle preview with all 20 coordinates and their Gradle
   metadata redirects. Release metadata and workflow are implemented; hosted proof is pending.
+
+- [x] Verify complete unsigned host preview (44513216051) and Android Maven debug strict store/reuse.
+- [ ] Verify the signed all-target preview and standard Webpack directory regression; both are release preparation follow-ups.

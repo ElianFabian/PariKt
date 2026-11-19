@@ -79,17 +79,36 @@ jobs:
         run: |
           $repo = Join-Path $PWD 'build/central/repository'
           $zip = Join-Path $PWD 'build/central/parikt-central.zip'
-          $options = @()
-          if ($env:GITHUB_EVENT_NAME -eq 'release') {
-              if (!$env:ORG_GRADLE_PROJECT_signingInMemoryKey) { throw 'Set GPG_SIGNING_KEY in the maven-central environment.' }
-              $options += '-Pparikt.release.signing=true'
-          } else {
-              $options += '-Pparikt.release.signing=false'
-              $env:ORG_GRADLE_PROJECT_signingInMemoryKey = $null
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+              if (!(Get-Command gpg -ErrorAction SilentlyContinue)) {
+                  brew install gnupg
+                  if ($LASTEXITCODE) { throw 'Could not install GnuPG for preview signing.' }
+              }
+              $signingDirectory = Join-Path $env:RUNNER_TEMP 'parikt-preview-signing'
+              New-Item -ItemType Directory $signingDirectory | Out-Null
+              chmod 700 $signingDirectory
+              $passphrase = 'parikt-disposable-preview-key'
+              gpg --homedir $signingDirectory --batch --pinentry-mode loopback --passphrase $passphrase --quick-generate-key 'PariKt Preview <preview@example.invalid>' ed25519 sign 1d
+              if ($LASTEXITCODE) { throw 'Could not create a disposable preview key.' }
+              $key = (gpg --homedir $signingDirectory --batch --pinentry-mode loopback --passphrase $passphrase --armor --export-secret-keys) -join "`n"
+              if ($LASTEXITCODE -or !$key.StartsWith('-----BEGIN PGP PRIVATE KEY BLOCK-----')) { throw 'Could not export the preview key.' }
+              $env:ORG_GRADLE_PROJECT_signingInMemoryKey = $key
+              $env:ORG_GRADLE_PROJECT_signingInMemoryKeyPassword = $passphrase
+              $env:ORG_GRADLE_PROJECT_signingInMemoryKeyId = $null
+          } elseif (!$env:ORG_GRADLE_PROJECT_signingInMemoryKey) {
+              throw 'Set GPG_SIGNING_KEY in the maven-central environment.'
           }
-          ./publishing/gradle.ps1 :library:publishAllPublicationsToCandidateRepository :engineTools:publishAllPublicationsToCandidateRepository "-Pparikt.candidateRepository=$repo" @options
-          $preview = $env:GITHUB_EVENT_NAME -eq 'workflow_dispatch'
-          ./tests/publication/build_central_bundle.ps1 -Repository $repo -Bundle $zip -Tag $env:PARIKT_RELEASE_TAG -UnsignedPreview:$preview
+          ./publishing/gradle.ps1 :library:publishAllPublicationsToCandidateRepository :engineTools:publishAllPublicationsToCandidateRepository "-Pparikt.candidateRepository=$repo" '-Pparikt.release.signing=true'
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+              $signatures = @(Get-ChildItem -LiteralPath $repo -Recurse -Filter '*.asc' -File)
+              foreach ($signature in $signatures) {
+                  $payload = $signature.FullName.Substring(0, $signature.FullName.Length - 4)
+                  gpg --homedir $signingDirectory --batch --quiet --verify $signature.FullName $payload 2>&1 | Out-Null
+                  if ($LASTEXITCODE) { throw "Invalid preview signature: $($signature.Name)" }
+              }
+              Write-Host "Verified $($signatures.Count) preview signatures."
+          }
+          ./tests/publication/build_central_bundle.ps1 -Repository $repo -Bundle $zip -Tag $env:PARIKT_RELEASE_TAG
       - name: Retain bundle and build evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

@@ -1,4 +1,5 @@
 import org.gradle.kotlin.dsl.withGroovyBuilder
+import org.codehaus.groovy.runtime.InvokerHelper
 import java.util.concurrent.atomic.AtomicReference
 
 val consumer = project
@@ -34,6 +35,7 @@ gradle.projectsEvaluated {
             (emsdk?.let { listOf("--emsdk", runnerPath(it)) } ?: emptyList()))
     }
     val generated = consumer.layout.buildDirectory.dir("parikt-web").get().asFile
+    val defaultFragments = consumer.layout.projectDirectory.dir("webpack.config.d").asFile
     val loader = File(generated, "selected-engine-loader.mjs")
     val alias = File(generated, "zzzz-parikt-selected-engine.js")
     val loaderCode = """
@@ -90,7 +92,7 @@ gradle.projectsEvaluated {
     }
     consumer.tasks.matching { it.name in webpackNames }.configureEach {
         val task = this
-        val original = task.withGroovyBuilder { getProperty("configDirectory") } as? File
+        val original = InvokerHelper.getProperty(task, "configDirectory") as? File ?: defaultFragments
         val (prepare, output, source) = configs.getValue(task.name)
         source.set(original)
         task.dependsOn(engine, prepare)
@@ -102,11 +104,11 @@ gradle.projectsEvaluated {
         task.withGroovyBuilder {
             "webpackConfigApplier"(Action<Any> {
                 withGroovyBuilder {
-                    val original = getProperty("configDirectory") as? File
-                    if (original?.canonicalFile != output.canonicalFile) {
+                    val original = InvokerHelper.getProperty(delegate, "configDirectory") as? File ?: defaultFragments
+                    if (original.canonicalFile != output.canonicalFile) {
                         check(output.canonicalFile.toPath().startsWith(generated.canonicalFile.toPath()) && output.canonicalFile != generated.canonicalFile)
                         if (output.exists()) output.deleteRecursively()
-                        if (original?.isDirectory == true) original.copyRecursively(output, overwrite = true)
+                        if (original.isDirectory) original.copyRecursively(output, overwrite = true)
                         output.mkdirs()
                         val selected = File(output, alias.name)
                         check(!selected.exists()) { "Reserved PariKt fragment name in user Webpack directory: ${alias.name}" }
@@ -127,7 +129,7 @@ gradle.projectsEvaluated {
                 withGroovyBuilder {
                     if (hasProperty("webpackConfig")) {
                         val config = getProperty("webpackConfig")
-                        val original = config.withGroovyBuilder { getProperty("configDirectory") } as? File
+                        val original = InvokerHelper.getProperty(config, "configDirectory") as? File ?: defaultFragments
                         if (original != output) source.set(original)
                         config.withGroovyBuilder { setProperty("configDirectory", output) }
                     }

@@ -482,3 +482,5 @@ Version 0.1.0 release preparation adds a GitHub release-triggered Central workfl
 an unsigned preview. The release requires full source/candidate jobs and checks the
 complete 20-coordinate Maven bundle before uploading a user-managed deployment.
 The hosted preview is pending. See docs/RELEASING.md for the user's release steps.
+
+0.1.0 unsigned preview 44513216051 / 08893b3 passed 20 coordinates and 126 payloads; local JVM strict-cache and nine disposable signatures passed (3f98abacba99, de16cb5fe435). Android Maven debug assemblies stored and reused strict configuration cache on the retained fixture. The full signed preview uses a disposable key and verifies all signatures before bundling. Web proof exposed null configDirectory on standard Webpack tasks. The installer now falls back to each application's webpack.config.d; real 0.1.0 browser and production bundle verification is running.

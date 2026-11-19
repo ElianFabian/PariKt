@@ -3,8 +3,7 @@
 param(
     [Parameter(Mandatory)][string]$Repository,
     [Parameter(Mandatory)][string]$Bundle,
-    [Parameter(Mandatory)][string]$Tag,
-    [switch]$UnsignedPreview
+    [Parameter(Mandatory)][string]$Tag
 )
 $ErrorActionPreference = 'Stop'
 & "$PSScriptRoot/../build_configuration/verify_release_metadata.ps1" -Release -Tag $Tag
@@ -84,13 +83,11 @@ foreach ($component in $components) {
 $zipInputs = [Collections.Generic.List[IO.FileInfo]]::new()
 foreach ($file in $payloads) {
     $zipInputs.Add($file)
-    if (!$UnsignedPreview) {
-        $signature = Get-Item -LiteralPath "$($file.FullName).asc"
-        if (!(Get-Content -LiteralPath $signature.FullName -Raw).StartsWith('-----BEGIN PGP SIGNATURE-----')) {
-            throw "Missing armored signature for $($file.Name)"
-        }
-        $zipInputs.Add($signature)
+    $signature = Get-Item -LiteralPath "$($file.FullName).asc"
+    if (!(Get-Content -LiteralPath $signature.FullName -Raw).StartsWith('-----BEGIN PGP SIGNATURE-----')) {
+        throw "Missing armored signature for $($file.Name)"
     }
+    $zipInputs.Add($signature)
 }
 if (Test-Path -LiteralPath $bundlePath) { throw "Bundle output already exists: $bundlePath" }
 $null = New-Item -ItemType Directory -Path (Split-Path $bundlePath) -Force

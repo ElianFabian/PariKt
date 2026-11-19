@@ -125,3 +125,5 @@ verification and signing/Central work remain open. See KOTLIN_COMPATIBILITY_PLAN
 - [x] Add published-release Central workflow, unsigned preview, and complete bundle validation.
 - [ ] Verify full bundle assembly on the hosted preview and record the release commit.
 - [ ] Configure Central and PGP environment secrets, then publish the GitHub release and approve Central publication.
+
+Unsigned 0.1.0 preview 44513216051 passed all 20 coordinates and 126 payloads. Local nine-signature proof de16cb5fe435 and JVM strict-cache fixture 3f98abacba99 passed. The final preview adds disposable signing and verifies every detached signature. Android debug cache checks passed on the retained Maven fixture; standard Webpack directory regression proof is pending.
