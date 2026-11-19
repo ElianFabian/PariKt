@@ -93,6 +93,7 @@ gradle.projectsEvaluated {
     consumer.tasks.matching { it.name in webpackNames }.configureEach {
         val task = this
         val original = InvokerHelper.getProperty(task, "configDirectory") as? File ?: defaultFragments
+        val preparedFragments = original.canonicalFile
         val (prepare, output, source) = configs.getValue(task.name)
         source.set(original)
         task.dependsOn(engine, prepare)
@@ -105,7 +106,9 @@ gradle.projectsEvaluated {
             "webpackConfigApplier"(Action<Any> {
                 withGroovyBuilder {
                     val original = InvokerHelper.getProperty(delegate, "configDirectory") as? File ?: defaultFragments
-                    if (original.canonicalFile != output.canonicalFile) {
+                    // Sync already staged the ordinary directory. Rewriting it here would
+                    // make Gradle observe a generated alias as a configuration-time input.
+                    if (original.canonicalFile != preparedFragments && original.canonicalFile != output.canonicalFile) {
                         check(output.canonicalFile.toPath().startsWith(generated.canonicalFile.toPath()) && output.canonicalFile != generated.canonicalFile)
                         if (output.exists()) output.deleteRecursively()
                         if (original.isDirectory) original.copyRecursively(output, overwrite = true)

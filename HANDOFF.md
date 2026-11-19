@@ -87,12 +87,19 @@ consumer SDK/deployment metadata and reject embedded extra GP archives. Web uses
 Node routing plus per-application Webpack aliases; late user fragments are preserved during
 config generation, with bundling untracked so edits are observed. Engine/compiler caches remain.
 
-Candidate milestone committed/pushed as 9b66110. Expanded manual candidate run 44375737186
-is in progress; source CI 44375696793 is green. Next: finish corrected-baseline candidate checks (Linux Native
-and Intel/ARM Apple Maven builds/consumers), broaden bootstrap/old-compiler web checks and strict
-cache checks, then implement the concrete signed Central bundle/upload path. Candidate jobs have
-no upload/signing credentials. GitHub names-only check found no Actions secrets/environments;
-user must eventually configure publication credentials. Do not tag/upload incomplete candidates.
+Version 0.1.0 release preparation is on main. The Central workflow runs source and Maven
+candidate verification on the published tag, then validates and signs all 20 coordinates.
+Preview 44513216051 proved complete unsigned assembly (126 payloads). Disposable-key signed
+preview 44514895465 and full candidate run 44513347354 are in progress. The maven-central
+GitHub environment exists and awaits the owner's signing key and Central token credentials.
+The owner creates the GitHub release once the signing preview passes. No tag or deployment exists.
+
+Local checks: 0.1.0 JVM strict-cache and runtime (3f98abacba99), isolated nine-signature proof
+with an optional empty key ID (7a68c987df38), Android Maven debug strict store/reuse on fixture
+a93895e60b53, and 0.1.0 default/custom Webpack fragments, Node, bundles and all four browsers
+(d1aaeb1ea211). Strict web store/reuse passed with standard fragments and Node/production tasks
+in separate invocations (build/ci-local/release-web-*-final-*.log). Custom KGP Webpack closures
+that capture a Project or script object are incompatible with strict cache mode.
 
 All probes now use the embedded Maven bootstrap; earlier Native/Android/web runtime evidence
 used the same extracted tools directly. Recheck those bootstrap paths in the expanded workflow/
@@ -484,3 +491,7 @@ complete 20-coordinate Maven bundle before uploading a user-managed deployment.
 The hosted preview is pending. See docs/RELEASING.md for the user's release steps.
 
 0.1.0 unsigned preview 44513216051 / 08893b3 passed 20 coordinates and 126 payloads; local JVM strict-cache and nine disposable signatures passed (3f98abacba99, de16cb5fe435). Android Maven debug assemblies stored and reused strict configuration cache on the retained fixture. The full signed preview uses a disposable key and verifies all signatures before bundling. Web proof exposed null configDirectory on standard Webpack tasks. The installer now falls back to each application's webpack.config.d; real 0.1.0 browser and production bundle verification is running.
+
+The 0.1.0 standard Webpack regression passed Node, bundles, user fragments, four browsers and conflicts (d1aaeb1ea211). The strict cache probe found a redundant rewrite of the staged alias invalidates the entry. Avoiding that rewrite for the already-staged directory is under verification.
+
+Signed preview 44514895465 exposed overlapping documentation .asc outputs across Gradle publications. Each Maven publication now writes its documentation JAR to a private output directory. Local JVM + JS + engine-tools signing verifies all 14 signatures (1ccf3027eb07), including the empty optional key ID. The hosted all-target signed rerun is pending.

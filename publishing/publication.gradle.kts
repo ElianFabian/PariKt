@@ -5,14 +5,6 @@ apply(plugin = "maven-publish")
 apply(plugin = "signing")
 val repository = extra["parikt.repository"] as File
 val metadata = extra["parikt.metadata"] as java.util.Properties
-val documentation = tasks.register<Jar>("publicationDocumentation") {
-    archiveClassifier.set("javadoc")
-    from(File(repository, "README.md"))
-    from(File(repository, "docs")) { into("guide") }
-    from(File(repository, "LICENSE"))
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
-}
 configure<PublishingExtension> {
     repositories.maven {
         name = "Candidate"
@@ -20,6 +12,17 @@ configure<PublishingExtension> {
             .orElse(rootProject.layout.buildDirectory.dir("candidate-repository").map { it.asFile.absolutePath }).get())
     }
     publications.withType<MavenPublication>().configureEach {
+        val publicationName = name
+        // Gradle writes a signature next to its input. Give each publication its own output.
+        val documentation = tasks.register<Jar>("${publicationName}PublicationDocumentation") {
+            destinationDirectory.set(layout.buildDirectory.dir("publication-docs/$publicationName"))
+            archiveClassifier.set("javadoc")
+            from(File(repository, "README.md"))
+            from(File(repository, "docs")) { into("guide") }
+            from(File(repository, "LICENSE"))
+            isPreserveFileTimestamps = false
+            isReproducibleFileOrder = true
+        }
         artifact(documentation)
         pom {
             name.set(metadata.getProperty("POM_NAME"))
@@ -48,7 +51,7 @@ configure<SigningExtension> {
     isRequired = providers.gradleProperty("parikt.release.signing").orNull == "true"
     val key = providers.gradleProperty("signingInMemoryKey").orNull
     val password = providers.gradleProperty("signingInMemoryKeyPassword").orNull
-    val keyId = providers.gradleProperty("signingInMemoryKeyId").orNull
+    val keyId = providers.gradleProperty("signingInMemoryKeyId").orNull?.takeIf { it.isNotBlank() }
     if (key != null) useInMemoryPgpKeys(keyId, key, password)
     sign(extensions.getByType<PublishingExtension>().publications)
 }

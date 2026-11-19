@@ -26,7 +26,7 @@
   Both Macs publish all twelve targets; all probes use the embedded Maven bootstrap.
 - [x] Verify six representative web Node/bundle/conflict points, with explicit Binaryen 130 for 2.1.21.
 - [x] Verify actual JS/Wasm browser execution for all six representative Maven web profiles.
-- [ ] Verify Android/web strict configuration-cache checks.
+- [x] Verify Android Maven debug and standard Webpack/Node strict configuration-cache storage and reuse.
 - [ ] Implement signed Central bundle validation/upload after consumer gates; configure actual
   signing/Portal credentials and create the release tag only when ready. See RELEASE_PLAN.md.
 
@@ -768,3 +768,9 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 
 - [x] Verify complete unsigned host preview (44513216051) and Android Maven debug strict store/reuse.
 - [ ] Verify the signed all-target preview and standard Webpack directory regression; both are release preparation follow-ups.
+
+- [x] Verify standard Webpack directory with both 0.1.0 engine selections (d1aaeb1ea211).
+- [x] Strict cache stores and reuses for all four standard Webpack bundles and all four Node runs when tested as separate task graphs.
+
+- [x] Fix overlapping documentation signature outputs and verify parallel publication sources in a single local JVM/JS/tools build (14 signatures, 1ccf3027eb07).
+- [ ] Confirm signed all-target assembly after isolating documentation outputs.

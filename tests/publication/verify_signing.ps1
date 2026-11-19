@@ -41,10 +41,12 @@ try {
     $env:GRADLE_USER_HOME=$gradleHome
     $env:ORG_GRADLE_PROJECT_signingInMemoryKey=$secret
     $env:ORG_GRADLE_PROJECT_signingInMemoryKeyPassword='candidate-test-only'
+    # GitHub supplies an empty string for an optional secret that has not been set.
+    [Environment]::SetEnvironmentVariable('ORG_GRADLE_PROJECT_signingInMemoryKeyId','')
     $candidate=Join-Path $proof 'maven'
-    & (Join-Path $repository 'publishing/gradle.ps1') ':library:publishJvmPublicationToCandidateRepository' ':engineTools:publishToolsPublicationToCandidateRepository' '-Pparikt.release.signing=true' "-Pparikt.candidateRepository=$candidate"
+    & (Join-Path $repository 'publishing/gradle.ps1') ':library:publishJvmPublicationToCandidateRepository' ':library:publishJsPublicationToCandidateRepository' ':engineTools:publishToolsPublicationToCandidateRepository' '-Pparikt.release.signing=true' "-Pparikt.candidateRepository=$candidate"
     $signatures=@(Get-ChildItem $candidate -Recurse -Filter '*.asc')
-    if($signatures.Count -lt 8){throw 'Expected signed JARs, POMs and module metadata.'}
+    if($signatures.Count -lt 14){throw 'Expected signed JVM, JS and engine-tools payloads.'}
     foreach($signature in $signatures) {
         $dataFile=$signature.FullName.Substring(0,$signature.FullName.Length-4)
         & $Gpg --homedir $gpgSigningHome --batch --verify (Convert-TestGpgPath $signature.FullName) (Convert-TestGpgPath $dataFile) *> (Join-Path $proof ($signature.Name+'.verification.log'))
