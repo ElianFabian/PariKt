@@ -777,3 +777,5 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 - [x] Support the user's bare 0.1.0 Git tag and an explicit manual retry of its published release. Every job checks out the same resolved tag commit before Central submission.
 
 - [x] Reuse successful full release verification for the exact publication SHA. Verify fallback for nonmatching, incomplete, unsuccessful and unavailable results.
+
+- [x] Verify and recover all eight successful source/candidate checks from the original 0.1.0 tag run (44533431643) only for c8dba9c, so manual retry can start signing without repeating the tests.

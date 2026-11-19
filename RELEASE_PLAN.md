@@ -134,3 +134,5 @@ Signed preview 44514895465 failed before assembly because multiple publications 
 The release owner chose bare tag 0.1.0 and already published it at c8dba9c. Use the Central workflow's explicit release_tag input from main to retry it, after adding signing and Central secrets. The prior run stopped before signing. All retry jobs are pinned to the existing tag commit.
 
 Full release verification can now finish before tagging. Central reuses a successful same-SHA run of that dedicated workflow and otherwise executes both suites. Only the verification schedule changes. Signed bundle assembly and validation remain required.
+
+The original 0.1.0 release event run 44533431643 passed all eight verification jobs. Retry from main with release_tag=0.1.0 so the corrected workflow can reuse that exact historical verification and proceed to signing.
