@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: central-${{ github.event.release.tag_name || inputs.release_tag || github.ref }}
@@ -23,6 +24,7 @@ jobs:
     outputs:
       tag: ${{ steps.target.outputs.tag }}
       sha: ${{ steps.target.outputs.sha }}
+      verified_run: ${{ steps.verification.outputs.run_id }}
     steps:
       - id: release-ref
         shell: pwsh
@@ -63,10 +65,38 @@ jobs:
           if ($LASTEXITCODE -or $sha -notmatch '^[a-f0-9]{40}$') { throw 'Cannot pin the checked-out commit.' }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "sha=$sha" >> $env:GITHUB_OUTPUT
+      - name: Find successful full verification for this commit
+        id: verification
+        if: steps.target.outputs.tag != ''
+        shell: pwsh
+        env:
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $workflow = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/actions/workflows/release-verification.yml/runs"
+          $query = "head_sha=$env:RELEASE_SHA&event=workflow_dispatch&status=success&per_page=10"
+          try {
+              $runs = Invoke-RestMethod -Uri "${workflow}?$query" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -TimeoutSec 20
+          } catch {
+              Write-Warning 'Could not look up full verification. Both suites will run for this release.'
+              return
+          }
+          $verified = $runs.workflow_runs | Where-Object {
+              $_.head_sha -ceq $env:RELEASE_SHA -and
+              $_.head_repository.id -eq $env:GITHUB_REPOSITORY_ID -and
+              $_.event -ceq 'workflow_dispatch' -and
+              $_.status -ceq 'completed' -and $_.conclusion -ceq 'success'
+          } | Select-Object -First 1
+          if ($verified.id -match '^[0-9]+$') {
+              "run_id=$($verified.id)" >> $env:GITHUB_OUTPUT
+              "Reusing full release verification: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$($verified.id)" >> $env:GITHUB_STEP_SUMMARY
+          } else {
+              Write-Host 'No matching successful full verification. Both suites will run for this release.'
+          }
 
   source:
     needs: resolve
-    if: needs.resolve.outputs.tag != ''
+    if: needs.resolve.outputs.tag != '' && needs.resolve.outputs.verified_run == ''
     uses: ./.github/workflows/verify.yml
     with:
       full_apple: true
@@ -74,7 +104,7 @@ jobs:
 
   candidate:
     needs: resolve
-    if: needs.resolve.outputs.tag != ''
+    if: needs.resolve.outputs.tag != '' && needs.resolve.outputs.verified_run == ''
     uses: ./.github/workflows/candidate.yml
     with:
       checkout_sha: ${{ needs.resolve.outputs.sha }}
@@ -84,6 +114,7 @@ jobs:
     if: >-
       ${{ !cancelled() && needs.resolve.result == 'success' &&
           (needs.resolve.outputs.tag == '' ||
+           needs.resolve.outputs.verified_run != '' ||
            (needs.source.result == 'success' && needs.candidate.result == 'success')) }}
     runs-on: macos-26
     timeout-minutes: 90

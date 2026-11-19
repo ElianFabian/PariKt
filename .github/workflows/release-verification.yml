@@ -1,0 +1,21 @@
+name: Full release verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-release-verification-${{ github.sha }}
+
+jobs:
+  source:
+    uses: ./.github/workflows/verify.yml
+    with:
+      full_apple: true
+
+  candidate:
+    uses: ./.github/workflows/candidate.yml
+    with:
+      native_only: false

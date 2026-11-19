@@ -67,11 +67,18 @@ does not have this native provisioning requirement.
    the signing key. Environment protection rules can require an approval before upload.
 3. Publish a regular GitHub release for tag `0.1.0` on the verified release commit.
    The **Publish to Maven Central** workflow checks the tag against
-   `gradle.metadata.properties`, runs platform CI and Maven candidate checks, and
+   `gradle.metadata.properties`, requires full platform and Maven candidate checks, and
    signs and validates the full bundle on an Apple Silicon runner. It uploads a
    user-managed deployment only after those checks pass.
 4. Open the Central deployment from the workflow summary. Once Central marks it
    **Validated**, select **Publish** in the Portal.
+
+To finish the long checks before publishing the GitHub release, run **Full release
+verification** on the commit you plan to tag. It runs all platform tests, including Apple
+simulators, and the full Maven candidate matrix. Once it passes, publish a release targeting
+that same commit. The Central workflow links the successful run in its summary and proceeds
+to bundle assembly and signing. If no successful run matches the exact commit, Central runs
+both suites before upload.
 
 For an existing published release, manually run **Publish to Maven Central** from main with
 `release_tag` set to its bare version. All jobs check out the commit resolved from the tag.
