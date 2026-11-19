@@ -130,3 +130,5 @@ verification and signing/Central work remain open. See KOTLIN_COMPATIBILITY_PLAN
 Unsigned 0.1.0 preview 44513216051 passed all 20 coordinates and 126 payloads. Local nine-signature proof de16cb5fe435 and JVM strict-cache fixture 3f98abacba99 passed. The final preview adds disposable signing and verifies every detached signature. Android debug cache checks passed on the retained Maven fixture; standard Webpack directory regression proof is pending.
 
 Signed preview 44514895465 failed before assembly because multiple publications signed a shared documentation file. Dedicated outputs fix the local multi-publication signing proof (14 signatures, 1ccf3027eb07). Signed hosted rerun 44516060539 verified all 126 signatures and validated all 20 coordinates on 7b28f22.
+
+The release owner chose bare tag 0.1.0 and already published it at c8dba9c. Use the Central workflow's explicit release_tag input from main to retry it, after adding signing and Central secrets. The prior run stopped before signing. All retry jobs are pinned to the existing tag commit.

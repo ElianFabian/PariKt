@@ -4,53 +4,105 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing published release tag to submit. Leave empty for a signed preview.
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: central-${{ github.ref }}
+  group: central-${{ github.event.release.tag_name || inputs.release_tag || github.ref }}
 
 jobs:
+  resolve:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.target.outputs.tag }}
+      sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - id: release-ref
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:RELEASE_TAG
+          $ref = $env:GITHUB_SHA
+          if ($tag) {
+              if ($tag -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+                  throw 'Use a release tag such as 0.1.0.'
+              }
+              if ($env:GITHUB_EVENT_NAME -eq 'release' -and $env:GITHUB_REF -cne "refs/tags/$tag") {
+                  throw 'The release event must reference the published tag.'
+              }
+              $url = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$tag"
+              $release = Invoke-RestMethod -Uri $url -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+              if ($release.draft -or $release.prerelease -or $release.tag_name -cne $tag) {
+                  throw 'The tag must have a published, regular GitHub release.'
+              }
+              if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') { $ref = "refs/tags/$tag" }
+          }
+          "ref=$ref" >> $env:GITHUB_OUTPUT
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          ref: ${{ steps.release-ref.outputs.ref }}
+      - id: target
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+        run: |
+          $version = ((Get-Content gradle.metadata.properties | Where-Object { $_ -match '^version=' }) -split '=', 2)[1].Trim()
+          $tag = $env:RELEASE_TAG
+          if ($tag -and $tag -cne $version) { throw "Release tag '$tag' must match library version '$version'." }
+          $sha = git rev-parse HEAD
+          if ($LASTEXITCODE -or $sha -notmatch '^[a-f0-9]{40}$') { throw 'Cannot pin the checked-out commit.' }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+
   source:
-    if: github.event_name == 'release' && !github.event.release.prerelease
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
     uses: ./.github/workflows/verify.yml
     with:
       full_apple: true
+      checkout_sha: ${{ needs.resolve.outputs.sha }}
 
   candidate:
-    if: github.event_name == 'release' && !github.event.release.prerelease
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
     uses: ./.github/workflows/candidate.yml
+    with:
+      checkout_sha: ${{ needs.resolve.outputs.sha }}
 
   bundle:
-    needs: [source, candidate]
+    needs: [resolve, source, candidate]
     if: >-
-      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' ||
-          (github.event_name == 'release' && !github.event.release.prerelease &&
-           needs.source.result == 'success' && needs.candidate.result == 'success')) }}
+      ${{ !cancelled() && needs.resolve.result == 'success' &&
+          (needs.resolve.outputs.tag == '' ||
+           (needs.source.result == 'success' && needs.candidate.result == 'success')) }}
     runs-on: macos-26
     timeout-minutes: 90
-    environment: ${{ github.event_name == 'release' && 'maven-central' || 'maven-preview' }}
+    environment: ${{ needs.resolve.outputs.tag != '' && 'maven-central' || 'maven-preview' }}
     env:
+      RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ needs.resolve.outputs.sha }}
       - name: Verify release coordinates
         shell: pwsh
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-              $version = ((Get-Content gradle.metadata.properties | Where-Object { $_ -match '^version=' }) -split '=', 2)[1].Trim()
-              $releaseTag = "v$version"
-          } else {
-              $releaseTag = $env:RELEASE_TAG
-              if ($env:GITHUB_REF -cne "refs/tags/$releaseTag") { throw 'Expected the published release tag ref.' }
-          }
-          ./tests/build_configuration/verify_release_metadata.ps1 -Release -Tag $releaseTag
-          "PARIKT_RELEASE_TAG=$releaseTag" >> $env:GITHUB_ENV
+          $version = ((Get-Content gradle.metadata.properties | Where-Object { $_ -match '^version=' }) -split '=', 2)[1].Trim()
+          # The scripts in the original 0.1.0 checkout take a v-prefixed validator argument.
+          ./tests/build_configuration/verify_release_metadata.ps1 -Release -Tag "v$version"
+          "PARIKT_RELEASE_VERSION=$version" >> $env:GITHUB_ENV
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: zulu
@@ -79,7 +131,7 @@ jobs:
         run: |
           $repo = Join-Path $PWD 'build/central/repository'
           $zip = Join-Path $PWD 'build/central/parikt-central.zip'
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+          if (!$env:RELEASE_TAG) {
               if (!(Get-Command gpg -ErrorAction SilentlyContinue)) {
                   brew install gnupg
                   if ($LASTEXITCODE) { throw 'Could not install GnuPG for preview signing.' }
@@ -99,7 +151,7 @@ jobs:
               throw 'Set GPG_SIGNING_KEY in the maven-central environment.'
           }
           ./publishing/gradle.ps1 :library:publishAllPublicationsToCandidateRepository :engineTools:publishAllPublicationsToCandidateRepository "-Pparikt.candidateRepository=$repo" '-Pparikt.release.signing=true'
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+          if (!$env:RELEASE_TAG) {
               $signatures = @(Get-ChildItem -LiteralPath $repo -Recurse -Filter '*.asc' -File)
               foreach ($signature in $signatures) {
                   $payload = $signature.FullName.Substring(0, $signature.FullName.Length - 4)
@@ -108,7 +160,7 @@ jobs:
               }
               Write-Host "Verified $($signatures.Count) preview signatures."
           }
-          ./tests/publication/build_central_bundle.ps1 -Repository $repo -Bundle $zip -Tag $env:PARIKT_RELEASE_TAG
+          ./tests/publication/build_central_bundle.ps1 -Repository $repo -Bundle $zip -Tag "v$env:PARIKT_RELEASE_VERSION"
       - name: Retain bundle and build evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -119,7 +171,7 @@ jobs:
             build/publication-logs/*.log
           retention-days: 7
       - name: Submit signed bundle for manual Central publication
-        if: github.event_name == 'release'
+        if: needs.resolve.outputs.tag != ''
         shell: pwsh
         env:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
@@ -129,7 +181,7 @@ jobs:
               throw 'Set MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD in the maven-central environment.'
           }
           $token = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("$($env:MAVEN_CENTRAL_USERNAME):$($env:MAVEN_CENTRAL_PASSWORD)"))
-          $name = [Uri]::EscapeDataString("PariKt $env:PARIKT_RELEASE_TAG")
+          $name = [Uri]::EscapeDataString("PariKt $env:PARIKT_RELEASE_VERSION")
           $uri = "https://central.sonatype.com/api/v1/publisher/upload?name=$name&publishingType=USER_MANAGED"
           $bundle = Get-Item -LiteralPath 'build/central/parikt-central.zip'
           $deployment = Invoke-RestMethod -Uri $uri -Method Post -Headers @{ Authorization = "Bearer $token" } -Form @{ bundle = $bundle }

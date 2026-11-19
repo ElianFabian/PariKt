@@ -65,7 +65,7 @@ does not have this native provisioning requirement.
    Add the ASCII-armored private key as `GPG_SIGNING_KEY` and its passphrase as
    `SIGNING_PASSWORD` if the key uses one. Set `SIGNING_KEY_ID` if needed to select
    the signing key. Environment protection rules can require an approval before upload.
-3. Publish a regular GitHub release for tag `v0.1.0` on the verified release commit.
+3. Publish a regular GitHub release for tag `0.1.0` on the verified release commit.
    The **Publish to Maven Central** workflow checks the tag against
    `gradle.metadata.properties`, runs platform CI and Maven candidate checks, and
    signs and validates the full bundle on an Apple Silicon runner. It uploads a
@@ -73,7 +73,9 @@ does not have this native provisioning requirement.
 4. Open the Central deployment from the workflow summary. Once Central marks it
    **Validated**, select **Publish** in the Portal.
 
-Use the workflow's **Run workflow** button for a signed preview on the selected ref.
+For an existing published release, manually run **Publish to Maven Central** from main with
+`release_tag` set to its bare version. All jobs check out the commit resolved from the tag.
+For a signed preview on the selected ref, leave that field empty.
 It assembles the same Maven coordinates, validates their metadata and retains the ZIP as
 a GitHub Actions artifact. It uses a disposable key and verifies every signature locally.
 The preview requires neither your signing key nor a Central token.

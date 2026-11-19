@@ -25,7 +25,9 @@ $binaries=@($tracked | Where-Object { $_ -match '(?i)\.(dll|dylib|a|lib|klib|was
 if($binaries.Count) { throw "Generated binaries must not be tracked by Git: $($binaries -join ', ')" }
 if($Release) {
     if($metadata.version.EndsWith('-SNAPSHOT')) { throw 'A release must not use a SNAPSHOT version' }
-    if(!$Tag -or $Tag -cne "v$($metadata.version)") { throw 'Release tag must exactly match v<metadata version>' }
+    if($Tag -cne $metadata.version -and $Tag -cne "v$($metadata.version)") {
+        throw "Release tag '$Tag' must match library version '$($metadata.version)'."
+    }
 }
 Write-Host "PASS publication metadata $($metadata.group):$($metadata.artifactId):$($metadata.version)"
 Write-Host 'PASS no engine/build binaries tracked by Git (public Gradle wrapper JAR excepted)'

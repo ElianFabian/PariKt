@@ -773,3 +773,5 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 
 - [x] Fix overlapping documentation signature outputs and verify parallel publication sources in a single local JVM/JS/tools build (14 signatures, 1ccf3027eb07).
 - [x] Confirm signed all-target assembly after isolating documentation outputs (44516060539 / 7b28f22, 126 verified signatures).
+
+- [x] Support the user's bare 0.1.0 Git tag and an explicit manual retry of its published release. Every job checks out the same resolved tag commit before Central submission.

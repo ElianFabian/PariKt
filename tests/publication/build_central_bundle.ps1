@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 & "$PSScriptRoot/../build_configuration/verify_release_metadata.ps1" -Release -Tag $Tag
 & "$PSScriptRoot/verify_candidate_contents.ps1" -Repository $Repository
 
-$version = $Tag.Substring(1)
+$version = $Tag -creplace '^v', ''
 $group = 'io.github.elianfabian'
 $groupPath = 'io/github/elianfabian'
 $root = [IO.Path]::GetFullPath($Repository)
