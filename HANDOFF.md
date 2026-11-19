@@ -505,3 +505,5 @@ Central can reuse the successful Full release verification workflow for the exac
 Republishing the original 0.1.0 tag ran its old workflow again (44533431643). All eight source/candidate jobs passed and the bundle job stopped at the old v-prefix check. A manual dispatch from main with release_tag=0.1.0 uses the corrected workflow and reuses those eight successful jobs only for c8dba9c. Live GitHub API lookup verified reuse and rejection for a different commit.
 
 The corrected 0.1.0 retry (44542084598) passed resolve and skipped both already-verified suites. Central now runs its full release metadata validator in resolve before either suite can start. A mismatched-tag probe fails there without emitting outputs. The public key fingerprint supplied by the user returned HTTP 404 at Ubuntu's keyserver and keys.openpgp.org.
+
+The root README is now a short project overview, API example and guide index. Source installer, selection and cache details moved to docs/SOURCE_INSTALLATION.md. Platform prerequisites, demos and commands moved to docs/PLATFORM_GUIDE.md. Updated Apple verification language and contributor links.

@@ -1,16 +1,16 @@
 # Understanding and developing PariKt
 
 Apple backend architecture, target/SDK mapping and Mac verification commands are documented in
-[APPLE_TARGETS.md](APPLE_TARGETS.md). Apple source support is implemented; actual Mac results
-are still pending. The earlier Kotlin compatibility matrix covers the previously tested backends.
+[APPLE_TARGETS.md](APPLE_TARGETS.md). That guide records the Intel and Apple Silicon Mac results,
+simulator runtime coverage and device framework links.
 
 PariKt exposes the PARI/GP mathematics engine through a Kotlin Multiplatform API. Kotlin provides
 the API and applications; PARI and GMP remain C libraries compiled for each destination.
 You do not need to understand every Gradle script to make a first change. Start with the map
 below, follow the backend you are changing, then choose its verification checks.
 
-This guide describes the current source implementation. See [README](../README.md) for consumer
-installation and detailed host prerequisites, [HANDOFF](../HANDOFF.md) for current work and
+This guide describes the current source implementation. See [source installation](SOURCE_INSTALLATION.md)
+and [platform prerequisites](PLATFORM_GUIDE.md) for setup, [HANDOFF](../HANDOFF.md) for current work and
 coverage limits, and [the module-version plan](../PARI_MODULE_VERSION_PLAN.md) for design history.
 
 - [Repository map](#1-repository-map)
