@@ -779,3 +779,5 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
 - [x] Reuse successful full release verification for the exact publication SHA. Verify fallback for nonmatching, incomplete, unsuccessful and unavailable results.
 
 - [x] Verify and recover all eight successful source/candidate checks from the original 0.1.0 tag run (44533431643) only for c8dba9c, so manual retry can start signing without repeating the tests.
+
+- [x] Fail before scheduling source/candidate builds when release metadata or tag is invalid. Valid and mismatched bare tags were checked against the resolve step.

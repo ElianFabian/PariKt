@@ -24,6 +24,7 @@ jobs:
     outputs:
       tag: ${{ steps.target.outputs.tag }}
       sha: ${{ steps.target.outputs.sha }}
+      version: ${{ steps.target.outputs.version }}
       verified_run: ${{ steps.verification.outputs.run_id }}
     steps:
       - id: release-ref
@@ -61,10 +62,13 @@ jobs:
           $version = ((Get-Content gradle.metadata.properties | Where-Object { $_ -match '^version=' }) -split '=', 2)[1].Trim()
           $tag = $env:RELEASE_TAG
           if ($tag -and $tag -cne $version) { throw "Release tag '$tag' must match library version '$version'." }
+          # The original 0.1.0 checkout expects a v-prefixed validator argument.
+          ./tests/build_configuration/verify_release_metadata.ps1 -Release -Tag "v$version"
           $sha = git rev-parse HEAD
           if ($LASTEXITCODE -or $sha -notmatch '^[a-f0-9]{40}$') { throw 'Cannot pin the checked-out commit.' }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "sha=$sha" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Find successful full verification for this commit
         id: verification
         if: steps.target.outputs.tag != ''
@@ -153,19 +157,13 @@ jobs:
     environment: ${{ needs.resolve.outputs.tag != '' && 'maven-central' || 'maven-preview' }}
     env:
       RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+      PARIKT_RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
           ref: ${{ needs.resolve.outputs.sha }}
-      - name: Verify release coordinates
-        shell: pwsh
-        run: |
-          $version = ((Get-Content gradle.metadata.properties | Where-Object { $_ -match '^version=' }) -split '=', 2)[1].Trim()
-          # The scripts in the original 0.1.0 checkout take a v-prefixed validator argument.
-          ./tests/build_configuration/verify_release_metadata.ps1 -Release -Tag "v$version"
-          "PARIKT_RELEASE_VERSION=$version" >> $env:GITHUB_ENV
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: zulu

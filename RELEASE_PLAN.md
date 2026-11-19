@@ -136,3 +136,5 @@ The release owner chose bare tag 0.1.0 and already published it at c8dba9c. Use 
 Full release verification can now finish before tagging. Central reuses a successful same-SHA run of that dedicated workflow and otherwise executes both suites. Only the verification schedule changes. Signed bundle assembly and validation remain required.
 
 The original 0.1.0 release event run 44533431643 passed all eight verification jobs. Retry from main with release_tag=0.1.0 so the corrected workflow can reuse that exact historical verification and proceed to signing.
+
+All release metadata and tag checks now run in resolve before platform work. The corrected 0.1.0 retry, 44542084598, passed the tag check and reused its eight verified jobs.
