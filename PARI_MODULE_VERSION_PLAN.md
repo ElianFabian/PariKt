@@ -25,7 +25,8 @@
 - [x] Verify Linux Native and Intel/ARM Apple Maven publications/host consumers (44388331545 / 789b0d4).
   Both Macs publish all twelve targets; all probes use the embedded Maven bootstrap.
 - [x] Verify six representative web Node/bundle/conflict points, with explicit Binaryen 130 for 2.1.21.
-- [ ] Verify remaining intermediate-browser coverage and Android/web strict configuration-cache checks.
+- [x] Verify actual JS/Wasm browser execution for all six representative Maven web profiles.
+- [ ] Verify Android/web strict configuration-cache checks.
 - [ ] Implement signed Central bundle validation/upload after consumer gates; configure actual
   signing/Portal credentials and create the release tag only when ready. See RELEASE_PLAN.md.
 
@@ -759,4 +760,8 @@ separate; ARM64/API21 runtime and fresh-host/IDE coverage remain outside these c
   profile with four browsers (229717114318). Default 120 fails; identical flags and both optimized
   runtimes pass with 130. Document the explicit consumer profile; no automatic library override.
 - [x] Verify Kotlin 2.0.21 default Node/bundles/fragments/conflicts (cd4b432c66ce).
-- [ ] Retain remaining intermediate-browser and Android/web strict cache checks as release gates.
+- [x] Run the final browser proofs for 2.0.21, 2.2.21 and 2.3.21. All twelve cases passed (no skips).
+  Fixtures: cd4b432c66ce, a85eefba8c71 and 31b8400b1667. Android/web strict cache checks remain open.
+
+- [ ] Verify the 0.1.0 Central bundle preview with all 20 coordinates and their Gradle
+  metadata redirects. Release metadata and workflow are implemented; hosted proof is pending.

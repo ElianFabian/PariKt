@@ -8,6 +8,12 @@ are preserved in [docs/HANDOFF_HISTORY.md](docs/HANDOFF_HISTORY.md); they includ
 
 ## Current work
 
+Maven web browser coverage is complete for the six representative Kotlin profiles. The
+2026-11-19 follow-up passed all twelve remaining JS/Wasm browser cases with no skips under
+2.0.21 (cd4b432c66ce), 2.2.21 (a85eefba8c71) and 2.3.21 (31b8400b1667), using both PARI
+versions in isolated Maven consumers. The other three profiles passed earlier, including
+2.1.21 with explicit Binaryen 130. Android/web strict cache verification is still open.
+
 Latest correction verified: 789b0d4 source CI 44388300267 and Native-focused candidate run
 44388331545 are GREEN. Windows local and Linux/Intel/ARM Mac hosted probes pass Kotlin
 2.0.0/2.4.21 after explicit SDK provisioning, followed by strict cache storage/immediate reuse,
@@ -471,3 +477,8 @@ Node/bundles/four browsers/fragments/conflicts (229717114318), and both optimize
 pass separately. Consumer configuration is documented in publishing/README.md; the library
 does not force an optimizer override. Kotlin 2.0.21 web also passes (cd4b432c66ce); other browser/cache matrix
 limits remain explicit in KOTLIN_COMPATIBILITY_PLAN.md. No release tag/upload was created.
+
+Version 0.1.0 release preparation adds a GitHub release-triggered Central workflow and
+an unsigned preview. The release requires full source/candidate jobs and checks the
+complete 20-coordinate Maven bundle before uploading a user-managed deployment.
+The hosted preview is pending. See docs/RELEASING.md for the user's release steps.

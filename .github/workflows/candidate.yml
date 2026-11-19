@@ -1,6 +1,11 @@
 name: Private Maven candidate
 
 on:
+  workflow_call:
+    inputs:
+      native_only:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       native_only:

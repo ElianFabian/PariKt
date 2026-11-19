@@ -115,5 +115,13 @@ and conflicts. Full-mode candidate verification is still a release gate; native_
 Six representative Maven web Node/production-bundle/fragment/conflict points now pass locally.
 Kotlin 2.1.21 requires the explicit tested Binaryen 130 profile; default 120 crashes. The same
 optimization flags and both optimized Node runtimes pass with 130, as do four browser tests.
-Other compiler points use default optimizers. Remaining browser/cache and full-run/signing/
-Central gates are unchanged; see KOTLIN_COMPATIBILITY_PLAN.md for exact fixtures and scope.
+All six points also pass actual headless JS/Wasm browser tests for both PARI versions.
+The final twelve cases passed on 2026-11-19. Android/web strict cache checks, full candidate
+verification and signing/Central work remain open. See KOTLIN_COMPATIBILITY_PLAN.md for fixtures.
+
+## 0.1.0 release preparation
+
+- [x] Set Maven coordinates to 0.1.0 and require matching release metadata.
+- [x] Add published-release Central workflow, unsigned preview, and complete bundle validation.
+- [ ] Verify full bundle assembly on the hosted preview and record the release commit.
+- [ ] Configure Central and PGP environment secrets, then publish the GitHub release and approve Central publication.

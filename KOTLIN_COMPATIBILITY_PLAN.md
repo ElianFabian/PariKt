@@ -117,10 +117,10 @@ custom Webpack fragments and explicit requirement conflicts.
 | Consumer Kotlin | JVM + strict cache | JS/Wasm Node + production bundles | Real JS/Wasm browsers | Optimizer profile |
 | --- | --- | --- | --- | --- |
 | 2.0.0 | Pass | Pass | Pass | Default |
-| 2.0.21 | Pass | Pass | Not rerun | Default |
+| 2.0.21 | Pass | Pass | Pass | Default |
 | 2.1.21 | Pass | Pass | Pass | Explicit Binaryen 130 |
-| 2.2.21 | Pass | Pass | Not rerun | Default |
-| 2.3.21 | Pass | Pass | Not rerun | Default |
+| 2.2.21 | Pass | Pass | Pass | Default |
+| 2.3.21 | Pass | Pass | Pass | Default |
 | 2.4.21 | Pass | Pass | Pass | Default |
 
 Kotlin 2.1.21's default Binaryen 120 crashes during production optimization. With identical

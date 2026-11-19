@@ -1,0 +1,118 @@
+name: Publish to Maven Central
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: central-${{ github.ref }}
+
+jobs:
+  source:
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    uses: ./.github/workflows/verify.yml
+    with:
+      full_apple: true
+
+  candidate:
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    uses: ./.github/workflows/candidate.yml
+
+  bundle:
+    needs: [source, candidate]
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'release' && !github.event.release.prerelease &&
+           needs.source.result == 'success' && needs.candidate.result == 'success')) }}
+    runs-on: macos-26
+    timeout-minutes: 90
+    environment: ${{ github.event_name == 'release' && 'maven-central' || 'maven-preview' }}
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Verify release coordinates
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+              $version = ((Get-Content gradle.metadata.properties | Where-Object { $_ -match '^version=' }) -split '=', 2)[1].Trim()
+              $releaseTag = "v$version"
+          } else {
+              $releaseTag = $env:RELEASE_TAG
+              if ($env:GITHUB_REF -cne "refs/tags/$releaseTag") { throw 'Expected the published release tag ref.' }
+          }
+          ./tests/build_configuration/verify_release_metadata.ps1 -Release -Tag $releaseTag
+          "PARIKT_RELEASE_TAG=$releaseTag" >> $env:GITHUB_ENV
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: zulu
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: true
+      - name: Prepare publication SDKs
+        shell: pwsh
+        run: |
+          xcodebuild -version
+          if ($LASTEXITCODE) { throw 'Configured Xcode is unavailable.' }
+          if (!$env:ANDROID_HOME) { throw 'ANDROID_HOME is required.' }
+          $sdkManager = Get-ChildItem "$env:ANDROID_HOME/cmdline-tools" -Recurse -File -Filter sdkmanager |
+              Sort-Object FullName -Descending | Select-Object -First 1
+          if (!$sdkManager) { throw 'Android SDK manager is unavailable.' }
+          & $sdkManager.FullName 'platforms;android-36' 'build-tools;36.0.0'
+          if ($LASTEXITCODE) { throw 'Android SDK installation failed.' }
+          [IO.File]::WriteAllText('publishing/local.properties', "sdk.dir=$env:ANDROID_HOME`n")
+      - name: Publish every coordinate and validate the bundle
+        shell: pwsh
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          $repo = Join-Path $PWD 'build/central/repository'
+          $zip = Join-Path $PWD 'build/central/parikt-central.zip'
+          $options = @()
+          if ($env:GITHUB_EVENT_NAME -eq 'release') {
+              if (!$env:ORG_GRADLE_PROJECT_signingInMemoryKey) { throw 'Set GPG_SIGNING_KEY in the maven-central environment.' }
+              $options += '-Pparikt.release.signing=true'
+          } else {
+              $options += '-Pparikt.release.signing=false'
+              $env:ORG_GRADLE_PROJECT_signingInMemoryKey = $null
+          }
+          ./publishing/gradle.ps1 :library:publishAllPublicationsToCandidateRepository :engineTools:publishAllPublicationsToCandidateRepository "-Pparikt.candidateRepository=$repo" @options
+          $preview = $env:GITHUB_EVENT_NAME -eq 'workflow_dispatch'
+          ./tests/publication/build_central_bundle.ps1 -Repository $repo -Bundle $zip -Tag $env:PARIKT_RELEASE_TAG -UnsignedPreview:$preview
+      - name: Retain bundle and build evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: central-bundle
+          path: |
+            build/central/parikt-central.zip
+            build/publication-logs/*.log
+          retention-days: 7
+      - name: Submit signed bundle for manual Central publication
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: |
+          if (!$env:MAVEN_CENTRAL_USERNAME -or !$env:MAVEN_CENTRAL_PASSWORD) {
+              throw 'Set MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD in the maven-central environment.'
+          }
+          $token = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("$($env:MAVEN_CENTRAL_USERNAME):$($env:MAVEN_CENTRAL_PASSWORD)"))
+          $name = [Uri]::EscapeDataString("PariKt $env:PARIKT_RELEASE_TAG")
+          $uri = "https://central.sonatype.com/api/v1/publisher/upload?name=$name&publishingType=USER_MANAGED"
+          $bundle = Get-Item -LiteralPath 'build/central/parikt-central.zip'
+          $deployment = Invoke-RestMethod -Uri $uri -Method Post -Headers @{ Authorization = "Bearer $token" } -Form @{ bundle = $bundle }
+          if ("$deployment" -notmatch '^[0-9a-fA-F-]{36}$') { throw 'Central did not return a deployment ID.' }
+          "Submitted Central deployment $deployment. Review it at https://central.sonatype.com/publishing/deployments." >> $env:GITHUB_STEP_SUMMARY

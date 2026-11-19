@@ -1,7 +1,7 @@
 # CI and Maven Central preparation
 
 PariKt and PARI/GP have separate versions. `gradle.metadata.properties` proposes the library
-identity `io.github.elianfabian:parikt:0.1.0-SNAPSHOT`; root/module `parikt.properties` still
+identity `io.github.elianfabian:parikt:0.1.0`; root/module `parikt.properties` still
 selects the engine. This metadata does not change source-provider coordinates or constitute
 a working binary Maven publication. No component has been uploaded.
 
@@ -55,42 +55,33 @@ Native klibs embed an engine and their web dependencies use local generated path
 them unchanged would advertise an incomplete/version-bound installation. KProxyable's runtime
 does not have this native provisioning requirement.
 
-## Central Portal setup after the packaging proof
+## Publish 0.1.0
 
-Use the Central Portal, not the retired OSSRH deployment protocol. Its requirements include
-complete POM metadata, source/documentation artifacts, checksums and signatures. The proposed
-metadata follows the project's existing GPL-3.0-or-later wrapper declarations; KProxyable's MIT
-license is not copied. Root LICENSE contains the standard GPLv3 text. Preserve upstream notices
-in eventual engine distributions.
+1. Verify access to the `io.github.elianfabian` namespace in the Central Publisher Portal.
+   Generate a publishing token. If KProxyable uses this namespace, the same account and
+   existing PGP key can be used. Make the signing public key available to Central.
+2. In GitHub repository **Settings → Environments**, create `maven-central` and add
+   `MAVEN_CENTRAL_USERNAME` and `MAVEN_CENTRAL_PASSWORD` using the token credentials.
+   Add the ASCII-armored private key as `GPG_SIGNING_KEY` and its passphrase as
+   `SIGNING_PASSWORD` if the key uses one. Set `SIGNING_KEY_ID` if needed to select
+   the signing key. Environment protection rules can require an approval before upload.
+3. Publish a regular GitHub release for tag `v0.1.0` on the verified release commit.
+   The **Publish to Maven Central** workflow checks the tag against
+   `gradle.metadata.properties`, runs platform CI and Maven candidate checks, and
+   signs and validates the full bundle on an Apple Silicon runner. It uploads a
+   user-managed deployment only after those checks pass.
+4. Open the Central deployment from the workflow summary. Once Central marks it
+   **Validated**, select **Publish** in the Portal.
 
-The future release job should:
+Use the workflow's **Run workflow** button for an unsigned preview on the selected ref.
+It assembles the same Maven coordinates, validates their metadata and retains the ZIP as
+a GitHub Actions artifact. The preview requires neither the signing key nor a Central token.
 
-1. Require an exact `v<library version>` tag, a non-SNAPSHOT metadata version and all platform/
-   external-Maven-consumer checks from that same commit.
-2. Assemble and inspect the complete candidate repository locally, including all target
-   publications and engine installer/manifests, before any network upload.
-3. Use a protected `maven-central` GitHub environment and a manual dispatch for upload.
-4. Receive credentials only in that publication job via secret environment variables. With
-   the publishing plugin used by KProxyable, the conventions are MAVEN_CENTRAL_USERNAME,
-   MAVEN_CENTRAL_PASSWORD, GPG_SIGNING_KEY, SIGNING_KEY_ID and SIGNING_PASSWORD, exposed as
-   the corresponding ORG_GRADLE_PROJECT_mavenCentral*/signingInMemory* variables.
-5. Fail if credentials/signing or artifact validation fail. Upload for Portal validation/manual
-   release first, rather than automatically publishing every pushed tag.
+The signed bundle contains `parikt`, all 18 platform publications and
+`parikt-engine-tools`. Its validator checks the root Gradle module redirects, the files
+and hashes in module metadata, archive contents, required sources and documentation,
+and detached signature presence. It generates checksum sidecars and excludes repository
+indexes. Central performs signature and namespace validation before publication.
 
-The Central namespace must be verified for the account used to publish; a GitHub repository
-name alone does not establish access. No credentials are needed to run existing CI or metadata
-checks, and no keys from KProxyable were read or copied.
-
-```powershell
-pwsh -File tests/build_configuration/verify_release_metadata.ps1
-# After choosing the real release version in gradle.metadata.properties:
-pwsh -File tests/build_configuration/verify_release_metadata.ps1 -Release -Tag v0.1.0
-```
-
-The checker also rejects tracked native/build binaries (except the required public Gradle
-wrapper JAR). Metadata validation alone must not be described as Central-ready packaging.
-
-Primary references:
 - [Central publishing requirements](https://central.sonatype.org/publish/requirements/)
-- [Central Portal publishing with Gradle](https://vanniktech.github.io/gradle-maven-publish-plugin/central/)
-- [GitHub runner images](https://github.com/actions/runner-images)
+- [Central Portal upload API](https://central.sonatype.org/publish/publish-portal-api/)
